@@ -1,62 +1,4 @@
 article, aside, details, figcaption, figure, footer, header, hgroup, nav, section {
-
-@media (min-width: 768px) {
-@font-face {
-    font-family: "Yanone Kaffeesatz";
-    font-style: normal;
-    font-weight: 200;
-    src: local("Yanone Kaffeesatz ExtraLight"), local("YanoneKaffeesatz-ExtraLight"), url("http://127.0.0.1/blog/style/less/../font/YanoneKaffeesatz-ExtraLight.woff") format("woff");
-}
-@font-face {
-    font-family: "Yanone Kaffeesatz";
-    font-style: normal;
-    font-weight: 700;
-    src: local("Yanone Kaffeesatz Bold"), local("YanoneKaffeesatz-Bold"), url("http://127.0.0.1/blog/style/less/../font/YanoneKaffeesatz-Bold.woff") format("woff");
-}
-@font-face {
-    font-family: "Yanone Kaffeesatz";
-    font-style: normal;
-    font-weight: 400;
-    src: local("Yanone Kaffeesatz Regular"), local("YanoneKaffeesatz-Regular"), url("http://127.0.0.1/blog/style/less/../font/YanoneKaffeesatz-Regular.woff") format("woff");
-}
-@font-face {
-    font-family: "Yanone Kaffeesatz";
-    font-style: normal;
-    font-weight: 300;
-    src: local("Yanone Kaffeesatz Light"), local("YanoneKaffeesatz-Light"), url("http://127.0.0.1/blog/style/less/../font/YanoneKaffeesatz-Light.woff") format("woff");
-}
-@font-face {
-    font-family: "Ubuntu Mono";
-    font-style: italic;
-    font-weight: bold;
-    src: local("Ubuntu Mono Bold Italic"), local("UbuntuMono-BoldItalic"), url("http://127.0.0.1/blog/style/less/../font/UbuntuMono-BoldItalic.woff") format("woff");
-}
-@font-face {
-    font-family: "Ubuntu Mono";
-    font-style: italic;
-    font-weight: normal;
-    src: local("Ubuntu Mono Italic"), local("UbuntuMono-Italic"), url("http://127.0.0.1/blog/style/less/../font/UbuntuMono-Italic.woff") format("woff");
-}
-@font-face {
-    font-family: "Ubuntu Mono";
-    font-style: normal;
-    font-weight: bold;
-    src: local("Ubuntu Mono Bold"), local("UbuntuMono-Bold"), url("http://127.0.0.1/blog/style/less/../font/UbuntuMono-Bold.woff") format("woff");
-}
-@font-face {
-    font-family: "Ubuntu Mono";
-    font-style: normal;
-    font-weight: normal;
-    src: local("Ubuntu Mono"), local("UbuntuMono-Regular"), url("http://127.0.0.1/blog/style/less/../font/UbuntuMono-Regular.woff") format("woff");
-}
-@font-face {
-    font-family: "Andika";
-    font-style: normal;
-    font-weight: normal;
-    src: local("Andika"), url("http://127.0.0.1/blog/style/less/../font/Andika.woff") format("woff");
-}
-}
-article, aside, details, figcaption, figure, footer, header, hgroup, nav, section {
     display: block;
 }
 audio, canvas, video {
@@ -144,7 +86,6 @@ textarea {
 body {
     background-color: #FFFFFF;
     color: #333333;
-    font-family: "Andika","Helvetica Neue",Helvetica,Arial,sans-serif;
     font-size: 18px;
     line-height: 24.9231px;
     margin: 0;
@@ -729,7 +670,6 @@ cite {
 }
 h1, h2, h3, h4, h5, h6 {
     color: inherit;
-    font-family: inherit;
     font-weight: bold;
     line-height: 1;
     margin: 12.4615px 0;
@@ -887,7 +827,6 @@ address {
 code, pre {
     border-radius: 3px 3px 3px 3px;
     color: #333333;
-    font-family: "Ubuntu Mono",Menlo,Monaco,Consolas,"Courier New";
     font-size: 16px;
     padding: 0 3px 2px;
 }
@@ -958,7 +897,6 @@ label, input, button, select, textarea {
     line-height: 24.9231px;
 }
 input, button, select, textarea {
-    font-family: "Andika","Helvetica Neue",Helvetica,Arial,sans-serif;
 }
 label {
     display: block;
@@ -1695,15 +1633,8 @@ table .span24 {
 .table tbody tr.info td {
     background-color: #D9EDF7;
 }
-@font-face {
-    font-family: "FontAwesome";
-    font-style: normal;
-    font-weight: normal;
-    src: url("http://127.0.0.1/blog/style/less/../bootstrap/less/../../Font-Awesome/less/../font/fontawesome-webfont.eot?#iefix") format("embedded-opentype"), url("http://127.0.0.1/blog/style/less/../bootstrap/less/../../Font-Awesome/less/../font/fontawesome-webfont.woff") format("woff"), url("http://127.0.0.1/blog/style/less/../bootstrap/less/../../Font-Awesome/less/../font/fontawesome-webfont.ttf") format("truetype"), url("http://127.0.0.1/blog/style/less/../bootstrap/less/../../Font-Awesome/less/../font/fontawesome-webfont.svg#FontAwesome") format("svg");
-}
 [class^="icon-"]:before, [class*=" icon-"]:before {
     display: inline-block;
-    font-family: FontAwesome;
     font-style: normal;
     font-weight: normal;
     text-decoration: inherit;
@@ -3397,7 +3328,6 @@ button.btn.btn-mini, input.btn.btn-mini[type="submit"] {
 }
 .navbar-search .search-query {
     border-radius: 15px 15px 15px 15px;
-    font-family: "Andika","Helvetica Neue",Helvetica,Arial,sans-serif;
     font-size: 13px;
     font-weight: normal;
     line-height: 1;
@@ -5817,62 +5747,7 @@ body {
     overflow: visible !important;
 }
 }
-@font-face {
-    font-family: "Yanone Kaffeesatz";
-    font-style: normal;
-    font-weight: 200;
-    src: local("Yanone Kaffeesatz ExtraLight"), local("YanoneKaffeesatz-ExtraLight"), url("http://127.0.0.1/blog/style/less/../font/YanoneKaffeesatz-ExtraLight.woff") format("woff");
-}
-@font-face {
-    font-family: "Yanone Kaffeesatz";
-    font-style: normal;
-    font-weight: 700;
-    src: local("Yanone Kaffeesatz Bold"), local("YanoneKaffeesatz-Bold"), url("http://127.0.0.1/blog/style/less/../font/YanoneKaffeesatz-Bold.woff") format("woff");
-}
-@font-face {
-    font-family: "Yanone Kaffeesatz";
-    font-style: normal;
-    font-weight: 400;
-    src: local("Yanone Kaffeesatz Regular"), local("YanoneKaffeesatz-Regular"), url("http://127.0.0.1/blog/style/less/../font/YanoneKaffeesatz-Regular.woff") format("woff");
-}
-@font-face {
-    font-family: "Yanone Kaffeesatz";
-    font-style: normal;
-    font-weight: 300;
-    src: local("Yanone Kaffeesatz Light"), local("YanoneKaffeesatz-Light"), url("http://127.0.0.1/blog/style/less/../font/YanoneKaffeesatz-Light.woff") format("woff");
-}
-@font-face {
-    font-family: "Ubuntu Mono";
-    font-style: italic;
-    font-weight: bold;
-    src: local("Ubuntu Mono Bold Italic"), local("UbuntuMono-BoldItalic"), url("http://127.0.0.1/blog/style/less/../font/UbuntuMono-BoldItalic.woff") format("woff");
-}
-@font-face {
-    font-family: "Ubuntu Mono";
-    font-style: italic;
-    font-weight: normal;
-    src: local("Ubuntu Mono Italic"), local("UbuntuMono-Italic"), url("http://127.0.0.1/blog/style/less/../font/UbuntuMono-Italic.woff") format("woff");
-}
-@font-face {
-    font-family: "Ubuntu Mono";
-    font-style: normal;
-    font-weight: bold;
-    src: local("Ubuntu Mono Bold"), local("UbuntuMono-Bold"), url("http://127.0.0.1/blog/style/less/../font/UbuntuMono-Bold.woff") format("woff");
-}
-@font-face {
-    font-family: "Ubuntu Mono";
-    font-style: normal;
-    font-weight: normal;
-    src: local("Ubuntu Mono"), local("UbuntuMono-Regular"), url("http://127.0.0.1/blog/style/less/../font/UbuntuMono-Regular.woff") format("woff");
-}
-@font-face {
-    font-family: "Andika";
-    font-style: normal;
-    font-weight: normal;
-    src: local("Andika"), url("http://127.0.0.1/blog/style/less/../font/Andika.woff") format("woff");
-}
 h1, h2, h3, h4, h5, h6 {
-    font-family: "Yanone Kaffeesatz","Helvetica Neue",Helvetica,Arial,sans-serif;
 }
 .navbar-fixed-top li {
     line-height: 24.9231px;
