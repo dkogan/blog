@@ -314,26 +314,6 @@ a:hover {
 .container:after {
     clear: both;
 }
-.container-fluid {
-    padding-left: 20px;
-    padding-right: 20px;
-}
-.container-fluid:before, .container-fluid:after {
-    content: "";
-    display: table;
-    line-height: 0;
-}
-.container-fluid:after {
-    clear: both;
-}
-.container-fluid:before, .container-fluid:after {
-    content: "";
-    display: table;
-    line-height: 0;
-}
-.container-fluid:after {
-    clear: both;
-}
 p {
     margin: 0 0 12.4615px;
 }
@@ -3163,9 +3143,6 @@ body {
 .navbar-fixed-top, .navbar-fixed-bottom {
     margin-left: -20px;
     margin-right: -20px;
-}
-.container-fluid {
-    padding: 0;
 }
 .dl-horizontal dt {
     clear: none;
