@@ -44,6 +44,9 @@ times. The full set of entries is in the [[file:{lisp}(ob:path-to-root){/lisp}/a
 projects/experiments are in the [[https://www.github.com/dkogan][Github]] repostories. Contact info is at the
 bottom of the page (in tiny print).
 
+Most recent post: [[file:{lisp}(format "%s/%s" (ob:path-to-root) (ob:post-htmlfile (car ALL-POSTS))){/lisp}][{lisp}(ob:post-title (car ALL-POSTS)){/lisp}]]
+
+
 * Notes
 ** DONE First post                                                   :o@blog:
   CLOSED: [2014-03-17 Mon 03:48]
