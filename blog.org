@@ -44,7 +44,8 @@ times. The full set of entries is in the [[file:{lisp}(ob:path-to-root){/lisp}/a
 projects/experiments are in the [[https://www.github.com/dkogan][Github]] repostories. Contact info is at the
 bottom of the page (in tiny print).
 
-* DONE First post                                                    :o@blog:
+* Notes
+** DONE First post                                                   :o@blog:
   CLOSED: [2014-03-17 Mon 03:48]
 
 So it has come to this. I'd like to know what the hell I actually do all day, so
@@ -69,7 +70,7 @@ common blogging platforms, and a few specially-written things.
 In the end, I was looking at two systems: [[http://renard.github.io/o-blog/][*o-blog*]] and [[https://github.com/kelvinh/org-page][*org-page*]]. Both are
 /blogging/ systems, so you get RSS, tags, timelines, etc.
 
-** Advantages of o-blog
+*** Advantages of o-blog
 
 - Neither o-blog or org-page are used heavily, but o-blog appears to have more
   users: I could only find one org-page site that wasn't the author's personal
@@ -83,7 +84,7 @@ In the end, I was looking at two systems: [[http://renard.github.io/o-blog/][*o-
   the system expects a particular branching structure, etc. Those are probably
   good, but it should be obvious what the basic export-all-this-stuff command is
 
-** Advantages of org-page
+*** Advantages of org-page
 
 - Org-page organizes the posts into several files, while o-blog has the whole
   thing in one file. With o-blog this probably will get slow as the posts
