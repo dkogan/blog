@@ -56,10 +56,6 @@ body {
     line-height: 24.9231px;
     margin: 0;
 }
-a {
-    color: #993333;
-    text-decoration: none;
-}
 a:hover {
     color: #602020;
     text-decoration: underline;
