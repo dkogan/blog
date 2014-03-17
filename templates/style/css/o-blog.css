@@ -275,9 +275,6 @@ a:hover {
 .hide[class*="span"] {
     display: none;
 }
-.pull-right[class*="span"] {
-    float: right;
-}
 .container {
     margin-left: auto;
     margin-right: auto;
@@ -450,42 +447,7 @@ abbr.initialism {
     font-size: 90%;
     text-transform: uppercase;
 }
-blockquote {
-    border-left: 5px solid #EEEEEE;
-    margin: 0 0 24.9231px;
-    padding: 0 0 0 15px;
-}
-blockquote p {
-    font-size: 16px;
-    font-weight: 300;
-    line-height: 31.1538px;
-    margin-bottom: 0;
-}
-blockquote small {
-    color: #999999;
-    display: block;
-    line-height: 24.9231px;
-}
-blockquote small:before {
-    content: "— ";
-}
-blockquote.pull-right {
-    border-left: 0 none;
-    border-right: 5px solid #EEEEEE;
-    float: right;
-    padding-left: 0;
-    padding-right: 15px;
-}
-blockquote.pull-right p, blockquote.pull-right small {
-    text-align: right;
-}
-blockquote.pull-right small:before {
-    content: "";
-}
-blockquote.pull-right small:after {
-    content: " —";
-}
-q:before, q:after, blockquote:before, blockquote:after {
+q:before, q:after {
     content: "";
 }
 address {
@@ -861,9 +823,6 @@ ul.icons li .icon-large:before, ul.icons li .icon-large:before {
     min-height: 20px;
     padding: 19px;
 }
-.well blockquote {
-    border-color: rgba(0, 0, 0, 0.15);
-}
 .well-large {
     border-radius: 6px 6px 6px 6px;
     padding: 24px;
@@ -890,9 +849,6 @@ ul.icons li .icon-large:before, ul.icons li .icon-large:before {
 .nav > li > a:hover {
     background-color: #EEEEEE;
     text-decoration: none;
-}
-.nav > .pull-right {
-    float: right;
 }
 .nav-header {
     color: #999999;
@@ -1014,12 +970,6 @@ ul.icons li .icon-large:before, ul.icons li .icon-large:before {
     background-color: #FFFFFF;
     color: #999999;
     cursor: default;
-}
-.pull-right {
-    float: right;
-}
-.pull-left {
-    float: left;
 }
 .hide {
     display: none;
