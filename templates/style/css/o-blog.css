@@ -1080,25 +1080,6 @@ a.label:hover, a.badge:hover {
 .label-inverse[href], .badge-inverse[href] {
     background-color: #1A1A1A;
 }
-.hero-unit {
-    background-color: #EEEEEE;
-    border-radius: 6px 6px 6px 6px;
-    margin-bottom: 30px;
-    padding: 60px;
-}
-.hero-unit h1 {
-    color: inherit;
-    font-size: 60px;
-    letter-spacing: -1px;
-    line-height: 1;
-    margin-bottom: 0;
-}
-.hero-unit p {
-    color: inherit;
-    font-size: 18px;
-    font-weight: 200;
-    line-height: 37.3846px;
-}
 .pull-right {
     float: right;
 }
