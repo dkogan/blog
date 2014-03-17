@@ -1,0 +1,110 @@
+#+TITLE: Dima Kogan
+#-DESCRIPTION: Dima's notes
+#+DATE: <2014-03-17 Mon 04:12>
+#+AUTHOR Dima Kogan
+
+#+STARTUP: logdone
+
+#+PLUGIN_QRCODE: nil
+#+TEMPLATE_DIR: templates
+#+URL: http://notes.secretsauce.net
+
+#+DEFAULT_CATEGORY: Notes
+#+FILENAME_SANITIZER: ob-sanitize-string
+#+POST_SORTER: ob-sort-posts-by-title
+#+OPTIONS: tex:dvipng
+
+* Blog details
+** Copyright
+  :PROPERTIES:
+  :SNIPPET:  t
+  :END:
+
+   The text is in the public domain. All code is copyright [[mailto:dima -at- secretsauce -dot- net][Dima Kogan]], licensed
+   under the LGPL.
+
+** Navigation
+  :PROPERTIES:
+  :SNIPPET:  t
+  :END:
+
+- [[file:{lisp}(ob:path-to-root){/lisp}/tags][Tags]]
+- [[file:{lisp}(ob:path-to-root){/lisp}/archives.html][Archives]]
+- [[file:{lisp}(ob:path-to-root){/lisp}/index.xml][RSS]]
+- [[https://www.github.com/dkogan][Github]]
+
+* Toplevel page
+  :PROPERTIES:
+  :PAGE:     index.html
+  :TEMPLATE: blog_static_no_title.html
+  :END:
+
+Dima's thing
+
+* DONE First post                                                    :o@blog:
+  CLOSED: [2014-03-17 Mon 03:48]
+
+So it has come to this. I'd like to know what the hell I actually do all day, so
+maybe keeping a record will make that more clear. Today, I started a blog! I had
+some ideas about the publishing system I wanted going in, and finding that
+system was interesting. Requirements:
+
+- Editing in emacs with org-mode
+- Publishing with a simple file copy (or git push, etc)
+- Static pages; no server work other than sending the files
+- No javascript; no client work other than basic rendering
+- Premade templates so that things look reasonable out of the box
+- Does not require me to actually learn web development
+
+Turns out you can't have everything, but you can get close. In its simplest, org
+itself can push HTML without anything else. This is minimally-styled, and not
+assembled into pages that talk to each other. The org-mode wiki (worg) has a
+list of various publishing systems that use org as a backend:
+http://orgmode.org/worg/org-blog-wiki.html. There are several exporters to
+common blogging platforms, and a few specially-written things.
+
+In the end, I was looking at two systems: [[http://renard.github.io/o-blog/][*o-blog*]] and [[https://github.com/kelvinh/org-page][*org-page*]]. Both are
+/blogging/ systems, so you get RSS, tags, timelines, etc.
+
+** Advantages of o-blog
+
+- Neither o-blog or org-page are used heavily, but o-blog appears to have more
+  users: I could only find one org-page site that wasn't the author's personal
+  page
+- Org-page feels a bit rougher than o-blog, which has a much nicer-looking
+  layout out of the box
+- Org-page feels more boilerplaty. Each file needs lots of tags that could
+  potentially conflict
+- Org-page has some sort of git integration, which maybe is actually a positive,
+  but I didn't dig into it. The main publishing function takes some git refs,
+  the system expects a particular branching structure, etc. Those are probably
+  good, but it should be obvious what the basic export-all-this-stuff command is
+
+** Advantages of org-page
+
+- Org-page organizes the posts into several files, while o-blog has the whole
+  thing in one file. With o-blog this probably will get slow as the posts
+  accumulate. The author is currently working on an update that supposedly would
+  resolve this
+- The major downside of o-blog is that it produces a very heavy,
+  javascript-laden site that doesn't work /at all/ with JS turned off.
+
+I was leaning towards o-blog, so I learned some web-development. O-blog uses
+LESS instead of CSS, using some runtime javascript to convert the LESS (that the
+browser doesn't understand) to CSS (which the browser /does/ understand). So I
+exported the LESS to CSS, scrubbed the output to get rid of the shinier bits,
+and I have my blog. This look reasonable, but still not ideal. Current issues:
+
+- The new JS-free navigation bars I wrote disappear when the browser window is
+  narrower than some threshold. This is almost certainly intentional in the CSS.
+  It needs to do something better than simply disappearing. The JS version /did/
+  do someting better, and I should try to match that
+- O-blog renders equations with MathJax, which uses javascript. Org has the
+  capability to generate images for each equation, and output those. I'd like to
+  do that, but o-blog can't figure that out. I'll fix it at some point
+- Tables look somewhat weird. Pretty sure this is an org feature (not o-blog).
+  On opera I see a full grid, except the left bar. On firefox I see the top and
+  bottom bars and no others.
+
+There're probably more, and I'll discover them as I go. In the meantime, the
+code and content are on Github.
