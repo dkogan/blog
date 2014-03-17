@@ -1715,12 +1715,10 @@ html {
 }
 #footer {
     background-color: #171717;
-    background-image: linear-gradient(to bottom, #262626, #000000);
     background-repeat: repeat-x;
-    color: #505050;
+    color: #909090;
     font-size: 11.05px;
     line-height: 17.1px;
-    padding-top: 54px;
 }
 #footer a {
     color: #7B7B7B;
@@ -1735,7 +1733,7 @@ html {
 }
 #footer .copyright {
     margin-top: 3em;
-    opacity: 0.35;
+    opacity: 1.0;
 }
 #footer .copyright p {
     font-size: 80%;
