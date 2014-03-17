@@ -32,28 +32,6 @@ img {
 #map_canvas img {
     max-width: none;
 }
-button, input, select, textarea {
-    font-size: 100%;
-    margin: 0;
-    vertical-align: middle;
-}
-button, input {
-    line-height: normal;
-}
-button::-moz-focus-inner, input::-moz-focus-inner {
-    border: 0 none;
-    padding: 0;
-}
-button, input[type="button"], input[type="reset"], input[type="submit"] {
-    cursor: pointer;
-}
-input[type="search"] {
-    -moz-box-sizing: content-box;
-}
-textarea {
-    overflow: auto;
-    vertical-align: top;
-}
 .clearfix {
 }
 .clearfix:before, .clearfix:after {
@@ -70,12 +48,6 @@ textarea {
     color: rgba(0, 0, 0, 0);
     font: 0px/0 a;
     text-shadow: none;
-}
-.input-block-level {
-    -moz-box-sizing: border-box;
-    display: block;
-    min-height: 30px;
-    width: 100%;
 }
 body {
     background-color: #FFFFFF;
@@ -885,355 +857,14 @@ legend small {
     color: #999999;
     font-size: 18.6923px;
 }
-label, input, button, select, textarea {
+label {
     font-size: 18px;
     font-weight: normal;
     line-height: 24.9231px;
 }
-input, button, select, textarea {
-}
 label {
     display: block;
     margin-bottom: 5px;
-}
-select, textarea, input[type="text"], input[type="password"], input[type="datetime"], input[type="datetime-local"], input[type="date"], input[type="month"], input[type="time"], input[type="week"], input[type="number"], input[type="email"], input[type="url"], input[type="search"], input[type="tel"], input[type="color"], .uneditable-input {
-    border-radius: 3px 3px 3px 3px;
-    color: #555555;
-    display: inline-block;
-    font-size: 18px;
-    height: 24.9231px;
-    line-height: 24.9231px;
-    margin-bottom: 9px;
-    padding: 4px 6px;
-}
-input, textarea {
-    width: 210px;
-}
-textarea {
-    height: auto;
-}
-textarea, input[type="text"], input[type="password"], input[type="datetime"], input[type="datetime-local"], input[type="date"], input[type="month"], input[type="time"], input[type="week"], input[type="number"], input[type="email"], input[type="url"], input[type="search"], input[type="tel"], input[type="color"], .uneditable-input {
-    background-color: #FFFFFF;
-    border: 1px solid #CCCCCC;
-    box-shadow: 0 1px 1px rgba(0, 0, 0, 0.075) inset;
-    transition: border 0.2s linear 0s, box-shadow 0.2s linear 0s;
-}
-textarea:focus, input[type="text"]:focus, input[type="password"]:focus, input[type="datetime"]:focus, input[type="datetime-local"]:focus, input[type="date"]:focus, input[type="month"]:focus, input[type="time"]:focus, input[type="week"]:focus, input[type="number"]:focus, input[type="email"]:focus, input[type="url"]:focus, input[type="search"]:focus, input[type="tel"]:focus, input[type="color"]:focus, .uneditable-input:focus {
-    border-color: rgba(82, 168, 236, 0.8);
-    box-shadow: 0 1px 1px rgba(0, 0, 0, 0.075) inset, 0 0 8px rgba(82, 168, 236, 0.6);
-    outline: 0 none;
-}
-input[type="radio"], input[type="checkbox"] {
-    cursor: pointer;
-    line-height: normal;
-    margin: 4px 0 0;
-}
-input[type="file"], input[type="image"], input[type="submit"], input[type="reset"], input[type="button"], input[type="radio"], input[type="checkbox"] {
-    width: auto;
-}
-select, input[type="file"] {
-    height: 30px;
-    line-height: 30px;
-}
-select {
-    background-color: #FFFFFF;
-    border: 1px solid #BBBBBB;
-    width: 220px;
-}
-select[multiple], select[size] {
-    height: auto;
-}
-select:focus, input[type="file"]:focus, input[type="radio"]:focus, input[type="checkbox"]:focus {
-    outline: thin dotted #333333;
-    outline-offset: -2px;
-}
-.uneditable-input, .uneditable-textarea {
-    background-color: #FCFCFC;
-    border-color: #CCCCCC;
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.024) inset;
-    color: #999999;
-    cursor: not-allowed;
-}
-.uneditable-input {
-    overflow: hidden;
-    white-space: nowrap;
-}
-.uneditable-textarea {
-    height: auto;
-    width: auto;
-}
-input:-moz-placeholder, textarea:-moz-placeholder {
-    color: #999999;
-}
-input:-moz-placeholder, textarea:-moz-placeholder {
-    color: #999999;
-}
-.radio, .checkbox {
-    min-height: 18px;
-    padding-left: 18px;
-}
-.radio input[type="radio"], .checkbox input[type="checkbox"] {
-    float: left;
-    margin-left: -18px;
-}
-.controls > .radio:first-child, .controls > .checkbox:first-child {
-    padding-top: 5px;
-}
-.radio.inline, .checkbox.inline {
-    display: inline-block;
-    margin-bottom: 0;
-    padding-top: 5px;
-    vertical-align: middle;
-}
-.radio.inline + .radio.inline, .checkbox.inline + .checkbox.inline {
-    margin-left: 10px;
-}
-.input-mini {
-    width: 60px;
-}
-.input-small {
-    width: 90px;
-}
-.input-medium {
-    width: 150px;
-}
-.input-large {
-    width: 210px;
-}
-.input-xlarge {
-    width: 270px;
-}
-.input-xxlarge {
-    width: 530px;
-}
-input[class*="span"], select[class*="span"], textarea[class*="span"], .uneditable-input[class*="span"], .row-fluid input[class*="span"], .row-fluid select[class*="span"], .row-fluid textarea[class*="span"], .row-fluid .uneditable-input[class*="span"] {
-    float: none;
-    margin-left: 0;
-}
-.input-append input[class*="span"], .input-append .uneditable-input[class*="span"], .input-prepend input[class*="span"], .input-prepend .uneditable-input[class*="span"], .row-fluid input[class*="span"], .row-fluid select[class*="span"], .row-fluid textarea[class*="span"], .row-fluid .uneditable-input[class*="span"], .row-fluid .input-prepend [class*="span"], .row-fluid .input-append [class*="span"] {
-    display: inline-block;
-}
-input, textarea, .uneditable-input {
-    margin-left: 0;
-}
-.controls-row [class*="span"] + [class*="span"] {
-    margin-left: 20px;
-}
-input.span12, textarea.span12, .uneditable-input.span12 {
-    width: 1046px;
-}
-input.span11, textarea.span11, .uneditable-input.span11 {
-    width: 956px;
-}
-input.span10, textarea.span10, .uneditable-input.span10 {
-    width: 866px;
-}
-input.span9, textarea.span9, .uneditable-input.span9 {
-    width: 776px;
-}
-input.span8, textarea.span8, .uneditable-input.span8 {
-    width: 686px;
-}
-input.span7, textarea.span7, .uneditable-input.span7 {
-    width: 596px;
-}
-input.span6, textarea.span6, .uneditable-input.span6 {
-    width: 506px;
-}
-input.span5, textarea.span5, .uneditable-input.span5 {
-    width: 416px;
-}
-input.span4, textarea.span4, .uneditable-input.span4 {
-    width: 326px;
-}
-input.span3, textarea.span3, .uneditable-input.span3 {
-    width: 236px;
-}
-input.span2, textarea.span2, .uneditable-input.span2 {
-    width: 146px;
-}
-input.span1, textarea.span1, .uneditable-input.span1 {
-    width: 56px;
-}
-input, textarea, .uneditable-input {
-    margin-left: 0;
-}
-.controls-row [class*="span"] + [class*="span"] {
-    margin-left: 20px;
-}
-input.span12, textarea.span12, .uneditable-input.span12 {
-    width: 1046px;
-}
-input.span11, textarea.span11, .uneditable-input.span11 {
-    width: 956px;
-}
-input.span10, textarea.span10, .uneditable-input.span10 {
-    width: 866px;
-}
-input.span9, textarea.span9, .uneditable-input.span9 {
-    width: 776px;
-}
-input.span8, textarea.span8, .uneditable-input.span8 {
-    width: 686px;
-}
-input.span7, textarea.span7, .uneditable-input.span7 {
-    width: 596px;
-}
-input.span6, textarea.span6, .uneditable-input.span6 {
-    width: 506px;
-}
-input.span5, textarea.span5, .uneditable-input.span5 {
-    width: 416px;
-}
-input.span4, textarea.span4, .uneditable-input.span4 {
-    width: 326px;
-}
-input.span3, textarea.span3, .uneditable-input.span3 {
-    width: 236px;
-}
-input.span2, textarea.span2, .uneditable-input.span2 {
-    width: 146px;
-}
-input.span1, textarea.span1, .uneditable-input.span1 {
-    width: 56px;
-}
-.controls-row {
-}
-.controls-row:before, .controls-row:after {
-    content: "";
-    display: table;
-    line-height: 0;
-}
-.controls-row:after {
-    clear: both;
-}
-.controls-row:before, .controls-row:after {
-    content: "";
-    display: table;
-    line-height: 0;
-}
-.controls-row:after {
-    clear: both;
-}
-.controls-row [class*="span"] {
-    float: left;
-}
-input[disabled], select[disabled], textarea[disabled], input[readonly], select[readonly], textarea[readonly] {
-    background-color: #EEEEEE;
-    cursor: not-allowed;
-}
-input[type="radio"][disabled], input[type="checkbox"][disabled], input[type="radio"][readonly], input[type="checkbox"][readonly] {
-    background-color: rgba(0, 0, 0, 0);
-}
-.control-group.warning > label, .control-group.warning .help-block, .control-group.warning .help-inline {
-    color: #C09853;
-}
-.control-group.warning .checkbox, .control-group.warning .radio, .control-group.warning input, .control-group.warning select, .control-group.warning textarea {
-    border-color: #C09853;
-    box-shadow: 0 1px 1px rgba(0, 0, 0, 0.075) inset;
-    color: #C09853;
-}
-.control-group.warning .checkbox:focus, .control-group.warning .radio:focus, .control-group.warning input:focus, .control-group.warning select:focus, .control-group.warning textarea:focus {
-    border-color: #A47E3C;
-    box-shadow: 0 1px 1px rgba(0, 0, 0, 0.075) inset, 0 0 6px #DBC59E;
-}
-.control-group.warning .input-prepend .add-on, .control-group.warning .input-append .add-on {
-    background-color: #FCF8E3;
-    border-color: #C09853;
-    color: #C09853;
-}
-.control-group.warning > label, .control-group.warning .help-block, .control-group.warning .help-inline {
-    color: #C09853;
-}
-.control-group.warning .checkbox, .control-group.warning .radio, .control-group.warning input, .control-group.warning select, .control-group.warning textarea {
-    border-color: #C09853;
-    box-shadow: 0 1px 1px rgba(0, 0, 0, 0.075) inset;
-    color: #C09853;
-}
-.control-group.warning .checkbox:focus, .control-group.warning .radio:focus, .control-group.warning input:focus, .control-group.warning select:focus, .control-group.warning textarea:focus {
-    border-color: #A47E3C;
-    box-shadow: 0 1px 1px rgba(0, 0, 0, 0.075) inset, 0 0 6px #DBC59E;
-}
-.control-group.warning .input-prepend .add-on, .control-group.warning .input-append .add-on {
-    background-color: #FCF8E3;
-    border-color: #C09853;
-    color: #C09853;
-}
-.control-group.error > label, .control-group.error .help-block, .control-group.error .help-inline {
-    color: #B94A48;
-}
-.control-group.error .checkbox, .control-group.error .radio, .control-group.error input, .control-group.error select, .control-group.error textarea {
-    border-color: #B94A48;
-    box-shadow: 0 1px 1px rgba(0, 0, 0, 0.075) inset;
-    color: #B94A48;
-}
-.control-group.error .checkbox:focus, .control-group.error .radio:focus, .control-group.error input:focus, .control-group.error select:focus, .control-group.error textarea:focus {
-    border-color: #953B39;
-    box-shadow: 0 1px 1px rgba(0, 0, 0, 0.075) inset, 0 0 6px #D59392;
-}
-.control-group.error .input-prepend .add-on, .control-group.error .input-append .add-on {
-    background-color: #F2DEDE;
-    border-color: #B94A48;
-    color: #B94A48;
-}
-.control-group.error > label, .control-group.error .help-block, .control-group.error .help-inline {
-    color: #B94A48;
-}
-.control-group.error .checkbox, .control-group.error .radio, .control-group.error input, .control-group.error select, .control-group.error textarea {
-    border-color: #B94A48;
-    box-shadow: 0 1px 1px rgba(0, 0, 0, 0.075) inset;
-    color: #B94A48;
-}
-.control-group.error .checkbox:focus, .control-group.error .radio:focus, .control-group.error input:focus, .control-group.error select:focus, .control-group.error textarea:focus {
-    border-color: #953B39;
-    box-shadow: 0 1px 1px rgba(0, 0, 0, 0.075) inset, 0 0 6px #D59392;
-}
-.control-group.error .input-prepend .add-on, .control-group.error .input-append .add-on {
-    background-color: #F2DEDE;
-    border-color: #B94A48;
-    color: #B94A48;
-}
-.control-group.success > label, .control-group.success .help-block, .control-group.success .help-inline {
-    color: #468847;
-}
-.control-group.success .checkbox, .control-group.success .radio, .control-group.success input, .control-group.success select, .control-group.success textarea {
-    border-color: #468847;
-    box-shadow: 0 1px 1px rgba(0, 0, 0, 0.075) inset;
-    color: #468847;
-}
-.control-group.success .checkbox:focus, .control-group.success .radio:focus, .control-group.success input:focus, .control-group.success select:focus, .control-group.success textarea:focus {
-    border-color: #356635;
-    box-shadow: 0 1px 1px rgba(0, 0, 0, 0.075) inset, 0 0 6px #7ABA7B;
-}
-.control-group.success .input-prepend .add-on, .control-group.success .input-append .add-on {
-    background-color: #DFF0D8;
-    border-color: #468847;
-    color: #468847;
-}
-.control-group.success > label, .control-group.success .help-block, .control-group.success .help-inline {
-    color: #468847;
-}
-.control-group.success .checkbox, .control-group.success .radio, .control-group.success input, .control-group.success select, .control-group.success textarea {
-    border-color: #468847;
-    box-shadow: 0 1px 1px rgba(0, 0, 0, 0.075) inset;
-    color: #468847;
-}
-.control-group.success .checkbox:focus, .control-group.success .radio:focus, .control-group.success input:focus, .control-group.success select:focus, .control-group.success textarea:focus {
-    border-color: #356635;
-    box-shadow: 0 1px 1px rgba(0, 0, 0, 0.075) inset, 0 0 6px #7ABA7B;
-}
-.control-group.success .input-prepend .add-on, .control-group.success .input-append .add-on {
-    background-color: #DFF0D8;
-    border-color: #468847;
-    color: #468847;
-}
-input:focus:required:invalid, textarea:focus:required:invalid, select:focus:required:invalid {
-    border-color: #EE5F5B;
-    color: #B94A48;
-}
-input:focus:required:invalid:focus, textarea:focus:required:invalid:focus, select:focus:required:invalid:focus {
-    border-color: #E9322D;
-    box-shadow: 0 0 6px #F8B9B7;
 }
 .form-actions {
     background-color: #F5F5F5;
@@ -1270,88 +901,6 @@ input:focus:required:invalid:focus, textarea:focus:required:invalid:focus, selec
     padding-left: 5px;
     vertical-align: middle;
 }
-.input-append, .input-prepend {
-    font-size: 0;
-    margin-bottom: 5px;
-    white-space: nowrap;
-}
-.input-append input, .input-prepend input, .input-append select, .input-prepend select, .input-append .uneditable-input, .input-prepend .uneditable-input {
-    border-radius: 0 3px 3px 0;
-    font-size: 18px;
-    margin-bottom: 0;
-    position: relative;
-    vertical-align: top;
-}
-.input-append input:focus, .input-prepend input:focus, .input-append select:focus, .input-prepend select:focus, .input-append .uneditable-input:focus, .input-prepend .uneditable-input:focus {
-    z-index: 2;
-}
-.input-append .add-on, .input-prepend .add-on {
-    background-color: #EEEEEE;
-    border: 1px solid #CCCCCC;
-    display: inline-block;
-    font-size: 18px;
-    font-weight: normal;
-    height: 24.9231px;
-    line-height: 24.9231px;
-    min-width: 16px;
-    padding: 4px 5px;
-    text-align: center;
-    text-shadow: 0 1px 0 #FFFFFF;
-    width: auto;
-}
-.input-append .add-on, .input-prepend .add-on, .input-append .btn, .input-prepend .btn {
-    border-radius: 0 0 0 0;
-    margin-left: -1px;
-    vertical-align: top;
-}
-.input-append .active, .input-prepend .active {
-    background-color: #A9DBA9;
-    border-color: #46A546;
-}
-.input-prepend .add-on, .input-prepend .btn {
-    margin-right: -1px;
-}
-.input-prepend .add-on:first-child, .input-prepend .btn:first-child {
-    border-radius: 3px 0 0 3px;
-}
-.input-append input, .input-append select, .input-append .uneditable-input {
-    border-radius: 3px 0 0 3px;
-}
-.input-append .add-on:last-child, .input-append .btn:last-child {
-    border-radius: 0 3px 3px 0;
-}
-.input-prepend.input-append input, .input-prepend.input-append select, .input-prepend.input-append .uneditable-input {
-    border-radius: 0 0 0 0;
-}
-.input-prepend.input-append .add-on:first-child, .input-prepend.input-append .btn:first-child {
-    border-radius: 3px 0 0 3px;
-    margin-right: -1px;
-}
-.input-prepend.input-append .add-on:last-child, .input-prepend.input-append .btn:last-child {
-    border-radius: 0 3px 3px 0;
-    margin-left: -1px;
-}
-input.search-query {
-    border-radius: 15px 15px 15px 15px;
-    margin-bottom: 0;
-    padding-left: 14px;
-    padding-right: 14px;
-}
-.form-search .input-append .search-query, .form-search .input-prepend .search-query {
-    border-radius: 0 0 0 0;
-}
-.form-search .input-append .search-query {
-    border-radius: 14px 0 0 14px;
-}
-.form-search .input-append .btn {
-    border-radius: 0 14px 14px 0;
-}
-.form-search .input-prepend .search-query {
-    border-radius: 0 14px 14px 0;
-}
-.form-search .input-prepend .btn {
-    border-radius: 14px 0 0 14px;
-}
 .form-search input, .form-inline input, .form-horizontal input, .form-search textarea, .form-inline textarea, .form-horizontal textarea, .form-search select, .form-inline select, .form-horizontal select, .form-search .help-inline, .form-inline .help-inline, .form-horizontal .help-inline, .form-search .uneditable-input, .form-inline .uneditable-input, .form-horizontal .uneditable-input, .form-search .input-prepend, .form-inline .input-prepend, .form-horizontal .input-prepend, .form-search .input-append, .form-inline .input-append, .form-horizontal .input-append {
     display: inline-block;
     margin-bottom: 0;
@@ -1362,55 +911,6 @@ input.search-query {
 }
 .form-search label, .form-inline label, .form-search .btn-group, .form-inline .btn-group {
     display: inline-block;
-}
-.form-search .input-append, .form-inline .input-append, .form-search .input-prepend, .form-inline .input-prepend {
-    margin-bottom: 0;
-}
-.form-search .radio, .form-search .checkbox, .form-inline .radio, .form-inline .checkbox {
-    margin-bottom: 0;
-    padding-left: 0;
-    vertical-align: middle;
-}
-.form-search .radio input[type="radio"], .form-search .checkbox input[type="checkbox"], .form-inline .radio input[type="radio"], .form-inline .checkbox input[type="checkbox"] {
-    float: left;
-    margin-left: 0;
-    margin-right: 3px;
-}
-.control-group {
-    margin-bottom: 12.4615px;
-}
-legend + .control-group {
-    margin-top: 24.9231px;
-}
-.form-horizontal .control-group {
-    margin-bottom: 24.9231px;
-}
-.form-horizontal .control-group:before, .form-horizontal .control-group:after {
-    content: "";
-    display: table;
-    line-height: 0;
-}
-.form-horizontal .control-group:after {
-    clear: both;
-}
-.form-horizontal .control-group:before, .form-horizontal .control-group:after {
-    content: "";
-    display: table;
-    line-height: 0;
-}
-.form-horizontal .control-group:after {
-    clear: both;
-}
-.form-horizontal .control-label {
-    float: left;
-    padding-top: 5px;
-    text-align: right;
-    width: 140px;
-}
-.form-horizontal .controls {
-    margin-left: 160px;
-}
-.form-horizontal .controls:first-child {
 }
 .form-horizontal .help-block {
     margin-bottom: 0;
@@ -1851,12 +1351,6 @@ ul.icons li .icon-large:before, ul.icons li .icon-large:before {
     opacity: 0.4;
     text-decoration: none;
 }
-button.close {
-    background: none repeat scroll 0 0 rgba(0, 0, 0, 0);
-    border: 0 none;
-    cursor: pointer;
-    padding: 0;
-}
 .btn {
     -moz-border-bottom-colors: none;
     -moz-border-left-colors: none;
@@ -2079,18 +1573,6 @@ button.close {
     color: #FFFFFF;
 }
 .btn-inverse:active, .btn-inverse.active {
-}
-button.btn, input.btn[type="submit"] {
-}
-button.btn::-moz-focus-inner, input.btn[type="submit"]::-moz-focus-inner {
-    border: 0 none;
-    padding: 0;
-}
-button.btn.btn-large, input.btn.btn-large[type="submit"] {
-}
-button.btn.btn-small, input.btn.btn-small[type="submit"] {
-}
-button.btn.btn-mini, input.btn.btn-mini[type="submit"] {
 }
 .btn-link, .btn-link:active {
     background-color: rgba(0, 0, 0, 0);
@@ -2667,22 +2149,9 @@ button.btn.btn-mini, input.btn.btn-mini[type="submit"] {
 .navbar-form:after {
     clear: both;
 }
-.navbar-form input, .navbar-form select, .navbar-form .radio, .navbar-form .checkbox {
-    margin-top: 5px;
-}
-.navbar-form input, .navbar-form select, .navbar-form .btn {
+.navbar-form .btn {
     display: inline-block;
     margin-bottom: 0;
-}
-.navbar-form input[type="image"], .navbar-form input[type="checkbox"], .navbar-form input[type="radio"] {
-    margin-top: 3px;
-}
-.navbar-form .input-append, .navbar-form .input-prepend {
-    margin-top: 6px;
-    white-space: nowrap;
-}
-.navbar-form .input-append input, .navbar-form .input-prepend input {
-    margin-top: 0;
 }
 .navbar-search {
     float: left;
@@ -3525,12 +2994,6 @@ a.label:hover, a.badge:hover {
     font: 0px/0 a;
     text-shadow: none;
 }
-.input-block-level {
-    -moz-box-sizing: border-box;
-    display: block;
-    min-height: 30px;
-    width: 100%;
-}
 .hidden {
     display: none;
     visibility: hidden;
@@ -4048,90 +3511,6 @@ a.label:hover, a.badge:hover {
 .row-fluid .offset1:first-child {
     margin-left: 8.54701%;
 }
-input, textarea, .uneditable-input {
-    margin-left: 0;
-}
-.controls-row [class*="span"] + [class*="span"] {
-    margin-left: 30px;
-}
-input.span12, textarea.span12, .uneditable-input.span12 {
-    width: 1156px;
-}
-input.span11, textarea.span11, .uneditable-input.span11 {
-    width: 1056px;
-}
-input.span10, textarea.span10, .uneditable-input.span10 {
-    width: 956px;
-}
-input.span9, textarea.span9, .uneditable-input.span9 {
-    width: 856px;
-}
-input.span8, textarea.span8, .uneditable-input.span8 {
-    width: 756px;
-}
-input.span7, textarea.span7, .uneditable-input.span7 {
-    width: 656px;
-}
-input.span6, textarea.span6, .uneditable-input.span6 {
-    width: 556px;
-}
-input.span5, textarea.span5, .uneditable-input.span5 {
-    width: 456px;
-}
-input.span4, textarea.span4, .uneditable-input.span4 {
-    width: 356px;
-}
-input.span3, textarea.span3, .uneditable-input.span3 {
-    width: 256px;
-}
-input.span2, textarea.span2, .uneditable-input.span2 {
-    width: 156px;
-}
-input.span1, textarea.span1, .uneditable-input.span1 {
-    width: 56px;
-}
-input, textarea, .uneditable-input {
-    margin-left: 0;
-}
-.controls-row [class*="span"] + [class*="span"] {
-    margin-left: 30px;
-}
-input.span12, textarea.span12, .uneditable-input.span12 {
-    width: 1156px;
-}
-input.span11, textarea.span11, .uneditable-input.span11 {
-    width: 1056px;
-}
-input.span10, textarea.span10, .uneditable-input.span10 {
-    width: 956px;
-}
-input.span9, textarea.span9, .uneditable-input.span9 {
-    width: 856px;
-}
-input.span8, textarea.span8, .uneditable-input.span8 {
-    width: 756px;
-}
-input.span7, textarea.span7, .uneditable-input.span7 {
-    width: 656px;
-}
-input.span6, textarea.span6, .uneditable-input.span6 {
-    width: 556px;
-}
-input.span5, textarea.span5, .uneditable-input.span5 {
-    width: 456px;
-}
-input.span4, textarea.span4, .uneditable-input.span4 {
-    width: 356px;
-}
-input.span3, textarea.span3, .uneditable-input.span3 {
-    width: 256px;
-}
-input.span2, textarea.span2, .uneditable-input.span2 {
-    width: 156px;
-}
-input.span1, textarea.span1, .uneditable-input.span1 {
-    width: 56px;
-}
 .thumbnails {
     margin-left: -30px;
 }
@@ -4615,90 +3994,6 @@ input.span1, textarea.span1, .uneditable-input.span1 {
 .row-fluid .offset1:first-child {
     margin-left: 8.56354%;
 }
-input, textarea, .uneditable-input {
-    margin-left: 0;
-}
-.controls-row [class*="span"] + [class*="span"] {
-    margin-left: 20px;
-}
-input.span12, textarea.span12, .uneditable-input.span12 {
-    width: 710px;
-}
-input.span11, textarea.span11, .uneditable-input.span11 {
-    width: 648px;
-}
-input.span10, textarea.span10, .uneditable-input.span10 {
-    width: 586px;
-}
-input.span9, textarea.span9, .uneditable-input.span9 {
-    width: 524px;
-}
-input.span8, textarea.span8, .uneditable-input.span8 {
-    width: 462px;
-}
-input.span7, textarea.span7, .uneditable-input.span7 {
-    width: 400px;
-}
-input.span6, textarea.span6, .uneditable-input.span6 {
-    width: 338px;
-}
-input.span5, textarea.span5, .uneditable-input.span5 {
-    width: 276px;
-}
-input.span4, textarea.span4, .uneditable-input.span4 {
-    width: 214px;
-}
-input.span3, textarea.span3, .uneditable-input.span3 {
-    width: 152px;
-}
-input.span2, textarea.span2, .uneditable-input.span2 {
-    width: 90px;
-}
-input.span1, textarea.span1, .uneditable-input.span1 {
-    width: 28px;
-}
-input, textarea, .uneditable-input {
-    margin-left: 0;
-}
-.controls-row [class*="span"] + [class*="span"] {
-    margin-left: 20px;
-}
-input.span12, textarea.span12, .uneditable-input.span12 {
-    width: 710px;
-}
-input.span11, textarea.span11, .uneditable-input.span11 {
-    width: 648px;
-}
-input.span10, textarea.span10, .uneditable-input.span10 {
-    width: 586px;
-}
-input.span9, textarea.span9, .uneditable-input.span9 {
-    width: 524px;
-}
-input.span8, textarea.span8, .uneditable-input.span8 {
-    width: 462px;
-}
-input.span7, textarea.span7, .uneditable-input.span7 {
-    width: 400px;
-}
-input.span6, textarea.span6, .uneditable-input.span6 {
-    width: 338px;
-}
-input.span5, textarea.span5, .uneditable-input.span5 {
-    width: 276px;
-}
-input.span4, textarea.span4, .uneditable-input.span4 {
-    width: 214px;
-}
-input.span3, textarea.span3, .uneditable-input.span3 {
-    width: 152px;
-}
-input.span2, textarea.span2, .uneditable-input.span2 {
-    width: 90px;
-}
-input.span1, textarea.span1, .uneditable-input.span1 {
-    width: 28px;
-}
 }
 @media (max-width: 767px) {
 body {
@@ -4744,16 +4039,6 @@ body {
     -moz-box-sizing: border-box;
     width: 100%;
 }
-.input-large, .input-xlarge, .input-xxlarge, input[class*="span"], select[class*="span"], textarea[class*="span"], .uneditable-input {
-    -moz-box-sizing: border-box;
-    display: block;
-    min-height: 30px;
-    width: 100%;
-}
-.input-prepend input, .input-append input, .input-prepend input[class*="span"], .input-append input[class*="span"] {
-    display: inline-block;
-    width: auto;
-}
 }
 @media (max-width: 480px) {
 .nav-collapse {
@@ -4761,21 +4046,6 @@ body {
 .page-header h1 small {
     display: block;
     line-height: 24.9231px;
-}
-input[type="checkbox"], input[type="radio"] {
-    border: 1px solid #CCCCCC;
-}
-.form-horizontal .control-group > label {
-    float: none;
-    padding-top: 0;
-    text-align: left;
-    width: auto;
-}
-.form-horizontal .controls {
-    margin-left: 0;
-}
-.form-horizontal .control-list {
-    padding-top: 0;
 }
 .form-horizontal .form-actions {
     padding-left: 10px;
@@ -4923,16 +4193,6 @@ li {
 }
 #disqus_thread {
     font-size: 13px;
-    line-height: 18px;
-}
-#disqus_thread input, #disqus_thread textarea, #disqus_thread .uneditable-input {
-    font-size: 13px;
-    height: 18px;
-    line-height: 18px;
-}
-#disqus_thread select {
-    font-size: 13px;
-    height: 36px;
     line-height: 18px;
 }
 html {
