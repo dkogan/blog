@@ -894,15 +894,6 @@ ul.icons li .icon-large:before, ul.icons li .icon-large:before {
 .fade.in {
     opacity: 1;
 }
-.collapse {
-    height: 0;
-    overflow: hidden;
-    position: relative;
-    transition: height 0.35s ease 0s;
-}
-.collapse.in {
-    height: auto;
-}
 .close {
     color: #000000;
     float: right;
@@ -1331,9 +1322,6 @@ ul.icons li .icon-large:before, ul.icons li .icon-large:before {
 }
 .navbar .container {
     width: auto;
-}
-.nav-collapse.collapse {
-    height: auto;
 }
 .navbar .brand {
     color: #555555;
@@ -2243,8 +2231,6 @@ body {
 }
 }
 @media (max-width: 480px) {
-.nav-collapse {
-}
 .page-header h1 small {
     display: block;
     line-height: 24.9231px;
@@ -2279,75 +2265,12 @@ body {
     padding-left: 10px;
     padding-right: 10px;
 }
-.nav-collapse {
-    clear: both;
-}
-.nav-collapse .nav {
-    float: none;
-    margin: 0 0 12.4615px;
-}
-.nav-collapse .nav > li {
-    float: none;
-}
-.nav-collapse .nav > li > a {
-    margin-bottom: 2px;
-}
-.nav-collapse .nav > .divider-vertical {
-    display: none;
-}
-.nav-collapse .nav .nav-header {
-    color: #555555;
-    text-shadow: none;
-}
-.nav-collapse .nav > li > a {
-    border-radius: 3px 3px 3px 3px;
-    color: #555555;
-    font-weight: bold;
-    padding: 9px 15px;
-}
-.nav-collapse .btn {
-    border-radius: 4px 4px 4px 4px;
-    font-weight: normal;
-    padding: 4px 10px;
-}
-.nav-collapse .nav > li > a:hover {
-    background-color: #F2F2F2;
-}
-.navbar-inverse .nav-collapse .nav > li > a:hover {
-    background-color: #111111;
-}
-.nav-collapse.in .btn-group {
-    margin-top: 5px;
-    padding: 0;
-}
-.nav-collapse .navbar-form, .nav-collapse .navbar-search {
-    border-bottom: 1px solid #F2F2F2;
-    border-top: 1px solid #F2F2F2;
-    box-shadow: 0 1px 0 rgba(255, 255, 255, 0.1) inset, 0 1px 0 rgba(255, 255, 255, 0.1);
-    float: none;
-    margin: 12.4615px 0;
-    padding: 12.4615px 15px;
-}
-.navbar .nav-collapse .nav.pull-right {
-    float: none;
-    margin-left: 0;
-}
-.nav-collapse, .nav-collapse.collapse {
-    height: 0;
-    overflow: hidden;
-}
 .navbar .btn-navbar {
     display: block;
 }
 .navbar-static .navbar-inner {
     padding-left: 10px;
     padding-right: 10px;
-}
-}
-@media (min-width: 980px) {
-.nav-collapse.collapse {
-    height: auto !important;
-    overflow: visible !important;
 }
 }
 h1, h2, h3, h4, h5, h6 {
