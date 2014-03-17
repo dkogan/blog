@@ -1510,7 +1510,7 @@ html {
 .icon-white {
     opacity: 0.5;
 }
-.subnav-fixed {
+.nav-fixed {
     border-color: #D5D5D5;
     border-radius: 4px 4px 4px 4px;
     border-width: 0 0 1px;
@@ -1521,15 +1521,49 @@ html {
     top: 0px;
     z-index: 999;
 }
-.subnav {
+.supernav {
     background-color: #F2F2F2;
-    background-image: linear-gradient(to bottom, #F5F5F5, #EEEEEE);
     background-repeat: repeat-x;
     border: 1px solid #E5E5E5;
     border-radius: 4px 4px 4px 4px;
+    position: fixed;
+    top: 0;
     height: 31px;
     width: 100%;
 }
+.subnav {
+    background-color: #F2F2F2;
+    background-repeat: repeat-x;
+    border: 1px solid #E5E5E5;
+    border-radius: 4px 4px 4px 4px;
+    position: fixed;
+    top: 31px;
+    height: 31px;
+    width: 100%;
+}
+
+.supernav_title {
+    font-size: 20px;
+    font-weight: bolder;
+}
+
+.supernav_list {
+    vertical-align: middle;
+    top: 0;
+    position: fixed;
+}
+
+.supernav_list {
+    list-style: none outside none;
+}
+.supernav_list li {
+    display: inline-block;
+}
+.supernav_list li + li:before {
+    content: " / ";
+    padding: 0 10px;
+}
+
 #page {
     padding-top: 120px;
 }

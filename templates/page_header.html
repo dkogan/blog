@@ -10,10 +10,21 @@
     <lisp>(when (ob:blog-analytics BLOG) (ob:insert-template "plugin_analytics.html"))</lisp>
   </head>
   <body>
-
-    <div class="subnav subnav-fixed visible-desktop">
-      <div class="container">
-	<lisp>(ob:insert-template "nav_breadcrumb.html")</lisp>
+    <div class="subnav-fixed visible-desktop">
+      <div class="supernav container">
+        <!-- I make a list with the title of the blog being the first item -->
+        <lisp>
+          (replace-regexp-in-string "<ul class=\"org-ul\">"
+            (concat "<ul class=\"supernav_list\">\n"
+                    "<li>"
+                       "<a class=\"supernav_title\" href=\""(ob:path-to-root)"/index.html\">"
+                       (ob:blog-title BLOG) "</a>"
+                    "</li>")
+            (ob:post-content-html (ob:get-snippet "Navigation"))
+            nil t)</lisp>
+      </div>
+      <div class="subnav container">
+        <lisp>(ob:insert-template "nav_breadcrumb.html")</lisp>
       </div>
     </div>
     <div id="page" class="container">
