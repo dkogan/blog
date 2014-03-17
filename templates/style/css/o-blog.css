@@ -3082,104 +3082,6 @@ button.btn.btn-mini, input.btn.btn-mini[type="submit"] {
     color: #999999;
     cursor: default;
 }
-.modal-open .dropdown-menu {
-    z-index: 2050;
-}
-.modal-open .dropdown.open {
-}
-.modal-open .popover {
-    z-index: 2060;
-}
-.modal-open .tooltip {
-    z-index: 2080;
-}
-.modal-backdrop {
-    background-color: #000000;
-    bottom: 0;
-    left: 0;
-    position: fixed;
-    right: 0;
-    top: 0;
-    z-index: 1040;
-}
-.modal-backdrop.fade {
-    opacity: 0;
-}
-.modal-backdrop, .modal-backdrop.fade.in {
-    opacity: 0.8;
-}
-.modal {
-    background-clip: padding-box;
-    background-color: #FFFFFF;
-    border: 1px solid rgba(0, 0, 0, 0.3);
-    border-radius: 6px 6px 6px 6px;
-    box-shadow: 0 3px 7px rgba(0, 0, 0, 0.3);
-    left: 50%;
-    margin: -250px 0 0 -280px;
-    overflow: auto;
-    position: fixed;
-    top: 50%;
-    width: 560px;
-    z-index: 1050;
-}
-.modal.fade {
-    top: -25%;
-    transition: opacity 0.3s linear 0s, top 0.3s ease-out 0s;
-}
-.modal.fade.in {
-    top: 50%;
-}
-.modal-header {
-    border-bottom: 1px solid #EEEEEE;
-    padding: 9px 15px;
-}
-.modal-header .close {
-    margin-top: 2px;
-}
-.modal-header h3 {
-    line-height: 30px;
-    margin: 0;
-}
-.modal-body {
-    max-height: 400px;
-    overflow-y: auto;
-    padding: 15px;
-}
-.modal-form {
-    margin-bottom: 0;
-}
-.modal-footer {
-    background-color: #F5F5F5;
-    border-radius: 0 0 6px 6px;
-    border-top: 1px solid #DDDDDD;
-    box-shadow: 0 1px 0 #FFFFFF inset;
-    margin-bottom: 0;
-    padding: 14px 15px 15px;
-    text-align: right;
-}
-.modal-footer:before, .modal-footer:after {
-    content: "";
-    display: table;
-    line-height: 0;
-}
-.modal-footer:after {
-    clear: both;
-}
-.modal-footer:before, .modal-footer:after {
-    content: "";
-    display: table;
-    line-height: 0;
-}
-.modal-footer:after {
-    clear: both;
-}
-.modal-footer .btn + .btn {
-    margin-bottom: 0;
-    margin-left: 5px;
-}
-.modal-footer .btn-group .btn + .btn {
-    margin-left: -1px;
-}
 .tooltip {
     display: block;
     font-size: 11px;
@@ -4858,17 +4760,6 @@ body {
     display: inline-block;
     width: auto;
 }
-.modal {
-    left: 20px;
-    margin: 0;
-    position: fixed;
-    right: 20px;
-    top: 20px;
-    width: auto;
-}
-.modal.fade.in {
-    top: auto;
-}
 }
 @media (max-width: 480px) {
 .nav-collapse {
@@ -4895,15 +4786,6 @@ input[type="checkbox"], input[type="radio"] {
 .form-horizontal .form-actions {
     padding-left: 10px;
     padding-right: 10px;
-}
-.modal {
-    left: 10px;
-    right: 10px;
-    top: 10px;
-}
-.modal-header .close {
-    margin: -10px;
-    padding: 10px;
 }
 }
 @media (max-width: 979px) {
@@ -5042,15 +4924,6 @@ nav a:hover {
 .breadcrumb li {
     line-height: 24.9231px;
 }
-.modal {
-    left: 15%;
-    margin-left: auto;
-    margin-right: auto;
-    width: 70%;
-}
-.modal li {
-    line-height: 24.9231px;
-}
 li {
     line-height: 37.3846px;
 }
@@ -5185,14 +5058,7 @@ html {
 #page .article-content #footnotes div.text-footnotes p {
     font-size: 90%;
 }
-#page .modal {
-    overflow: auto;
-    resize: both;
-}
-#page .modal-body ol.linenums {
-    margin-left: 72px;
-}
-#page pre.src, #page pre.example, #page .modal-body > pre {
+#page pre.src, #page pre.example {
     background: none repeat scroll 0 0 #2E3436;
     border: 1px solid #EEEEEE;
     box-shadow: 0 3px 7px rgba(0, 0, 0, 0.3);
@@ -5200,11 +5066,11 @@ html {
     overflow: auto;
     resize: both;
 }
-#page pre.src span.linenr, #page pre.example span.linenr, #page .modal-body > pre span.linenr {
+#page pre.src span.linenr, #page pre.example span.linenr {
     font-style: italic;
     font-weight: bold;
 }
-#page pre.src span.code-highlighted, #page pre.example span.code-highlighted, #page .modal-body > pre span.code-highlighted {
+#page pre.src span.code-highlighted, #page pre.example span.code-highlighted {
     background: none repeat scroll 0 0 #556B2F;
 }
 #page nav.tags ul {
