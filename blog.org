@@ -39,7 +39,10 @@
   :TEMPLATE: blog_static_no_title.html
   :END:
 
-Dima's thing
+This space is meant to be contain whatever Dima is thinking about at various
+times. The full set of entries is in the [[file:{lisp}(ob:path-to-root){/lisp}/archives.html][Archives]]. Various coding
+projects/experiments are in the [[https://www.github.com/dkogan][Github]] repostories. Contact info is at the
+bottom of the page (in tiny print).
 
 * DONE First post                                                    :o@blog:
   CLOSED: [2014-03-17 Mon 03:48]
