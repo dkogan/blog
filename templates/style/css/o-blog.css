@@ -1572,7 +1572,7 @@ html {
     left: 0;
     position: fixed;
     right: 0;
-    top: 40px;
+    top: 0px;
     z-index: 999;
 }
 .subnav {
