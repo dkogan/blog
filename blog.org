@@ -115,3 +115,242 @@ and I have my blog. This look reasonable, but still not ideal. Current issues:
 
 There're probably more, and I'll discover them as I go. In the meantime, the
 code and content are on Github.
+** DONE Using DEMs to get GPX elevation profiles                :hiking:data:
+   CLOSED: [2014-03-18 Tue 00:49]
+
+When considering a new hike, I often want to know the elevation profile of the
+route. Usually all I have is a 2D elevation track, from [[http://www.openstreetmap.org][OpenStreetMap]] for
+instance; clearly this lacks elevation information.
+
+Unrelatedly we have access to gridded elevation data. This primarily comes from
+the [[http://en.wikipedia.org/wiki/SRTM][SRTM]] project: data available here: http://dds.cr.usgs.gov/srtm/version2_1/.
+The raw SRTM data is pretty good, but there are some gaps. Some people have
+cleaned up the raw data, to make clean tiles available. One such data source is
+here: http://www.viewfinderpanoramas.org/dem3/.
+
+So we have 2D track data and topography. We can thus combine these into a full
+3D track. This isn't perfect since DEM data is granular, but it's way better
+than nothing.
+
+I just found out that there's a route to [[http://www.openstreetmap.org/#map=15/34.1662/-117.9293][Fish Canyon Falls]] that goes around the
+rock quarry, and thus is open year-round. Bypassing the quarry requires climbing
+up a steep hillside to gain a ridge, then descending the other side of the ridge
+to the bottom of the canyon behind the quarry. Just how much extra climbing is
+involved here? To find out, I wrote this:
+
+#+CAPTION: =gpxSampleDEM.pl=
+#+begin_src perl
+
+#!/usr/bin/perl
+use strict;
+use warnings;
+
+use Getopt::Euclid;
+use feature ':5.10';
+use autodie;
+
+use Geo::Gpx;
+use PDL;
+
+
+my $W = 1201; # I use 3-minute DEMs, so each DEM is 1201 x 1201
+
+my $gpx_fh;
+if( $ARGV{'<input>'} eq '-' )
+{
+    $gpx_fh = \*STDIN;
+}
+else
+{
+  open $gpx_fh, '<', $ARGV{'<input>'};
+}
+
+my $gpx = Geo::Gpx->new( input => $gpx_fh );
+
+my $iter = $gpx->iterate_points();
+while( my $pt = $iter->() )
+{
+    say join( ' ', $pt->{lon}, $pt->{lat}, elevation( $pt->{lon}, $pt->{lat} ) );
+}
+
+
+
+sub elevation
+{
+    my ($lon, $lat) = @_;
+
+    state %DEMs;
+    my $demfileE = floor $lon;
+    my $demfileN = floor $lat;
+
+    $DEMs{$demfileE}{$demfileN} //= readDEM($demfileE, $demfileN);
+    my $dem = $DEMs{$demfileE}{$demfileN};
+    return 0 if( !ref($dem) );
+
+    # use PDL::Graphics::Gnuplot;
+    # gplot( with => 'image', $dem );
+    # sleep(20);
+
+    # the DEMs start in the NW corner
+    my $ilon =      ($lon - $demfileE)  * $W;
+    my $ilat = (1 - ($lat - $demfileN)) * $W;
+
+    return 100.0/2.54/12.0 * $dem->interpND( pdl[$ilon, $ilat] );
+}
+
+sub readDEM
+{
+    my ($demfileE, $demfileN) = @_;
+
+    my $path;
+    if   ($demfileN >= 0 && $demfileE >= 0){ $path = sprintf("$ARGV{'--demdir'}/N%.2dE%.3d.hgt", $demfileN,  $demfileE); }
+    elsif($demfileN >= 0 && $demfileE <  0){ $path = sprintf("$ARGV{'--demdir'}/N%.2dW%.3d.hgt", $demfileN, -$demfileE); }
+    elsif($demfileN  < 0 && $demfileE >= 0){ $path = sprintf("$ARGV{'--demdir'}/S%.2dE%.3d.hgt", -$demfileN, $demfileE); }
+    else                                   { $path = sprintf("$ARGV{'--demdir'}/S%.2dW%.3d.hgt", -$demfileN, -$demfileE); }
+
+    say STDERR "Reading DEM '$path'";
+    if( ! -e $path )
+    {
+        warn "DEM '$path' not found. All of its elevations will read as 0";
+        return 0;
+    }
+
+    # I read the DEM on disk into the piddle, then flip the endianness of the
+    # data. I wouldn't have to copy anything if the data was little-endian to
+    # start with; I'd just mmap into the piddle.
+    open my $fd, '<', $path;
+    my $dem = zeros(short, $W, $W);
+    sysread( $fd, ${$dem->get_dataref}, $W*$W*2, 0 );
+    ${$dem->get_dataref} = pack( "s*", unpack("s>*", ${$dem->get_dataref}));
+
+    # I also convert to floating point. Turns out the PDL interpolation routines
+    # don't work with integers
+    return $dem->float;
+}
+
+
+
+__END__
+
+=head1 NAME
+
+gpxSampleDEM.pl - Samples SRTM DEM data to compute elevations for a GPX track
+
+=head1 OPTIONAL ARGUMENTS
+
+=over
+
+=item --demdir <demdir>
+
+Directory that contains the DEM files
+
+=for Euclid:
+  demdir.type: string, -d demdir && -e demdir
+  demdir.default: '.'
+
+=item <input>
+
+GPX input. If omitted or '-', the input is read from standard input
+
+=for Euclid:
+  input.type: readable
+  input.default: '-'
+
+=back
+
+=head1 AUTHOR
+
+Dima Kogan, C<< <dima@secretsauce.net> >>
+
+#+end_src
+
+The script is fairly straightforward. It examines every track point in the GPX,
+finds the appropriate elevation using plain bilinear interpolation, and outputs
+a (lon,lat,ele) tuple on STDOUT. On Debian the dependencies are
+
+- =libgetopt-euclid-perl=
+- =libgeo-gpx-perl=
+- =pdl=
+
+You need to pre-download 3" DEMs, and pass the directory to the script (1" would
+certainly work better, but I haven't tried). Given the [[file:files/FishCanyonFalls/FishCanyonFallsTrail.gpx][gpx file]] scraped from an
+OpenStreetMap way (itself traced from the satellite imagery), you can do this:
+
+#+begin_src sh
+
+gpxSampleDEM.pl --demdir DEMs FishCanyonFallsTrail.gpx | \
+  feedgnuplot --domain --3d --lines --square_xy          \
+     --xlabel 'lon(deg)' --ylabel 'lat(deg)' --zlabel 'Elevation(m)'
+
+#+end_src
+
+This makes an interactive 3D plot of the route. For a more traditional elevation
+profile that's monotonic in distance, you can do something like this:
+
+#+begin_src sh
+
+gpxSampleDEM.pl --demdir DEMs FishCanyonFallsTrail.gpx | \
+  awk '{print $3}'                                     | \
+  feedgnuplot --lines                                    \
+     --xlabel 'Monotonic with distance' --ylabel 'Elevation(m)'
+
+#+end_src
+
+I actually did go see this waterfall today (which is really nice). Here's a plot
+of the elevation profile I gathered with my GPS unit today overlaid over the
+elevation profile from the DEM:
+
+#+begin_comment
+
+Following plot made by exporting each data source, and plotting with gnuplot
+
+gpx_xyz.pl ~/hiking/gpx/FishCanyonFalls.gpx | awk '!/#/ {print $3}' > real
+gpxSampleDEM.pl --demdir ~/projects/horizon/DEMs_SRTM3.bak/ FishCanyonFallsTrail.gpx | awk '{print $3}' > fake
+
+set xlabel "Monotonic with distance"
+set ylabel "Elevation (m)"
+set terminal svg
+set output "FishCanyonFalls.svg"
+plot "real" using ($0/1101):1 with lines title "Actual track from a hike", "fake" using ($0/1400):1 with lines title "Generated from a DEM"
+set output
+
+#+end_comment
+
+#+ATTR_HTML: :width 80%
+[[file:files/FishCanyonFalls/FishCanyonFalls.svg]]
+
+Immediately several issues are noticeable[fn:1]. First of all, while each curve
+is monotonic with distance, the relationship of the domain with distance is
+different. This plot assumes they're both /linear/ with distance. It's not
+really true, but close enough I suppose.
+
+Second, we see that the DEM curve has some high-frequency oscillations. Those
+are switchbacks that sample the DEM in a way that the DEM data is too coarse to
+represent. The trail does not really oscillate like that, which is confirmed by
+the GPS track. This effect would probably be mitigated with finer DEM data (1"
+DEMs are available), but I haven't attempted this.
+
+Third, we see that during the initial climb the DEM-derived elevation
+consistently underreports the elevation. I suspect this is another artifact of
+the coarseness of the DEM. If we're walking on a ridge, a bilinear interpolation
+would take into account neighboring DEM pixels, which would be lower in
+elevation (since it's a ridge). So on a ridge I would expect the DEM-derived
+elevations to be under-reported, and in a canyon I'd expect them to be
+over-reported. In this particular track, the initial climb and the initial
+descent are on ridges, while the second climb is in a canyon. This brings us to
+the next point.
+
+The data in the second climb doesn't match /at all/. Here it's the GPS data
+that's at fault. The canyon walls block the GPS signal, so GPS readings are
+unreliable there.
+
+So the grand conclusion of all this would appear to be that you can use 3" DEM
+data to derive an elevation profile, but one should not expect this profile to
+be terribly accurate. Still it's useful. Based purely on the DEM, I can see that
+a round-trip on this route would entail 2800ft of net elevation gain. Seeing the
+real track, this probably is an underestimate of ~200ft. Not bad.
+
+
+[fn:1] The above analysis assumes that the implementation of the DEM sampler is
+bug-free and that the DEM data is correct. While I don't know of any bugs, there
+could be some. Same for the DEM data
