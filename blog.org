@@ -39,10 +39,10 @@
   :TEMPLATE: blog_static_no_title.html
   :END:
 
-This space is meant to be contain whatever Dima is thinking about at various
-times. The full set of entries is in the [[file:{lisp}(ob:path-to-root){/lisp}/archives.html][Archives]]. Various coding
-projects/experiments are in the [[https://www.github.com/dkogan][Github]] repostories. Contact info is at the
-bottom of the page (in tiny print).
+This space is meant to contain whatever Dima is thinking about at various times.
+The full set of entries is in the [[file:{lisp}(ob:path-to-root){/lisp}/archives.html][Archives]]. Various coding projects/experiments
+are in the [[https://www.github.com/dkogan][Github]] repostories. Contact info is at the bottom of the page (in
+tiny print).
 
 Most recent post: [[file:{lisp}(format "%s/%s" (ob:path-to-root) (ob:post-htmlfile (car ALL-POSTS))){/lisp}][{lisp}(ob:post-title (car ALL-POSTS)){/lisp}]]
 
