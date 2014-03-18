@@ -52,7 +52,7 @@ img {
 body {
     background-color: #FFFFFF;
     color: #333333;
-    font-size: 18px;
+    font-size: 14px;
     line-height: 24.9231px;
     margin: 0;
 }
@@ -455,7 +455,7 @@ address {
 code, pre {
     border-radius: 3px 3px 3px 3px;
     color: #333333;
-    font-size: 16px;
+    font-size: 13px;
     padding: 0 3px 2px;
 }
 code {
@@ -469,7 +469,7 @@ pre {
     border: 1px solid rgba(0, 0, 0, 0.15);
     border-radius: 4px 4px 4px 4px;
     display: block;
-    font-size: 17px;
+    font-size: 14px;
     line-height: 24.9231px;
     margin: 0 0 12.4615px;
     padding: 11.9615px;
