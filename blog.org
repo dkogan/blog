@@ -4,6 +4,7 @@
 #+AUTHOR Dima Kogan
 
 #+STARTUP: logdone
+#+STARTUP: overview
 
 #+PLUGIN_QRCODE: nil
 #+TEMPLATE_DIR: templates
