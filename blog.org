@@ -46,7 +46,6 @@ tiny print).
 
 Most recent post: [[file:{lisp}(format "%s/%s" (ob:path-to-root) (ob:post-htmlfile (car ALL-POSTS))){/lisp}][{lisp}(ob:post-title (car ALL-POSTS)){/lisp}]]
 
-
 * Notes
 ** DONE First post                                                   :o@blog:
   CLOSED: [2014-03-17 Mon 03:48]
@@ -140,7 +139,6 @@ involved here? To find out, I wrote this:
 
 #+CAPTION: =gpxSampleDEM.pl=
 #+begin_src perl
-
 #!/usr/bin/perl
 use strict;
 use warnings;
@@ -261,7 +259,6 @@ GPX input. If omitted or '-', the input is read from standard input
 =head1 AUTHOR
 
 Dima Kogan, C<< <dima@secretsauce.net> >>
-
 #+end_src
 
 The script is fairly straightforward. It examines every track point in the GPX,
@@ -277,23 +274,19 @@ certainly work better, but I haven't tried). Given the [[file:files/FishCanyonFa
 OpenStreetMap way (itself traced from the satellite imagery), you can do this:
 
 #+begin_src sh
-
 gpxSampleDEM.pl --demdir DEMs FishCanyonFallsTrail.gpx | \
   feedgnuplot --domain --3d --lines --square_xy          \
      --xlabel 'lon(deg)' --ylabel 'lat(deg)' --zlabel 'Elevation(m)'
-
 #+end_src
 
 This makes an interactive 3D plot of the route. For a more traditional elevation
 profile that's monotonic in distance, you can do something like this:
 
 #+begin_src sh
-
 gpxSampleDEM.pl --demdir DEMs FishCanyonFallsTrail.gpx | \
   awk '{print $3}'                                     | \
   feedgnuplot --lines                                    \
      --xlabel 'Monotonic with distance' --ylabel 'Elevation(m)'
-
 #+end_src
 
 I actually did go see this waterfall today (which is really nice). Here's a plot
@@ -301,7 +294,6 @@ of the elevation profile I gathered with my GPS unit today overlaid over the
 elevation profile from the DEM:
 
 #+begin_comment
-
 Following plot made by exporting each data source, and plotting with gnuplot
 
 gpx_xyz.pl ~/hiking/gpx/FishCanyonFalls.gpx | awk '!/#/ {print $3}' > real
@@ -313,7 +305,6 @@ set terminal svg
 set output "FishCanyonFalls.svg"
 plot "real" using ($0/1101):1 with lines title "Actual track from a hike", "fake" using ($0/1400):1 with lines title "Generated from a DEM"
 set output
-
 #+end_comment
 
 #+ATTR_HTML: :width 80%
