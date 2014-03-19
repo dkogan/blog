@@ -1,6 +1,6 @@
 #+TITLE: Dima Kogan
 #-DESCRIPTION: Dima's notes
-#+DATE: <2014-03-17 Mon 04:12>
+#+DATE: <2014-03-18 Tue 22:25>
 #+AUTHOR Dima Kogan
 
 #+STARTUP: logdone
@@ -354,3 +354,95 @@ real track, this probably is an underestimate of ~200ft. Not bad.
 [fn:1] The above analysis assumes that the implementation of the DEM sampler is
 bug-free and that the DEM data is correct. While I don't know of any bugs, there
 could be some. Same for the DEM data
+
+** DONE X11 urgency hint and notifications                            :tools:
+   CLOSED: [2014-03-19 Wed 00:20]
+
+X11 has a common system for window notifications: the urgency hint. The relevant
+section of the [[http://tronche.com/gui/x/icccm/sec-4.html#s-4.1.2.4][ICCCM standard]]:
+
+#+begin_quote
+The UrgencyHint flag, if set in the flags field, indicates that the client deems
+the window contents to be urgent, requiring the timely response of the user. The
+window manager must make some effort to draw the user's attention to this window
+while this flag is set.
+#+end_quote
+
+Some window managers are uncompliant and don't support this. Possibly as a
+result, people really like to reinvent this particular wheel: [[http://www.linuxjournal.com/content/tech-tip-get-notifications-your-scripts-notify-send][notify-send]],
+[[http://mattn.github.io/growl-for-linux/][growl]], and more. My WM ([[http://notion.sourceforge.net/][notion]]) /does/ support this very well, with some really
+nice UI integration. Thus applications can request to be drawn as urgent. This
+really begs for a commandline tool so shells can request the user's attention at
+key points. For instance I really want to say something like
+
+#+begin_src sh
+make; seturgent
+#+end_src
+
+I.e. this would launch a source build, and when the build completes, this
+particular terminal emulator window would request the user's attention. The
+build could take a long, time, and the user may want to do stuff with the build
+products, but in the meantime they can go do something else.
+
+This =seturgent= tool didn't exist, so I wrote one:
+
+#+CAPTION: =seturgent=
+#+begin_src perl
+#!/usr/bin/perl
+
+# Copyright 2012,2013 Dima Kogan
+# License: GPL 3 or later
+
+use strict;
+use warnings;
+use feature qw(say);
+
+use X11::Protocol;
+use X11::Protocol::WM;
+use X11::WindowHierarchy;
+
+# if no arguments are given, sets urgency on the current window
+#
+# if an argument is given, uses it as a regex on the window name (all matches
+# are set as urgent)
+
+my $usage = "$0 [regex on the window name]";
+die $usage if @ARGV > 1;
+
+
+my $x = X11::Protocol->new()
+  or die "Couldn't open display";
+
+my @ids;
+if( ! @ARGV )
+{
+  @ids = ($ENV{WINDOWID});
+}
+else
+{
+  my @windows = x11_filter_hierarchy( filter => qr{$ARGV[0]} )
+    or die "No matching windows found";
+
+  say "Found " . scalar(@windows) . " matching windows";
+  @ids = map {$_->{id}} @windows;
+}
+
+foreach my $id(@ids)
+{
+  die "No window id" unless $id;
+  X11::Protocol::WM::change_wm_hints( $x, $id,
+                                      urgency => 1 );
+}
+#+end_src
+
+This uses [[https://metacpan.org/pod/X11::WindowHierarchy][X11::WindowHierarchy]] to find the window, and [[https://metacpan.org/pod/X11::Protocol::WM][X11::Protocol::WM]] to set
+the urgency hint. Both are available in Debian. Usage is very straightforward:
+with no arguments, the current window is set urgent. Otherwise, the one and only
+argument is treated like a regex on the window title. If a single match is
+found, that window is set urgent.
+
+Now I /can/ say
+
+#+begin_src sh
+make; seturgent
+#+end_src
