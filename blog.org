@@ -15,6 +15,22 @@
 #+POST_SORTER: ob-sort-posts-by-title
 #+OPTIONS: tex:dvipng
 
+#+BEGIN_COMMENT
+
+Local Variables:
+eval: (local-set-key (kbd "<f5>")
+        (lambda () (interactive)
+                   (org-publish-blog (buffer-file-name))))
+eval: (local-set-key (kbd "<S-f5>")
+        (lambda () (interactive)
+                   (shell-command "cd out; git clean -ffdx")
+                   (org-publish-blog (buffer-file-name))
+                   (shell-command "cd out; git add -A && git commit -a -m 'new post' && git push;")))
+End:
+
+#+END_COMMENT
+
+
 * Blog details
 ** Copyright
   :PROPERTIES:
