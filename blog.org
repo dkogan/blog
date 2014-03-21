@@ -466,3 +466,102 @@ Now I /can/ say
 #+begin_src sh
 make; seturgent
 #+end_src
+** DONE Already-running process notifications                         :tools:
+   CLOSED: [2014-03-20 Thu 22:35]
+
+The tool described in the last post ([[file:{lisp}(ob:link-to-post (ob:get-post-by-title "X11 urgency hint and notifications")){/lisp}][X11 urgency hint and notifications]]) works
+well, but there's a common use case it does not support: completion notification
+of already-running process. That post describes how to be notified when a build
+completes:
+
+#+begin_src sh
+make; seturgent
+#+end_src
+
+But what if we already started the build? Another helper tool is required. Here
+it is:
+
+#+BEGIN_SRC sh
+
+# As is, this can't be an external utility since it uses the shell builtin
+# 'wait', which only works on direct children of this shell. An external utility
+# creates another shell, so this doesn't work
+function waitfor()
+{
+    # waits for a process to exit, and sets urgency when that happens. Expects a
+    # single pgrep-able argument on the commandline. If no argument is given,
+    # it'll look for the only child process.
+
+    # if this process is a child of this shell, I use a blocking wait.
+    # Otherwise, I poll.
+    
+    PID_ALL=$(pgrep -s0 -f $1)
+
+    # filter out the current process (the shell) and 'xclip'. I have xclip
+    # zombies apparently
+    PID=$(comm -23 <(echo $PID_ALL | sort) <(echo $$ `pidof xclip` | xargs -n1 | sort))
+    N=$(echo $PID | wc -w)
+
+    if [[ $N -eq 1 ]]; then
+        echo "Found unique process with pid $PID"
+        kill -CONT $PID # resume this process, since it's almost certainly
+                        # paused right now
+        wait $PID;
+        seturgent
+    elif [[ $N -ne 0 ]]; then
+        echo "Found more than one matching process. Doing nothing";
+    elif [[ -z $1 ]]; then
+        echo "No children of the current shell to wait on. Doing nothing";
+    else
+        echo "Found no matching processes in this shell. Looking globally.";
+        PID=$(pgrep -f $1)
+        N=$(echo $PID | wc -w)
+        if [[ $N -eq 0 ]]; then
+            echo "Found no matching global process either. Giving up.";
+        elif [[ $N -ne 1 ]]; then
+            echo "Found more than one global process. Giving up";
+        else
+            echo "Found unique process with pid $PID"
+            while (ps -p $PID > /dev/null) { sleep 10; }
+            seturgent;
+        fi
+    fi
+}
+
+#+END_SRC
+
+This is a =zsh= shell script that lives in my =.zshrc=.
+
+- with no argument, it acts on the only child of this shell
+- with an argument, it uses =pgrep= to find a matching process, first in the
+  local shell, then outside of the local shell
+
+Once the target process is identified, the script waits for the process to exit,
+then it sets the urgency hint on the terminal emulator window. If there's any
+ambiguity about which process is being targeted, nothing is done.
+
+The most common use case: if a long-running process is currently active, one
+would temporarily suspend it with =C-z=, then issue a =waitfor=. This
+re-activates the process, and sets the urgency when finished. One could also
+re-implement the use case from the previous post as
+
+#+begin_src sh
+make & waitfor
+#+end_src
+
+
+As said previously, this is a =zsh= script. It probably needs to be tweaked a
+little bit to work in =bash=, but I have not done this.
+
+The reason this is a shell script, is that the wait-for-this-process-to-finish
+operation on Linux only works from the parent of the process being waited on. As
+implemented, =waitfor()= doesn't spawn a new process, and runs in the shell
+process itself, which is the parent of the thing being waited on. If this was
+anything other than a shell script, then the waiter would /also/ be a child of
+the shell, so the process being waited on, and the process doing the waiting
+would be /siblings/. The script works that case too, but it polls every 10
+seconds, instead of being notified of completion.
+
+I've been using this for a little bit. It's not perfect, and there're some warts
+I'd like to fix. Still, it does the job, and it's already something I use every
+day.
