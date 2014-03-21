@@ -466,7 +466,7 @@ function waitfor()
 
     # if this process is a child of this shell, I use a blocking wait.
     # Otherwise, I poll.
-    
+
     PID_ALL=$(pgrep -s0 -f $1)
 
     # filter out the current process (the shell) and 'xclip'. I have xclip
