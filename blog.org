@@ -15,34 +15,6 @@
 #+POST_SORTER: ob-sort-posts-by-title
 #+OPTIONS: tex:dvipng
 
-#+NAME: init
-#+begin_src emacs-lisp :results silent :exports results
-  (progn
-    (message "asdf")
-    (local-set-key (kbd "<f5>")
-                   (lambda () (interactive)
-                     (org-publish-blog (buffer-file-name))))
-    (local-set-key (kbd "<S-f5>")
-                   (lambda () (interactive)
-                     (shell-command "cd out; git clean -ffdx")
-                     (org-publish-blog (buffer-file-name))
-                     (shell-command "cd out; git add -A && git commit -a -m 'new post' && git push;")))
-  
-    (defun ob:link-to-post (post)
-      (format "%s/%s" (ob:path-to-root) (ob:post-htmlfile post)))
-    
-    (defun ob:get-post-by-title (title)
-      (let ((posts (ob:get-posts
-                    (lambda (x)
-                      (equal title (ob:post-title x)))
-                    1)))
-        (if posts (car posts) nil))))
-#+end_src
-
-# Local variables:
-# eval: (sbe "init")
-# End:
-
 * Blog details
 ** Copyright
   :PROPERTIES:
@@ -565,3 +537,26 @@ seconds, instead of being notified of completion.
 I've been using this for a little bit. It's not perfect, and there're some warts
 I'd like to fix. Still, it does the job, and it's already something I use every
 day.
+
+* init                                                             :noexport:
+;; Local Variables:
+;; eval: (progn
+;;           (local-set-key (kbd "<f5>")
+;;                          (lambda () (interactive)
+;;                            (org-publish-blog (buffer-file-name))))
+;;           (local-set-key (kbd "<S-f5>")
+;;                          (lambda () (interactive)
+;;                            (shell-command "cd out; git clean -ffdx")
+;;                            (org-publish-blog (buffer-file-name))
+;;                            (shell-command "cd out; git add -A && git commit -a -m 'new post' && git push;")))
+;;
+;;           (defun ob:link-to-post (post)
+;;             (format "%s/%s" (ob:path-to-root) (ob:post-htmlfile post)))
+;;
+;;           (defun ob:get-post-by-title (title)
+;;             (let ((posts (ob:get-posts
+;;                           (lambda (x)
+;;                             (equal title (ob:post-title x)))
+;;                           1)))
+;;               (if posts (car posts) nil))))
+;; End:
