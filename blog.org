@@ -538,6 +538,146 @@ I've been using this for a little bit. It's not perfect, and there're some warts
 I'd like to fix. Still, it does the job, and it's already something I use every
 day.
 
+** DONE Cscope benchmarks                                  :tools:data:emacs:
+   CLOSED: [2014-03-25 Tue 03:36]
+
+I read and write lots of C code, and I find the [[http://cscope.sourceforge.net/][cscope]] tool to be invaluable in
+searching and navigating code bases. Recently I took over maintership of the
+[[https://github.com/dkogan/xcscope.el][xcscope.el]] Emacs interface to cscope. There are a surprising number of different
+Emacs interfaces to cscope, and this one seems to be the most mature and
+full-featured (and I made it much nicer).
+
+One feature that some other interfaces have ([[http://lists.gnu.org/archive/html/gnu-emacs-sources/2008-04/msg00021.html][ascope]] for instance) is that
+instead of running a new cscope process for each query, they leave the process
+running, and reuse it for each query. This keeps the database in memory, and
+doesn't waste cycles reloading it every time. This is the major feature of these
+interfaces, and glorious performance benefits are claimed.
+
+Currently =xcscope= does /not/ do this, and I sometimes consider implementing
+this feature. It's going to be a pain to do, so I decided to run some tests to
+see if the performance benefits really are worth it.
+
+*** Benchmark machine
+
+All tests were run on my old-ish laptop. It is a 2008 vintage machine, has a
+Core2-Duo CPU, 4GB of RAM and a non-SSD hard disk. I.e. this should be fast
+enough for most things.
+
+*** Test description
+
+The code base under test is the linux kernel. This should be near the upper
+bound of what most people would be indexing. Sure, larger projects exist, but
+you're generally working on a contained piece, rather than the whole thing at
+once (this is true of the kernel too, actually).
+
+I perform multiple discrete cscope operations using the command-line tool. Each
+operation starts a new =cscope= process, which reloads the database. I.e. I
+perform the operation that's supposedly slow every time.
+
+I measure how long it takes to build the search database, then to re-build it,
+then to re-build it after =touch=-ing a file. Then I measure how long it takes
+to run a search, then to re-run it, then to re-run it after =touch=-ing a file.
+
+I do all this with the default settings, then again with settings more
+appropriate for a kernel:
+
+- /kernel mode/: =-k= option. Doesn't look in =/usr/include=
+- /inverted-index mode/: =-q= option. Builds an extra index for faster searches
+
+Finally, each search is also run with the =-d= option. This only runs the
+search; it does /not/ also update the database with each search. By default,
+cscope /does/ update the database with every search.
+
+Specifically, I get the list of files with 
+
+#+begin_src sh
+cscope-indexer -l -r  
+#+end_src
+
+I build an index with
+
+#+begin_src sh
+cscope -b
+#+end_src
+
+If I'm indexing in kernel mode and I'm building an inverted index, I also pass
+in =-q -k=. The test search looks for all uses of the =main= symbol:
+
+#+begin_src sh
+cscope -L0 main
+#+end_src
+
+Once again, if I'm indexing in kernel mode and I'm building an inverted index, I
+also pass in =-q -k=. When I want to touch an arbitrary file, I do
+
+#+begin_src sh
+touch include/drm/drm_edid.h 
+#+end_src
+
+There's no significance to this file. It's just anything that's in the index.
+
+As one can imagine, the disk cache plays a very significant role here, and
+subsequent runs of the same command complete faster than the first. The numbers
+shown below were obtained after clearning the disk cache first, but even so I'm
+seeing lots of variability. There's maybe a +- 20% error in those measurements.
+It isn't clear how much this is relevant to real-world performance, since in
+real life you'll never have a completely cold cache.
+
+*** Results
+
+**** Default settings
+
+|                                              | First time | Subsequent times |
+|----------------------------------------------+------------+------------------|
+| Initial database build                       | 60 sec     | 0.2 sec          |
+| Database re-build after touching a file      | 8 sec      | 0.2 sec          |
+| Initial search                               | 9 sec      | 1.3 sec          |
+| Re-search after touching a file              | 9 sec      | 1.3 sec          |
+| Initial no-db-update search                  | 6 sec      | 1.1 sec          |
+| No-db-update re-search after touching a file | 6 sec      | 1.1 sec          |
+
+**** Kernel, inverted-index mode
+
+|                                              | First time | Subsequent times |
+|----------------------------------------------+------------+------------------|
+| Initial database build                       | 130 sec    | 0.2 sec          |
+| Database re-build after touching a file      | 90 sec     | 0.2 sec          |
+| Initial search                               | 3 sec      | 0.2 sec          |
+| Re-search after touching a file              | 100 sec    | 0.2 sec          |
+| Initial no-db-update search                  | 1 sec      | 0.01 sec         |
+| No-db-update re-search after touching a file | 1 sec      | 0.01 sec         |
+
+
+*** Conclusions
+
+I've known about the cscope inverted index for a while, but never actually tried
+to use it. Looks like it works as advertised: takes significantly longer to
+build, but once built the speedup it provides is substantial. With the inverted
+index for some reason I was consistently seeing a post-touch re-search take
+slightly longer than a post-touch database re-build (100 seconds vs 90 seconds).
+I would expect the re-search to do a re-build as part of its operation, so this
+is somewhat surprising. On the other hand I only see this with a cold cache, and
+those results are pretty variable, so this might just be noise. And it doesn't
+really matter, since we'll rarely have such a cold cache.
+
+It's extremely clear that the overhead of just loading the database is
+immaterial. It takes 0.01 seconds load the database and then to run a search in
+an inverted index. It's a bit slower without an inverted index, but all the time
+there is spent searching, not loading the index into memory. I know this because
+I get the same no-inverted-index search timings with the cscope interactive
+tool, which loads the database just once. The only way keeping the =cscope=
+process running is advantageous is if this makes it more likely the caches stay
+warm. This is difficult to test, but I doubt it's true. If I run repeated
+queries even with a new process every time, the data stays cached, and things
+run quickly. What I think is much more likely is that the people who wrote
+cscope interfaces such as =ascope= only used interfaces such as =xcscope=
+without the =-d= option. I.e. they were updating the database with every query,
+which clearly can be slow with a large codebase. Then they were /not/ doing this
+with their persistent =cscope= sessions, and attributing the performance gains
+to not loading the database rather than rebuilding the index too often. In any
+case, I think it's pretty clear that this feature is not worth the work, so I'm
+keeping =xcscope= as is.
+
 * init                                                             :noexport:
 ;; Local Variables:
 ;; eval: (progn
