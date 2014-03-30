@@ -1,6 +1,6 @@
 #+TITLE: Dima Kogan
 #-DESCRIPTION: Dima's notes
-#+DATE: <2014-03-18 Tue 22:25>
+#+DATE: <2014-03-30 Sun 00:45>
 #+AUTHOR Dima Kogan
 
 #+STARTUP: logdone
