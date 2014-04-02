@@ -32,16 +32,6 @@ img {
 #map_canvas img {
     max-width: none;
 }
-.clearfix {
-}
-.clearfix:before, .clearfix:after {
-    content: "";
-    display: table;
-    line-height: 0;
-}
-.clearfix:after {
-    clear: both;
-}
 .hide-text {
     background-color: rgba(0, 0, 0, 0);
     border: 0 none;
@@ -975,19 +965,6 @@ ul.icons li .icon-large:before, ul.icons li .icon-large:before {
 }
 .invisible {
     visibility: hidden;
-}
-.affix {
-    position: fixed;
-}
-.clearfix {
-}
-.clearfix:before, .clearfix:after {
-    content: "";
-    display: table;
-    line-height: 0;
-}
-.clearfix:after {
-    clear: both;
 }
 .hide-text {
     background-color: rgba(0, 0, 0, 0);
