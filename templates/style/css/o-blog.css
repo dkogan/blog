@@ -1486,6 +1486,8 @@ html {
 
 .supernav_list {
     list-style: none outside none;
+    white-space: nowrap;
+    overflow: hidden;
 }
 .supernav_list li {
     display: inline-block;
