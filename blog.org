@@ -1031,7 +1031,7 @@ eval: (progn
                          (lambda () (interactive)
                            (shell-command "cd out; git clean -ffdx")
                            (org-publish-blog (buffer-file-name))
-                           (shell-command "cd out; git add -A && git commit -a -m 'new post' && git push;")))
+                           (shell-command "cd out; git add -A && git commit -a -m 'update' && git push;")))
           (defun ob:link-to-post (post)
             (format "%s/%s" (ob:path-to-root) (ob:post-htmlfile post)))
           (defun ob:get-post-by-title (title)
