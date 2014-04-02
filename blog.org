@@ -1022,6 +1022,8 @@ Data order same as before:
 * init                                                             :noexport:
 Local Variables:
 eval: (progn
+          (setq org-html-table-default-attributes
+            '(:border "2" :cellspacing "0" :cellpadding "6" :rules "all" :frame "box"))
           (local-set-key (kbd "<f5>")
                          (lambda () (interactive)
                            (org-publish-blog (buffer-file-name))))
