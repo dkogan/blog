@@ -982,6 +982,9 @@ ul.icons li .icon-large:before, ul.icons li .icon-large:before {
 .visible-desktop {
     display: inherit !important;
 }
+.post-title {
+    text-align: right;
+}
 @media (min-width: 1200px) {
 .row {
     margin-left: -30px;
