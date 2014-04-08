@@ -1,6 +1,6 @@
 #+TITLE: Dima Kogan
 #-DESCRIPTION: Dima's notes
-#+DATE: <2014-03-30 Sun 00:45>
+#+DATE: <2014-04-07 Mon 23:40>
 #+AUTHOR Dima Kogan
 
 #+STARTUP: logdone
@@ -1017,6 +1017,57 @@ Data order same as before:
 |        |        0.7 |        0.6 |
 |        |        0.0 |        0.0 |
 |        |        0.0 |        0.0 |
+
+** DONE Running qemu with a custom kernel on ARM                      :tools:
+   CLOSED: [2014-04-07 Mon 23:38]
+
+So I was porting [[http://www.sysdig.org][sysdig]] to ARM, and needed a target device to test the progress.
+Sysdig uses syscall tracepoints, which were added to Linux relatively recently,
+in version 3.7. Thus the ARM devices I had lying around were too old, and thus
+weren't suitable to test on (I could forward port the kernel patches that make
+them work, but this would be too much of a tangential effort).
+
+The solution I settled on was emulation. Qemu can run in /system/ mode to
+emulate a full machine. Specific instructions on how to run a vanilla-ish Debian
+system with a custom kernel were hard to find, so I'm documenting them here.
+Aurélien Jarno has disk images of a fresh Debian install and kernel images for
+Qemu emulation here: http://people.debian.org/~aurel32/qemu/armel/. This is the
+=armel= images, but he has the other arches as well.
+
+Those images work fine. I just need to run a custom kernel I build myself.
+Aurélien provides the kernel image /and/ an init ramdisk. It's not immediately
+clear how to build this =initrd= image (and my various attempts weren't
+fruitful). It was also not obvious how to run without =initrd=. The solution
+that worked for me in the end was a monolithic kernel (all necessary drivers
+compiled in) and a particular set of qemu options to workwithout a ramdisk.
+
+I built a vanilla Linux 3.14 kernel =zImage=. The multiarch cross-toolchain
+isn't in Debian proper yet, but packages are available from
+http://people.debian.org/~wookey/tools/debian/.
+
+The [[file:files/kernelstuff/versatile.config][kernel config]] was based off the vanilla =versatile_defconfig=, with a few
+drivers and things built in. As usual, the kernel can be built with something
+like this:
+
+#+begin_src sh
+cd linux
+git reset --hard v3.14
+cp /tmp/versatile.config .config
+make ARCH=arm CROSS_COMPILE=arm-linux-gnueabi- -j4 zImage
+#+end_src
+
+This produces an image in =arch/arm/boot/zImage=. Everything I care about is
+built-in, so I don't care about shipping modules, or building a ramdisk. A qemu
+command to use this:
+
+#+begin_src sh
+qemu-system-arm -M versatilepb -kernel ~/linux/arch/arm/boot/zImage -hda debian_wheezy_armel_standard.qcow2 -append "noinitrd root=/dev/sda1 rw"
+#+end_src
+
+This appears to boot successfully, mounting everything, bringing up the network,
+etc. There is a benign warning about not being able to talk to the modules from
+the original kernel, but I obviously don't care. By default =eth0= is at
+=10.0.2.15= with the host machine reachable at =10.0.2.2=.
 
 
 * init                                                             :noexport:
