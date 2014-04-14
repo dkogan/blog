@@ -1,6 +1,6 @@
 #+TITLE: Dima Kogan
 #-DESCRIPTION: Dima's notes
-#+DATE: <2014-04-07 Mon 23:40>
+#+DATE: <2014-04-14 Mon 02:51>
 #+AUTHOR Dima Kogan
 
 #+STARTUP: logdone
@@ -1069,6 +1069,204 @@ etc. There is a benign warning about not being able to talk to the modules from
 the original kernel, but I obviously don't care. By default =eth0= is at
 =10.0.2.15= with the host machine reachable at =10.0.2.2=.
 
+** DONE Reading DWARF prototypes in ltrace                            :tools:
+   CLOSED: [2014-04-14 Mon 02:51]
+
+From time to time I use the [[http://ltrace.org/][=ltrace=]] tool for introspection into user-space
+processes. This is similar to =strace=, but hooks into library API calls intead
+of just system calls. This is quite useful, but has some extra challenges.
+
+With system calls you know beforehand the full set of functions you are hooking,
+their prototypes, and the meaning and purpose of each argument. With general
+libraries the space of all the possible APIs is huge, so you generally do /not/
+know this. =ltrace= can read configuration files that define these interfaces,
+so with a bit of manual effort you can provide this information. It would be
+really nice to be able to trace generic function calls with no extra effort at
+all. Much of the prototype data exists in debug infomation, which is often
+available along with the executable binary. So by parsing this information, we
+can trace API calls without needing to edit a configuration file.
+
+*** Stock behavior
+
+Let's say I have the following simple project. There are 3 files: =tstlib.h=,
+=tstlib.c= and =tst.c=. These define a small library and an application
+respectively. Let's say I have
+
+=tstlib.h=
+#+begin_src C
+#pragma once
+
+struct tree
+{
+    int x;
+    struct tree* left;
+    struct tree* right;
+};
+struct tree treetest(struct tree* t);
+
+struct loop_a;
+struct loop_b;
+typedef struct loop_a { struct loop_b*   b; int x;} loop_a_t;
+        struct loop_b {        loop_a_t* a; int x;};
+void looptest( loop_a_t* a );
+
+enum E { A,B,C };
+typedef enum E E_t;
+int enumtest( enum E a, E_t b );
+
+struct witharray
+{
+    double x[5];
+};
+double arraytest( struct witharray* s );
+#+end_src
+
+=tstlib.c=
+#+begin_src C
+#include "tstlib.h"
+
+struct tree treetest(struct tree* t)
+{
+    if(t->left  != NULL) treetest(t->left);
+    if(t->right != NULL) treetest(t->right);
+    t->x++;
+
+    return *t;
+}
+
+void looptest( loop_a_t* a )
+{
+    a->x++;
+    a->b->x++;
+}
+
+int enumtest( enum E a, E_t b )
+{
+    return a == b;
+}
+
+double arraytest( struct witharray* s )
+{
+    return s->x[0];
+}
+#+end_src
+
+=tst.c=
+#+begin_src C
+#include "tstlib.h"
+#include <unistd.h>
+
+void main(void)
+{
+    struct tree d = {.x = 4};
+    struct tree c = {.x = 3, .right = &d};
+    struct tree b = {.x = 2};
+    struct tree a = {.x = 1, .left = &b, .right = &c};
+    treetest( &a );
+
+    struct loop_a la = {.x = 5};
+    struct loop_b lb = {.x = 6};
+    la.b = &lb;
+    lb.a = &la;
+    looptest(&la);
+
+    enum E ea = A, eb = B;
+    enumtest( ea, eb );
+
+    struct witharray s = {.x = {1.0,2.0,1.0,2.0,1.0}};
+    arraytest( &s );
+}
+#+end_src
+
+Now I build this with debug information, placing the library in a DSO and
+setting the RPATH:
+
+#+begin_src sh
+cc -g -c -o tst.o tst.c
+cc -fpic -g -c -o tstlib.o tstlib.c
+cc -shared -Wl,-rpath=/home/dima/projects/ltrace/ltracetests -o tstlib.so  tstlib.o
+cc -Wl,-rpath=/home/dima/projects/ltrace/ltracetests tst.o tstlib.so -o tst
+#+end_src
+
+I now run the stock =ltrace= to see calls into the =tstlib= library. I'm using
+the latest =ltrace= in Debian/sid: version 0.7.3-4:
+
+#+begin_src sh
+dima@shorty:~/projects/ltrace/ltracetests$ ltrace -n2 -l tstlib.so ./tst
+
+tst->treetest(0x7fff6b36ad30, 0x7fff6b36ada0, 0x7fff6b36ada0, 0 <unfinished ...>
+  tstlib.so->treetest(0x7fff6b36acf0, 0x7fff6b36adc0, 0x7fff6b36adc0, 0) = 0
+  tstlib.so->treetest(0x7fff6b36acf0, 0x7fff6b36ade0, 0x7fff6b36ade0, 0 <unfinished ...>
+    tstlib.so->treetest(0x7fff6b36acb0, 0x7fff6b36ae00, 0x7fff6b36ae00, 0) = 0
+  <... treetest resumed> )                                            = 0x7fff6b36acb0
+<... treetest resumed> )                                              = 0x7fff6b36ad30
+tst->looptest(0x7fff6b36ad90, 0x7fff6b36ae00, 0x7fff6b36ade0, 0x7fff6b36adc0) = 0x7fff6b36ad80
+tst->enumtest(0, 1, 1, 0x7fff6b36adc0)                                = 0
+tst->arraytest(0x7fff6b36ad50, 1, 1, 0x7fff6b36adc0)                  = 0x3ff0000000000000
++++ exited (status 0) +++
+#+end_src
+
+So we clearly see the calls, but the meaning of the arguments (and return
+values) isn't clear. This is because =ltrace= has no idea what the prototypes of
+anything are, and assumes that every API call is =long f(long,long,long,long)=.
+
+*** Patched behavior
+
+I made a patch to read in the prototypes from DWARF debugging information. The
+initial version lives at https://github.com/dkogan/ltrace. This is far from
+done, but it's enough to evaluate the core functionality. With the patched
+=ltrace=:
+
+#+begin_src sh
+dima@shorty:~/projects/ltrace/ltracetests$ ltrace -n2 -l tstlib.so ./tst
+
+tst->treetest({ 1, { 2, nil, nil }, { 3, nil, { 4, nil, nil } } } <unfinished ...>
+  tstlib.so->treetest({ 2, nil, nil })                                = nil
+  tstlib.so->treetest({ 3, nil, { 4, nil, nil } } <unfinished ...>
+    tstlib.so->treetest({ 4, nil, nil })                              = nil
+  <... treetest resumed> )                                            = { 5, nil, nil }
+<... treetest resumed> )                                              = { 2, { 3, nil, nil }, { 4, nil, { 5, nil, nil } } }
+tst->looptest({ { recurse^, 6 }, 5 })                                 = <void>
+tst->enumtest(A, B)                                                   = 0
+tst->arraytest({ [ 1.000000, 2.000000, 1.000000, 2.000000... ] })     = 1.000000
++++ exited (status 0) +++
+#+end_src
+
+Much better! We see the tree structure, the array and the enum values. The
+return values make sense too. So this is potentially very useful.
+
+*** Issues to resolve
+
+Playing with this for a bit, it's becoming more clear what the issues are. The
+DWARF information gives you the prototype, but an API definition is more than
+just a prototype. For one thing, if a function has a pointer argument, this can
+represent and input or an output. My implementation currently assumes it's an
+input, but being wrong either way is problematic here:
+
+- If a pointer is an output and ltrace interprets it as an input, then the
+  output is never printed (as we can see in the loop test above). Furthermore,
+  the input /will/ be printed and since there could be nested pointers, this
+  could result in a segmentation fault. In this case =ltrace= can thus crash the
+  process being instrumented. Oof.
+
+- If a pointer is an input treated as an output, then again, we won't see useful
+  information, and will be printing potentially bogus data at the output.
+
+This can be remedied somewhat by assuming that an input /must/ be =const= (and
+vice versa), but one can't assume that across the board.
+
+Even if we somehow know that a pointer is an input, we still don't know how to
+print it. How many integers does an =int*= point to? Currently I assume the
+answer is 1, but what if it's not? Guessing too low we don't print enough useful
+information; guessing too high can overrun our memory.
+
+These are all things that =ltrace='s configuration files can take care of. So it
+sounds to me like the best approach is a joint system, where both DWARF and the
+config files are read in, and complementary definitions are used. It wouldn't be
+fully automatic, but at least it could be /right/. In theory this is implemented
+in the tree I linked to above, but it doesn't work yet.
+
+This all needs a bit more thought, but I think I'm on to something.
 
 * init                                                             :noexport:
 Local Variables:
