@@ -1,6 +1,6 @@
 #+TITLE: Dima Kogan
 #-DESCRIPTION: Dima's notes
-#+DATE: <2014-04-14 Mon 02:51>
+#+DATE: <2014-04-16 Wed 02:08>
 #+AUTHOR Dima Kogan
 
 #+STARTUP: logdone
@@ -1267,6 +1267,117 @@ fully automatic, but at least it could be /right/. In theory this is implemented
 in the tree I linked to above, but it doesn't work yet.
 
 This all needs a bit more thought, but I think I'm on to something.
+
+** DONE Argument alignment in Linux system calls                      :tools:
+   CLOSED: [2014-04-16 Wed 02:08]
+
+The last two posts talked about patches to =sysdig= and =ltrace=. This week
+wouldn't be complete without patching =strace= as well. My patch series to make
+=sysdig= work on ARM apparently had a bug: =preadv= and =pwritev= were not
+reporting their =offset= argument properly. These two syscalls had the same
+exact issue, so I'll just talk about =preadv=. The userspace prototype of this
+syscall looks like this:
+
+#+begin_src C
+ssize_t preadv(int fd, const struct iovec *iov, int iovcnt, off_t offset);
+#+end_src
+
+=off_t= is a 64-bit value, so on 32-bit architectures this must be split across
+two different registers when making the syscall. Some architectures also have
+alignment requirements. In my case, the Linux ARM EABI requires that such values
+be passed in a consecutive even/odd register pair, with a register of padding if
+needed. Thus in the case of =preadv=, the values would be passed as follows:
+
+| argument  | register |
+|-----------+----------|
+| fd        | r0       |
+| iov       | r1       |
+| iovcnt    | r2       |
+| *padding* | r3       |
+| offset    | r4/r5    |
+
+The sysdig ARM code was doing this, and it worked fine for other syscalls, but
+this was /not/ working for =preadv= and =pwritev=. To my surprise I discovered
+that even =strace= was misreporting the value of the =offset= argument. I wrote
+a small test program:
+
+#+begin_src C
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <unistd.h>
+#include <sys/uio.h>
+
+int main(void)
+{
+    const off_t offset = 1234567890123456789LL;
+    char buf[4];
+
+    int fd_zero = open("/dev/zero", O_RDONLY);
+    pread (fd_zero, buf, sizeof(buf), offset);
+    preadv(fd_zero,
+           &(struct iovec){ .iov_base = buf,
+                   .iov_len = sizeof(buf)},
+           1, offset );
+
+    int fd_null = open("/dev/null", O_WRONLY);
+    pwrite(fd_null, buf, sizeof(buf), offset);
+    pwritev(fd_null,
+            &(struct iovec){.iov_base = buf, .iov_len = sizeof(buf)},
+            1, offset );
+
+    return 0;
+}
+#+end_src
+
+Then I built it with =gcc -std=gnu99 -D_FILE_OFFSET_BITS=64=, and ran it under
+=strace= on ARM. The relevant parts of =strace= output:
+
+#+begin_src C
+open("/dev/zero", O_RDONLY|O_LARGEFILE) = 3
+pread(3, "\0\0\0\0", 4, 1234567890123456789) = 4
+preadv(3, [{"\0\0\0\0", 4}], 1, 4582412532) = 4
+open("/dev/null", O_WRONLY|O_LARGEFILE) = 4
+pwrite(4, "\0\0\0\0", 4, 1234567890123456789) = 4
+pwritev(4, [{"\0\0\0\0", 4}], 1, 4582412532) = 4
+#+end_src
+
+Note that the =offset= parameter in =preadv= and =pwritev= is reported
+as 4582412532. As you can see in the source, the offset is actually the same for
+all the calls: 1234567890123456789. So something fishy is going on. Digging
+through kernel source revealed the answer. Here's how the =pread= and =preadv=
+system calls are defined (I'm looking at =fs/read_write.c= in Linux 3.14):
+
+#+begin_src C
+SYSCALL_DEFINE4(pread64, unsigned int, fd, char __user *, buf,
+			size_t, count, loff_t, pos)
+SYSCALL_DEFINE5(preadv, unsigned long, fd, const struct iovec __user *, vec,
+		unsigned long, vlen, unsigned long, pos_l, unsigned long, pos_h)
+#+end_src
+
+Note that =pread= defines its =pos= argument as a 64-bit value of type =loff_t=.
+This is what you'd expect and also what the userspace =pread= prototype looks
+like. Now look at =preadv=. It does /not/ have a 64-bit =pos= argument. Instead
+it has two separate 32-bit arguments. This is /different/ from the userspace
+prototype! So as far as the kernel is concerned, there are no 64 bit arguments
+here, so no alignment requirements apply. So the /actual/ register map in the
+=preadv= syscall looks like
+
+| argument  | register |
+|-----------+----------|
+| fd        | r0       |
+| iov       | r1       |
+| iovcnt    | r2       |
+| offset    | r3/r4    |
+
+So libc must know to do this translation when invoking the syscall to connect
+the two different prototypes. Both =sysdig= and =strace= did not know this, and
+were interpreting the syscall inputs incorrectly.
+
+There's even an [[https://lwn.net/Articles/311630/][LWN article]] about the discussion that took place when this was
+originally implemented. There are various compatibility issues, and this was the
+best method, apparently.
+
 
 * init                                                             :noexport:
 Local Variables:
