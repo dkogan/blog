@@ -1,6 +1,6 @@
 #+TITLE: Dima Kogan
 #-DESCRIPTION: Dima's notes
-#+DATE: <2014-04-16 Wed 02:08>
+#+DATE: <2014-04-20 Sun 23:43>
 #+AUTHOR Dima Kogan
 
 #+STARTUP: logdone
@@ -1377,6 +1377,204 @@ were interpreting the syscall inputs incorrectly.
 There's even an [[https://lwn.net/Articles/311630/][LWN article]] about the discussion that took place when this was
 originally implemented. There are various compatibility issues, and this was the
 best method, apparently.
+
+** DONE More Cscope benchmarks                                        :tools:
+   CLOSED: [2014-04-20 Sun 23:43]
+
+A patch to [[http://cscope.sourceforge.net][cscope]] was just posted: https://sourceforge.net/p/cscope/patches/86/.
+This claims to speed up the building of the inverted index by using a more
+efficient search algorithm in one place, and a better sorting implementation in
+another. Since I did some cscope benchmarks earler ([[file:{lisp}(ob:link-to-post (ob:get-post-by-title "Cscope benchmarks")){/lisp}][here]] and [[file:{lisp}(ob:link-to-post (ob:get-post-by-title "GNU Global benchmarks")){/lisp}][here]]), I can easily
+evaluate this patch, so I did this.
+
+*** Test description
+
+The results aren't directly comparable to the timings in the previous posts,
+since the project being indexed (Linux kernel) is at a very different version;
+much more recent and with many more sources. The test machine is the same as
+before. All the tests were done with a real ext3 hard disk, /not/ a ramdisk. The
+cscope is the stock cscope 15.8a-2 from Debian.
+
+*** Results
+
+All timings are in seconds.
+
+**** Cold disk cache
+
+|                                              |   Stock | Patched |
+|----------------------------------------------+---------+---------|
+| Initial database build                       | 123.572 | 95.5225 |
+| Database re-build after touching a file      | 57.2912 |   30.91 |
+| Initial search                               | 9.11125 |   8.415 |
+| Re-search after touching a file              | 59.6287 |   31.92 |
+| Initial no-db-update search                  | 0.80625 |  1.2075 |
+| No-db-update re-search after touching a file |   0.805 |    0.95 |
+
+**** Warm disk cache
+
+|                                              |   Stock | Patched |
+|----------------------------------------------+---------+---------|
+| Initial database build                       | 55.3537 | 29.5287 |
+| Database re-build after touching a file      | 45.4975 |  18.805 |
+| Initial search                               | 0.12125 |    0.12 |
+| Re-search after touching a file              |  45.985 | 19.0437 |
+| Initial no-db-update search                  |       0 |       0 |
+| No-db-update re-search after touching a file |       0 | 0.00125 |
+
+Note that this tests /only the timings/. I did not actually look at the results
+being produced. Presumably they match, but I did not check.
+
+*** Conclusions
+
+Yeah. Much faster. Hopefully this produces the correct results, and gets merged
+in some form.
+
+*** Benchmark script
+
+Here's the script that was used to get the timings. It's pretty much the same as
+before, with small modifications to set what is being tested. As before, this is
+a =zsh= script. It uses some =zsh=-isms, but could be converted to =bash= if
+somebody cares to do it.
+
+#+begin_src sh
+#!/bin/zsh
+
+# needed in cleandb()
+setopt nonomatch
+
+function dropcaches() {
+    if [[ $warmcold == "cold" ]]; then
+        sync ;
+        sudo sysctl -w vm.drop_caches=3;
+    fi
+    sleep 2;
+}
+
+function cleandb() {
+    # requires nonomatch option to ignore missing globs
+    rm -f cscope.out* G*;
+}
+
+function touchfile() {
+    sleep 2; # very important. cscope needs this to see the file update
+    touch include/drm/drm_edid.h;
+}
+
+TIMEFMT='%E'
+
+awktally='
+BEGIN {
+  skip = ENVIRON["skip"]
+}
+
+/^[0-9\.]+s$/ {
+  gsub("s","");
+  str = str " " $1
+  if( n >= skip )
+  {
+    sum += $1;
+  }
+  n++;
+}
+
+END {
+  print ENVIRON["name"] ": skipping: " skip " all: " str " mean: " sum/(n-skip)
+}'
+
+typeset -A skipcounts
+skipcounts=(cold 2 warm 2)
+
+modeoptions="-k -q"
+
+cscope-indexer -l -r
+
+Nrepeat=8
+
+for mode (kernel patched)
+{
+    if [[ $mode == "patched" ]]; then
+        cmd="/tmp/cscope-15.8a-patched/src/cscope $modeoptions";
+    else
+        cmd="/tmp/cscope-15.8a/src/cscope $modeoptions";
+    fi
+
+    for dotouch (0 1)
+    {
+        for warmcold (cold warm)
+        {
+            export name="$warmcold initial build; $mode mode; touching: $dotouch";
+            export skip=$skipcounts[$warmcold];
+            repeat $(($Nrepeat + $skip)) {
+                if (($dotouch)); then
+                    touchfile;
+                else
+                    cleandb;
+                fi
+                dropcaches;
+                time ${(z)cmd} -b;
+            } |& awk $awktally
+        }
+    }
+
+    for dotouch (0 1)
+    {
+        for warmcold (cold warm)
+        {
+            export name="$warmcold initial search; $mode mode; touching: $dotouch";
+            export skip=$skipcounts[$warmcold];
+            repeat $(($Nrepeat + $skip)) {
+                if (($dotouch)); then
+                    touchfile;
+                fi
+                dropcaches;
+                time ${(z)cmd} -L0 main > /dev/null;
+            } |& awk $awktally
+        }
+    }
+
+    for dotouch (0 1)
+    {
+        for warmcold (cold warm)
+        {
+            export name="$warmcold initial no-db search; $mode mode; touching: $dotouch";
+            export skip=$skipcounts[$warmcold];
+            repeat $(($Nrepeat + $skip)) {
+                if (($dotouch)); then
+                    touchfile;
+                fi
+                dropcaches;
+                time ${(z)cmd} -d -L0 main > /dev/null;
+            } |& awk $awktally
+        }
+    }
+}
+#+end_src
+
+*** original benchmark data                                        :noexport:
+cold initial build; kernel mode; touching: 0: skipping: 2 all:  126.28 126.63 124.29 125.34 122.14 121.44 124.63 122.28 122.81 125.65 mean: 123.572
+warm initial build; kernel mode; touching: 0: skipping: 2 all:  89.94 62.50 56.71 55.47 55.03 54.61 55.70 55.26 54.72 55.33 mean: 55.3537
+cold initial build; kernel mode; touching: 1: skipping: 2 all:  56.69 59.06 57.32 57.04 57.00 57.08 57.56 57.46 57.27 57.60 mean: 57.2912
+warm initial build; kernel mode; touching: 1: skipping: 2 all:  52.52 44.44 45.47 44.71 45.16 44.60 46.76 44.70 45.61 46.97 mean: 45.4975
+cold initial search; kernel mode; touching: 0: skipping: 2 all:  8.33 8.27 8.30 11.44 9.70 8.50 8.28 8.38 9.96 8.33 mean: 9.11125
+warm initial search; kernel mode; touching: 0: skipping: 2 all:  0.13 0.13 0.12 0.12 0.12 0.13 0.12 0.12 0.12 0.12 mean: 0.12125
+cold initial search; kernel mode; touching: 1: skipping: 2 all:  60.87 61.72 62.23 59.06 59.06 60.08 58.66 58.50 57.91 61.53 mean: 59.6287
+warm initial search; kernel mode; touching: 1: skipping: 2 all:  50.66 48.51 47.33 46.55 45.50 45.18 44.43 46.96 47.43 44.50 mean: 45.985
+cold initial no-db search; kernel mode; touching: 0: skipping: 2 all:  0.98 0.65 0.96 0.65 0.97 0.65 0.97 0.64 0.96 0.65 mean: 0.80625
+warm initial no-db search; kernel mode; touching: 0: skipping: 2 all:  0.00 0.00 0.00 0.00 0.00 0.00 0.00 0.00 0.00 0.00 mean: 0
+cold initial no-db search; kernel mode; touching: 1: skipping: 2 all:  0.97 0.64 0.96 0.64 0.97 0.65 0.95 0.65 0.97 0.65 mean: 0.805
+warm initial no-db search; kernel mode; touching: 1: skipping: 2 all:  0.02 0.00 0.00 0.00 0.00 0.00 0.00 0.00 0.00 0.00 mean: 0
+cold initial build; patched mode; touching: 0: skipping: 2 all:  95.11 97.38 95.83 97.90 95.01 95.20 93.65 94.51 95.92 96.16 mean: 95.5225
+warm initial build; patched mode; touching: 0: skipping: 2 all:  30.03 29.29 29.68 29.13 29.57 29.33 29.92 29.01 29.34 30.25 mean: 29.5287
+cold initial build; patched mode; touching: 1: skipping: 2 all:  31.32 30.97 30.92 30.80 30.78 31.09 32.26 30.75 29.89 30.79 mean: 30.91
+warm initial build; patched mode; touching: 1: skipping: 2 all:  18.05 18.20 18.46 18.94 18.68 18.43 18.92 19.12 18.86 19.03 mean: 18.805
+cold initial search; patched mode; touching: 0: skipping: 2 all:  9.68 8.12 8.12 8.11 9.28 8.17 8.15 7.95 8.19 9.35 mean: 8.415
+warm initial search; patched mode; touching: 0: skipping: 2 all:  0.13 0.13 0.12 0.12 0.12 0.12 0.12 0.12 0.12 0.12 mean: 0.12
+cold initial search; patched mode; touching: 1: skipping: 2 all:  28.92 29.93 31.87 33.01 31.26 34.48 31.39 30.79 31.38 31.18 mean: 31.92
+warm initial search; patched mode; touching: 1: skipping: 2 all:  18.63 18.58 18.62 19.00 18.61 18.51 19.34 18.36 19.06 20.85 mean: 19.0437
+cold initial no-db search; patched mode; touching: 0: skipping: 2 all:  1.11 0.67 1.09 0.66 1.06 0.67 3.29 0.68 1.54 0.67 mean: 1.2075
+warm initial no-db search; patched mode; touching: 0: skipping: 2 all:  0.00 0.00 0.00 0.00 0.00 0.00 0.00 0.00 0.00 0.00 mean: 0
+cold initial no-db search; patched mode; touching: 1: skipping: 2 all:  1.04 0.66 1.02 0.65 1.02 0.77 1.28 0.81 1.22 0.83 mean: 0.95
+warm initial no-db search; patched mode; touching: 1: skipping: 2 all:  0.02 0.00 0.00 0.00 0.00 0.00 0.00 0.00 0.00 0.01 mean: 0.00125
 
 
 * init                                                             :noexport:
