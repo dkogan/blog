@@ -48,7 +48,7 @@ tiny print).
 Most recent post: [[file:{lisp}(ob:link-to-post (car ALL-POSTS)){/lisp}][{lisp}(ob:post-title (car ALL-POSTS)){/lisp}]]
 
 * Notes
-** DONE First post                                                   :o@blog:
+** DONE First post                                             :o@blog:emacs:
   CLOSED: [2014-03-17 Mon 03:48]
 
 So it has come to this. I'd like to know what the hell I actually do all day, so
@@ -347,7 +347,7 @@ real track, this probably is an underestimate of ~200ft. Not bad.
 bug-free and that the DEM data is correct. While I don't know of any bugs, there
 could be some. Same for the DEM data
 
-** DONE X11 urgency hint and notifications                            :tools:
+** DONE X11 urgency hint and notifications                    :tools:desktop:
    CLOSED: [2014-03-19 Wed 00:20]
 
 X11 has a common system for window notifications: the urgency hint. The relevant
@@ -438,7 +438,7 @@ Now I /can/ say
 #+begin_src sh
 make; seturgent
 #+end_src
-** DONE Already-running process notifications                         :tools:
+** DONE Already-running process notifications                 :tools:desktop:
    CLOSED: [2014-03-20 Thu 22:35]
 
 The tool described in the last post ([[file:{lisp}(ob:link-to-post (ob:get-post-by-title "X11 urgency hint and notifications")){/lisp}][X11 urgency hint and notifications]]) works
@@ -538,7 +538,7 @@ I've been using this for a little bit. It's not perfect, and there're some warts
 I'd like to fix. Still, it does the job, and it's already something I use every
 day.
 
-** DONE Cscope benchmarks                                  :tools:data:emacs:
+** DONE Cscope benchmarks                              :tools:dev:data:emacs:
    CLOSED: [2014-03-25 Tue 03:36]
 
 I read and write lots of C code, and I find the [[http://cscope.sourceforge.net/][cscope]] tool to be invaluable in
@@ -681,7 +681,7 @@ the performance gains to not loading the database rather than rebuilding the
 index too often. In any case, I think it's pretty clear that this feature is not
 worth the work, so I'm keeping =xcscope= as is.
 
-** DONE GNU Global benchmarks                                    :tools:data:
+** DONE GNU Global benchmarks                                :tools:data:dev:
    CLOSED: [2014-03-30 Sun 00:42]
 
 The [[file:{lisp}(ob:link-to-post (ob:get-post-by-title "Cscope benchmarks")){/lisp}][last post]] reports some performance numbers for [[http://cscope.sourceforge.net][cscope]]. There's another,
@@ -1018,7 +1018,7 @@ Data order same as before:
 |        |        0.0 |        0.0 |
 |        |        0.0 |        0.0 |
 
-** DONE Running qemu with a custom kernel on ARM                      :tools:
+** DONE Running qemu with a custom kernel on ARM                  :tools:dev:
    CLOSED: [2014-04-07 Mon 23:38]
 
 So I was porting [[http://www.sysdig.org][sysdig]] to ARM, and needed a target device to test the progress.
@@ -1069,7 +1069,7 @@ etc. There is a benign warning about not being able to talk to the modules from
 the original kernel, but I obviously don't care. By default =eth0= is at
 =10.0.2.15= with the host machine reachable at =10.0.2.2=.
 
-** DONE Reading DWARF prototypes in ltrace                            :tools:
+** DONE Reading DWARF prototypes in ltrace                        :tools:dev:
    CLOSED: [2014-04-14 Mon 02:51]
 
 From time to time I use the [[http://ltrace.org/][=ltrace=]] tool for introspection into user-space
@@ -1268,7 +1268,7 @@ in the tree I linked to above, but it doesn't work yet.
 
 This all needs a bit more thought, but I think I'm on to something.
 
-** DONE Argument alignment in Linux system calls                      :tools:
+** DONE Argument alignment in Linux system calls                  :tools:dev:
    CLOSED: [2014-04-16 Wed 02:08]
 
 The last two posts talked about patches to =sysdig= and =ltrace=. This week
@@ -1378,7 +1378,7 @@ There's even an [[https://lwn.net/Articles/311630/][LWN article]] about the disc
 originally implemented. There are various compatibility issues, and this was the
 best method, apparently.
 
-** DONE More Cscope benchmarks                                        :tools:
+** DONE More Cscope benchmarks                               :tools:dev:data:
    CLOSED: [2014-04-20 Sun 23:43]
 
 A patch to [[http://cscope.sourceforge.net][cscope]] was just posted: https://sourceforge.net/p/cscope/patches/86/.
