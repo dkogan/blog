@@ -1,6 +1,6 @@
 #+TITLE: Dima Kogan
 #-DESCRIPTION: Dima's notes
-#+DATE: <2014-04-20 Sun 23:43>
+#+DATE: <2014-05-01 Thu 14:39>
 #+AUTHOR Dima Kogan
 
 #+STARTUP: logdone
@@ -1576,6 +1576,108 @@ warm initial no-db search; patched mode; touching: 0: skipping: 2 all:  0.00 0.0
 cold initial no-db search; patched mode; touching: 1: skipping: 2 all:  1.04 0.66 1.02 0.65 1.02 0.77 1.28 0.81 1.22 0.83 mean: 0.95
 warm initial no-db search; patched mode; touching: 1: skipping: 2 all:  0.02 0.00 0.00 0.00 0.00 0.00 0.00 0.00 0.00 0.01 mean: 0.00125
 
+** DONE Even better notifications                             :tools:desktop:
+   CLOSED: [2014-05-01 Thu 14:39]
+
+Two previous posts ([[file:{lisp}(ob:link-to-post (ob:get-post-by-title "X11 urgency hint and notifications")){/lisp}][X11 urgency hint and notifications]] and [[file:{lisp}(ob:link-to-post (ob:get-post-by-title "Already-running process notifications")){/lisp}][Already-running
+process notifications]]) talked about ways to notify the user about terminating
+shell processes. I've been living with this setup for a little while, and I just
+thought of a better way to do this. Instead of the user asking for notifications
+about particular processes, why not get notifications about /all/ processes?
+
+As before, I'm using the X11 urgency hint. This hint is automatically removed by
+the window manager when the hinted window is focused. Thus if you set an urgency
+hint on an already-focused window, nothing will happen. Thus setting urgency on
+completion of every single command won't generate too much noise, since most of
+the time we're in the same terminal window at the start /and/ the stop of the
+command. You /will/ see a notification when you move to a different window
+before the process exits, which is /exactly/ what you want here.
+
+=zsh= has a convenient hook that can be used for this: =precmd= is called right
+before the shell prompt is printed. So to notify on all completions, you can put
+into your =.zshrc=:
+
+#+begin_src sh
+function precmd {
+  seturgent
+}
+#+end_src
+
+This works, with one caveat: as described previously, =seturgent= is a perl
+script, and calling it this way one can feel the overhead. It feels slower than
+it should be. Since =seturgent= isn't doing any searching here, I rewrote the
+chunk of it we're using in C. As one would think, it's way quicker:
+
+=seturgent_fast.c=
+#+begin_src C
+#include <stdio.h>
+#include <stdlib.h>
+#include <X11/Xlib.h>
+#include <X11/Xutil.h>
+
+int main(void)
+{
+    const char* window_idstring = getenv("WINDOWID");
+    if( window_idstring == NULL )
+    {
+        fprintf(stderr, "No WINDOWID set\n");
+        return 1;
+    }
+    Window w = atoi(window_idstring);
+    if( w <= 0 )
+    {
+        fprintf(stderr, "Couldn't parse window id '%s'\n",
+                window_idstring);
+        return 1;
+    }
+
+
+    Display* display;
+    const char* displaystring = getenv("DISPLAY");
+    if( displaystring == NULL )
+    {
+        fprintf(stderr, "No DISPLAY set\n");
+        return 1;
+    }
+
+    display = XOpenDisplay(displaystring);
+    if( display == NULL )
+    {
+        fprintf(stderr, "Couldn't open display '%s\n", displaystring);
+        return 1;
+    }
+
+    XWMHints* hints = XGetWMHints(display, w);
+    if( hints == NULL )
+    {
+        fprintf(stderr, "Couldn't retrieve hints\n");
+        return 1;
+    }
+
+    hints->flags |= XUrgencyHint;
+    XSetWMHints(display, w, hints);
+
+    XFree(hints);
+    XFlush(display);
+    XCloseDisplay(display);
+    return 0;
+}
+#+end_src
+
+This can be built simply with
+
+#+begin_src sh
+gcc -lX11 -o seturgent_fast{,.c}
+#+end_src
+
+Running this for a bit the main discovery is that it's a bit easier to maintain
+focus. Previously, I'd start a build or APT update (or whatever), then go do
+something else, checking on the progress of the long task periodically. This
+punctuated workflow is fairly inefficient, and the notification system help to
+minimize it as much as is possible.
+
+So yeah. I'll run this for a bit more, and we'll see if there's more to improve.
+   
 
 * init                                                             :noexport:
 Local Variables:
