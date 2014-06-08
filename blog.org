@@ -1,6 +1,6 @@
 #+TITLE: Dima Kogan
 #-DESCRIPTION: Dima's notes
-#+DATE: <2014-05-01 Thu 14:39>
+#+DATE: <2014-06-07 Sat 17:29>
 #+AUTHOR Dima Kogan
 
 #+STARTUP: logdone
@@ -1678,6 +1678,23 @@ minimize it as much as is possible.
 
 So yeah. I'll run this for a bit more, and we'll see if there's more to improve.
    
+** DONE Emacs-snapshot package hosting                                :emacs:
+   CLOSED: [2014-06-07 Sat 17:29]
+
+A few months ago, Julian Danjou stopped updating his bleeding-edge GNU Emacs
+Debian packages (http://emacs.naquadah.org/). I've been using those for a while,
+and I'd like to continue doing so. Thus, I'm now building and hosting my own
+bleeding-edge packages: http://emacs.secretsauce.net/.
+
+There's nothing particularly noteworthy about the building or hosting of these.
+The =/etc/apt/sources.list= entries are
+
+#+BEGIN_EXAMPLE
+deb     [arch=amd64] http://emacs.secretsauce.net unstable main
+deb-src [arch=amd64] http://emacs.secretsauce.net unstable main
+#+END_EXAMPLE
+
+In other news, it turns out that web site hosting is now incredibly cheap.
 
 * init                                                             :noexport:
 Local Variables:
