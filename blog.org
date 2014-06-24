@@ -1696,6 +1696,31 @@ deb-src [arch=amd64] http://emacs.secretsauce.net unstable main
 
 In other news, it turns out that web site hosting is now incredibly cheap.
 
+** DONE Tab completion for sysdig                                     :tools:
+   CLOSED: [2014-06-23 Mon 18:10]
+
+I just implemented =zsh= tab-completion functionality for =sysdig=:
+
+ https://raw.githubusercontent.com/dkogan/sysdig/master/scripts/completions/zsh/_sysdig
+
+The patch was merged to =sysdig= upstream.
+
+It's fairly nice, and makes =sysdig= easier to use for those who don't yet have
+all the knobs memorized, such as myself. I complete on
+
+- commandline options
+- commandline option arguments
+- chisel names
+- chisel arguments
+- filter field names
+
+Some of those are hard-coded in the completion script, and some are reported by
+the =sysdig= executable itself. Having written this I'm now acutely aware of
+missing similar functionality in =tcpdump= and =perf=. Both of those have some
+tab completion, but do not complete on event types. If they did, writing things
+like =tcpdump= filters would be much easier. That's a good thing to add at some
+point.
+
 * init                                                             :noexport:
 Local Variables:
 eval: (progn
