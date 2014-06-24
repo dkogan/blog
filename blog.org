@@ -1721,6 +1721,14 @@ tab completion, but do not complete on event types. If they did, writing things
 like =tcpdump= filters would be much easier. That's a good thing to add at some
 point.
 
+Another interesting discovery is that it is apparently normal for =zsh=
+completion scripts to live in the =zsh= repository, /not/ in the repository of
+the thing being completed. So in this case I apparently went against to grain by
+contributing my script to =sysdig= instead of =zsh=. This feels right, though.
+But if I make those additions to =tcpdump= and/or =perf= completions, those will
+go to the =zsh= people.
+
+
 * init                                                             :noexport:
 Local Variables:
 eval: (progn
