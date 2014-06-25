@@ -1,6 +1,6 @@
 #+TITLE: Dima Kogan
 #-DESCRIPTION: Dima's notes
-#+DATE: <2014-06-07 Sat 17:29>
+#+DATE: <2014-06-25 Wed 16:51>
 #+AUTHOR Dima Kogan
 
 #+STARTUP: logdone
@@ -1727,6 +1727,144 @@ the thing being completed. So in this case I apparently went against to grain by
 contributing my script to =sysdig= instead of =zsh=. This feels right, though.
 But if I make those additions to =tcpdump= and/or =perf= completions, those will
 go to the =zsh= people.
+
+** DONE Ltrace filtering details                                      :tools:
+   CLOSED: [2014-06-25 Wed 16:51]
+
+In an [[file:{lisp}(ob:link-to-post (ob:get-post-by-title "Reading DWARF prototypes in ltrace")){/lisp}][earlier post]] I talked about teaching ltrace to read function prototypes
+from DWARF data. I'm making more progress on that front, and the initial code
+has been merged into the upstream ltrace repository. One point of confusion for
+me was the difference between ltrace's various filtering commandline options
+=-x=, =-e=, =-l= and =-L=. I added a more thorough description and an example to
+the ltrace manpage, and I'm discussing this here.
+
+The ltrace filters specify which functions should be instrumented. Since ltrace
+introduces non-negligible overhead to the running process, it's very desirable
+to instrument only the functions you care about. Otherwise the process can be
+slowed significantly.
+
+Broadly speaking
+
+- =-x= is *show me what calls these symbols (including local calls)*
+- =-e= is *show me what calls these symbols (inter-library calls only)*
+- =-l= is *show me what calls into this library*
+
+Inter-library and intra-library calls are treated separately because they are
+implemented differently in the binary. Calls into a shared object use the PLT
+mechanism, while local calls do not.
+
+If no =-e= or =-l= filtering options are given, ltrace assumes a default filter
+of =-e @MAIN= (trace all non-local calls into the main executable). If only a
+=-x= is given, this default filter is /still/ present, and it can be turned off
+by passing =-L=. In my experience, if you're using =-x=, you pretty much always
+want =-L= as well.
+
+*** Example
+
+Suppose I have a library defined with this header =tstlib.h=:
+
+#+BEGIN_SRC C
+#pragma once
+void func_f_lib(void);
+void func_g_lib(void);
+#+END_SRC
+
+and this implementation =tstlib.c=:
+
+#+BEGIN_SRC C
+#include "tstlib.h"
+void func_f_lib(void)
+{
+    func_g_lib();
+}
+void func_g_lib(void)
+{
+}
+#+END_SRC
+
+Note that =func_f_lib()= and =func_g_lib()= are both external symbols. I have an
+executable that uses this library defined like this =tst.c=:
+
+#+BEGIN_SRC C
+#include "tstlib.h"
+void func_f_main(void)
+{
+}
+void main(void)
+{
+    func_f_main();
+    func_f_lib();
+}
+#+END_SRC
+
+Note that =func_f_main()= is an external symbol as well.
+
+If linking with =-Bdynamic= (the default for pretty much everybody), the
+internal =func_g_lib()= and =func_g_main()= calls use the PLT like external
+calls, and thus ltrace says:
+
+#+BEGIN_EXAMPLE
+$ gcc -Wl,-Bdynamic -shared -fPIC -g -o tstlib.so tstlib.c
+
+$ gcc -Wl,-rpath=$PWD -g -o tst tst.c tstlib.so
+
+$ ltrace -x 'func*' -L ./tst
+
+func_f_main()                             = <void>
+func_f_lib@tstlib.so( <unfinished ...>
+func_g_lib@tstlib.so()                    = <void>
+<... func_f_lib resumed> )                = <void>
++++ exited (status 163) +++
+
+
+$ ltrace -e 'func*' ./tst
+
+tst->func_f_lib( <unfinished ...>
+tstlib.so->func_g_lib()                   = <void>
+<... func_f_lib resumed> )                = <void>
++++ exited (status 163) +++
+
+
+$ ltrace -l tstlib.so ./tst
+
+tst->func_f_lib( <unfinished ...>
+tstlib.so->func_g_lib()                   = <void>
+<... func_f_lib resumed> )                = <void>
++++ exited (status 163) +++
+#+END_EXAMPLE
+
+By contrast, if linking the shared library with =-Bsymbolic=, then the internal
+=func_g_lib()= call bypasses the PLT, and ltrace says:
+
+#+BEGIN_EXAMPLE
+$ gcc -Wl,-Bsymbolic -shared -fPIC -g -o tstlib.so tstlib.c
+
+$ gcc -Wl,-rpath=$PWD -g -o tst tst.c tstlib.so
+
+$ ltrace -x 'func*' -L ./tst
+
+func_f_main() = <void>
+func_f_lib@tstlib.so( <unfinished ...>
+func_g_lib@tstlib.so()                    = <void>
+<... func_f_lib resumed> )                = <void>
++++ exited (status 163) +++
+
+
+$ ltrace -e 'func*' ./tst
+
+tst->func_f_lib()                         = <void>
++++ exited (status 163) +++
+
+
+$ ltrace -l tstlib.so ./tst
+
+tst->func_f_lib()                         = <void>
++++ exited (status 163) +++
+#+END_EXAMPLE
+
+Note that the =-x= traces are the same in both cases, since =-x= traces local
+/and/ external calls. However =-e= and =-l= trace only external calls, so with
+=-Bsymbolic=, local calls to =func_g_lib()= do not appear there.
 
 
 * init                                                             :noexport:
