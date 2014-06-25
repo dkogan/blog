@@ -1732,6 +1732,7 @@ go to the =zsh= people.
 * init                                                             :noexport:
 Local Variables:
 eval: (progn
+          (auto-fill-mode)
           (load-library "compile")
           (load-library "o-blog")
           (setq org-html-table-default-attributes
