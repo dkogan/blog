@@ -1,6 +1,6 @@
 #+TITLE: Dima Kogan
 #-DESCRIPTION: Dima's notes
-#+DATE: <2014-06-25 Wed 16:51>
+#+DATE: <2014-07-10 Thu 01:20>
 #+AUTHOR Dima Kogan
 
 #+STARTUP: logdone
@@ -1730,7 +1730,7 @@ go to the =zsh= people.
 
 ** DONE Ltrace filtering details                                      :tools:
    CLOSED: [2014-06-25 Wed 16:51]
-
+   
 In an [[file:{lisp}(ob:link-to-post (ob:get-post-by-title "Reading DWARF prototypes in ltrace")){/lisp}][earlier post]] I talked about teaching ltrace to read function prototypes
 from DWARF data. I'm making more progress on that front, and the initial code
 has been merged into the upstream ltrace repository. One point of confusion for
@@ -1865,6 +1865,175 @@ tst->func_f_lib()                         = <void>
 Note that the =-x= traces are the same in both cases, since =-x= traces local
 /and/ external calls. However =-e= and =-l= trace only external calls, so with
 =-Bsymbolic=, local calls to =func_g_lib()= do not appear there.
+
+** DONE Reading DWARF prototypes in ltrace (part 2)               :tools:dev:
+   CLOSED: [2014-07-10 Thu 01:20]
+
+As mentioned [[file:{lisp}(ob:link-to-post (ob:get-post-by-title "Reading DWARF prototypes in ltrace")){/lisp}][earlier]], I'm adding functionality to ltrace to read function
+prototypes from DWARF debugging information. The bulk of this work was merged
+upstream. I'm now hunting corner cases and various details in this whole system
+before moving on to implement more features. Unsurprisingly, trying to trace
+calls in libc is a rich source of corner cases. Some of these are discussed here
+in no particular order.
+
+*** Missing features
+    
+Ltrace currently chokes (crashes!) when encountering prototypes with particular
+features. Some of these are
+
+- Complex numbers
+- =void= variables
+- =union= fields
+- bit fields
+
+Most of the time these aren't used, but glibc has them somewhere, and ltrace can
+get confused when the new DWARF-reading code parses glibc.
+
+
+*** C++ symbol names
+
+Some DWARF symbol DIEs have a =DW_AT_linkage_name= tag in addition to the normal
+=DW_AT_name= tag. The purpose of this wasn't entirely obvious until I tried to
+ltrace a C++ program. Suppose I have this trivial C++ program:
+
+=tst.cc=
+#+BEGIN_SRC C
+class C
+{
+    void f(void);
+};
+
+void C::f(void)
+{
+}
+#+END_SRC
+
+I compile it, and dump the debug info:
+
+#+begin_example
+
+$ g++ -g -o tst.o -c tst.cc && readelf -w tst.o
+....
+ <2><37>: Abbrev Number: 3 (DW_TAG_subprogram)
+    <38>   DW_AT_external    : 1
+    <38>   DW_AT_name        : f
+    <3a>   DW_AT_decl_file   : 1
+    <3b>   DW_AT_decl_line   : 3
+    <3c>   DW_AT_linkage_name: (indirect string, offset: 0x4e): _ZN1C1fEv
+    <40>   DW_AT_declaration : 1
+    <40>   DW_AT_object_pointer: <0x44>
+....
+#+end_example
+
+Note that for my method =f= the =DW_AT_name= is =f=, but the
+=DW_AT_linkage_name= is =_ZN1C1fEv=. The linker does not know C++, and it only
+seems symbol names. Here this symbol name is the mangled =_ZN1C1fEv=, so as far
+as ltrace is concerned, this is the name of this function and thus it should use
+=DW_AT_linkage_name= here. One could think that the parsing rule in ltrace
+should be "use =DW_AT_linkage_name= if it exists, otherwise use
+=DW_AT_linkage_name=". One would be wrong, since the next section shows that
+this logic is too simple.
+
+*** Aliased symbols (different symbol, same address)
+
+Trying to ltrace this simple program doesn't work when reading the DWARF
+prototypes automatically:
+
+=tst.c=
+#+begin_src C
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <time.h>
+int main(void)
+{
+    nanosleep( &(struct timespec){.tv_sec=0,.tv_nsec=33}, NULL);
+    usleep(44);
+    return 0;
+}
+#+end_src
+
+I get this:
+
+#+begin_example
+$ gcc -o tst tst.c
+$ ltrace -l 'libc.so*' -L ./tst
+tst->__libc_start_main(0x40054d, 1, 0x7fffc04253f8, 0x400590 <unfinished ...>
+tst->nanosleep(0x7fffc0425300, 0, 0x7fffc0425408, 0)                 = 0
+tst->usleep(44)                                                      = <void>
++++ exited (status 0) +++
+#+end_example
+
+Note that the =nanosleep()= call does not have the correct prototype. This is
+because we call =nanosleep()=, but the DWARF defines =__nanosleep= and
+=__GI___nanosleep=:
+
+#+begin_example
+$ nm -D tst | grep nanosleep
+
+                 U nanosleep
+
+
+$ nm -D /lib/x86_64-linux-gnu/libc-2.18.so | grep nanosleep
+
+00000000000f26f0 T __clock_nanosleep
+00000000000b7070 W __nanosleep
+00000000000f26f0 W clock_nanosleep
+00000000000b7070 W nanosleep
+
+
+$ readelf -w /usr/lib/debug/lib/x86_64-linux-gnu/libc-2.18.so | grep nanosleep
+
+    <20c7cf>   DW_AT_name        : (indirect string, offset: 0x13a95): __nanosleep
+    <20c7d5>   DW_AT_linkage_name: (indirect string, offset: 0x13a90): __GI___nanosleep
+    <280d67>   DW_AT_name        : (indirect string, offset: 0x13a95): __nanosleep
+    <280d6d>   DW_AT_linkage_name: (indirect string, offset: 0x13a90): __GI___nanosleep
+    <2dc871>   DW_AT_name        : (indirect string, offset: 0x1d940): __clock_nanosleep
+    <3b0b59>   DW_AT_name        : (indirect string, offset: 0x13a95): __nanosleep
+    <3b0b5f>   DW_AT_linkage_name: (indirect string, offset: 0x13a90): __GI___nanosleep
+#+end_example
+
+We can resolve this discrepancy by noting that the =nanosleep= symbol in the
+libc symbol table has the same address as =__nanosleep=, and use =__nanosleep='s
+DWARF prototype. I implemented this, and the patch is currently in review.
+
+*** Aliased addresses (same symbol, different address)
+
+Testing further, I discovered that in the libc on my machine (Debian/sid amd64)
+some symbols appear at multiple addresses:
+
+#+begin_example
+$ nm -D /lib/x86_64-linux-gnu/libc-2.18.so | awk '{print $NF}' | sort | uniq -d
+_sys_errlist
+_sys_nerr
+_sys_siglist
+memcpy
+nftw
+nftw64
+posix_spawn
+posix_spawnp
+pthread_cond_broadcast
+pthread_cond_destroy
+pthread_cond_init
+pthread_cond_signal
+pthread_cond_timedwait
+pthread_cond_wait
+realpath
+regexec
+sched_getaffinity
+sched_setaffinity
+sys_errlist
+sys_nerr
+sys_sigabbrev
+sys_siglist
+#+end_example
+
+This can make the DWARF parser confused. Looking into it, it looks like those
+are versioned symbols, with different implementation for different libc
+versions. This same-symbol-different-address idea doesn't fit into the data
+structures, as I've currently defined them. Currently I simply take the first
+such symbol I encounter and ignore the rest. I probalby should parse this out
+fully, but it hardly seems worth the effort.
 
 
 * init                                                             :noexport:
