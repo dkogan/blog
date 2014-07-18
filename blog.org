@@ -2035,7 +2035,7 @@ structures, as I've currently defined them. Currently I simply take the first
 such symbol I encounter and ignore the rest. I probalby should parse this out
 fully, but it hardly seems worth the effort.
 
-** DONE Closures and cookies in C
+** DONE Closures and cookies in C                                       :dev:
    CLOSED: [2014-07-17 Thu 17:43]
 
 I recently discovered something that's /very/ old news to functional programming
