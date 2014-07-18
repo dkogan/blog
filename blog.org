@@ -1,6 +1,6 @@
 #+TITLE: Dima Kogan
 #-DESCRIPTION: Dima's notes
-#+DATE: <2014-07-10 Thu 01:20>
+#+DATE: <2014-07-17 Thu 17:43>
 #+AUTHOR Dima Kogan
 
 #+STARTUP: logdone
@@ -2034,6 +2034,188 @@ versions. This same-symbol-different-address idea doesn't fit into the data
 structures, as I've currently defined them. Currently I simply take the first
 such symbol I encounter and ignore the rest. I probalby should parse this out
 fully, but it hardly seems worth the effort.
+
+** DONE Closures and cookies in C
+   CLOSED: [2014-07-17 Thu 17:43]
+
+I recently discovered something that's /very/ old news to functional programming
+people, but was new to me, especially as being applied to C. It is common
+practice in C coding to use callback functions when a general routine needs to
+do something specific that the caller knows about. Furthermore, a =void* cookie=
+is generally used to pass context to this callback.
+
+Here's a simple C99 example of a linked-list structure and a iterator that calls
+a callback function for each element of the list. The iterator takes a =cookie=
+argument, which it passes on untouched to the callback. This =cookie= means
+something to the caller of the iterator and to the callback, but it means
+nothing to the iterator itself. This is the usual idiom. Furthermore, the
+example contains a simple use of this iterator, to print all node values to a
+particular =FILE=:
+
+#+begin_src c
+#include <stdio.h>
+
+struct node
+{
+    int x;
+    struct node* next;
+};
+
+typedef void (*foreach_callback)(const struct node* node, void* cookie);
+
+static void foreach(const struct node* list,
+                    const foreach_callback cb, void* cookie)
+{
+    while(list != NULL)
+    {
+        cb(list, cookie);
+        list = list->next;
+    }
+}
+
+
+
+
+static void print_node(const struct node* node, FILE* fp)
+{
+    fprintf(fp, "%d\n", node->x);
+}
+
+static void print_nodes(const struct node* list, FILE* fp)
+{
+    foreach(list, (foreach_callback)print_node, fp);
+}
+
+int main(void)
+{
+    struct node list =
+        {.x = 10,
+         .next = &(struct node){.x = 11,
+                                .next = &(struct node){.x = 12,
+                                                       .next = NULL}}};
+
+    print_nodes(&list, stdout);
+    return 0;
+}
+#+end_src
+
+This works fine, and things have been done this way for a very long time. As
+written, =print_node()= is visible to most of the source file, even though it is
+only used by =print_nodes()=. It would be nice if =print_node()= was visible
+/only/ from that one function that uses it. This is not possible in standard C.
+However GCC has a [[https://gcc.gnu.org/onlinedocs/gcc/Nested-Functions.html][non-standard extension]] that allows such things: nested
+functions. With that in mind, we can rewrite the example like so:
+
+#+begin_src c
+#include <stdio.h>
+
+struct node
+{
+    int x;
+    struct node* next;
+};
+
+typedef void (*foreach_callback)(const struct node* node, void* cookie);
+
+static void foreach(const struct node* list,
+                    const foreach_callback cb, void* cookie)
+{
+    while(list != NULL)
+    {
+        cb(list, cookie);
+        list = list->next;
+    }
+}
+
+
+
+
+static void print_nodes(const struct node* list, FILE* fp)
+{
+    void print_node(const struct node* node, FILE* fp)
+    {
+        fprintf(fp, "%d\n", node->x);
+    }
+
+
+    foreach(list, (foreach_callback)print_node, fp);
+}
+
+int main(void)
+{
+    struct node list =
+        {.x = 10,
+         .next = &(struct node){.x = 11,
+                                .next = &(struct node){.x = 12,
+                                                       .next = NULL}}};
+
+    print_nodes(&list, stdout);
+    return 0;
+}
+#+end_src
+
+That's nicer. =print_nodes()= is now self-contained, and none of its
+implementation details leak out. At this point we're not using the nested
+function as anything more than just syntactic sugar. However, these aren't
+simply /nested functions/; they're full /closures/, i.e. the nested function has
+access to the local variables of its surrounding scope. This means that
+=print_node()= can see the =fp= argument to =print_nodes()=, and doesn't need to
+be passed it. Thus *we do not need the cookie!* The state maintained by the
+nested function takes on the work that the cookie did for us previously. As
+such, we can rewrite this example with no cookies at all:
+
+
+#+begin_src c
+#include <stdio.h>
+
+struct node
+{
+    int x;
+    struct node* next;
+};
+
+typedef void (*foreach_callback)(const struct node* node);
+
+static void foreach(const struct node* list, const foreach_callback cb)
+{
+    while(list != NULL)
+    {
+        cb(list);
+        list = list->next;
+    }
+}
+
+
+
+
+static void print_nodes(const struct node* list, FILE* fp)
+{
+    void print_node(const struct node* node)
+    {
+        fprintf(fp, "%d\n", node->x);
+    }
+
+
+    foreach(list, print_node);
+}
+
+int main(void)
+{
+    struct node list =
+        {.x = 10,
+         .next = &(struct node){.x = 11,
+                                .next = &(struct node){.x = 12,
+                                                       .next = NULL}}};
+
+    print_nodes(&list, stdout);
+    return 0;
+}
+#+end_src
+
+
+Neat! Clearly this is non-portable. It also is potentially unsafe since
+internally the compiler generates a bit of code on the stack and runs it. Still,
+the code looks nicer and we don't need cookies.
 
 
 * init                                                             :noexport:
