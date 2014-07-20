@@ -1,6 +1,6 @@
 #+TITLE: Dima Kogan
 #-DESCRIPTION: Dima's notes
-#+DATE: <2014-07-17 Thu 17:43>
+#+DATE: <2014-07-20 Sun 01:55>
 #+AUTHOR Dima Kogan
 
 #+STARTUP: logdone
@@ -2216,6 +2216,38 @@ int main(void)
 Neat! Clearly this is non-portable. It also is potentially unsafe since
 internally the compiler generates a bit of code on the stack and runs it. Still,
 the code looks nicer and we don't need cookies.
+
+** DONE Debian cross-gcc snapshot packages                        :tools:dev:
+   CLOSED: [2014-07-20 Sun 01:55]
+
+For a while, getting a cross-compiler on Debian was much more complicated than
+simply running an =apt-get install=. The /current/ situation is that
+cross-compilers are mostly ready-to-build, but for uninteresting reasons,
+packages are still not available in the main Debian repository. I am now
+building these packages every week, and hosting them on my APT server:
+
+http://toolchains.secretsauce.net/
+
+I attempt to build compilers targeting
+
+- armel
+- armhf
+- mips
+- mipsel
+- powerpc
+
+Compilers for the following languages are built:
+
+- C
+- C++
+- Fortran
+- Java
+- Go
+- Objective C
+- Objective C++
+
+Hopefully we'll get cross-compilers into Debian proper at some point, so that
+using my unofficial repo becomes unnecessary
 
 
 * init                                                             :noexport:
