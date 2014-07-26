@@ -1,6 +1,6 @@
 #+TITLE: Dima Kogan
 #-DESCRIPTION: Dima's notes
-#+DATE: <2014-07-20 Sun 01:55>
+#+DATE: <2014-07-25 Fri 17:34>
 #+AUTHOR Dima Kogan
 
 #+STARTUP: logdone
@@ -2249,6 +2249,178 @@ Compilers for the following languages are built:
 Hopefully we'll get cross-compilers into Debian proper at some point, so that
 using my unofficial repo becomes unnecessary
 
+** DONE Decoding P25 with RTL-SDR on Debian                             :SDR:
+   CLOSED: [2014-07-25 Fri 17:31]
+
+I wanted to play with an [[http://en.wikipedia.org/wiki/Software_defined_radio][software-defined radio]] for a while now. A simple one
+can be had for about $10 by repurposing a USB TV adapter:
+http://sdr.osmocom.org/trac/wiki/rtl-sdr. I bought one, and looked into using it
+as a police scanner. Suprisingly to me, there's quite a bit of information out
+there about the protocols and frequencies used by LAPD:
+http://harrymarnell.net/lapd-freqs.htm. So they're using [[http://en.wikipedia.org/wiki/P25][P25]]-encoded digital
+signals, which are unencrypted, apparently.
+
+There are some guides out there on how to decode these with an RTL-SDR, but
+they're all highly Windows-centric (and look like a pain in the butt, to be
+honest). This post is a set of notes on getting this working on a Debian box.
+
+*** Obtaining the tools
+
+The core RTL-SDR libraries, GNU Radio and UI tools such as [[http://gqrx.dk/][GQRX]] are already in
+Debian, so getting them is trivial. There is a tool for decoding P25, =dsd=;
+it's not in Debian, so we have to build it. First we get and build =mbelib=, a
+library it uses. We check out the code, roll bakc to the latest tag and build:
+
+
+#+begin_example
+
+dima@shorty:/tmp$ git clone https://github.com/szechyjs/mbelib
+...
+dima@shorty:/tmp$ cd mbelib
+
+dima@shorty:/tmp/mbelib$ git tag -l
+v1.2.1
+v1.2.3
+v1.2.4
+v1.2.5
+
+dima@shorty:/tmp/mbelib$ git reset --hard v1.2.5
+HEAD is now at 316bab6 Bump version to v1.2.5
+
+dima@shorty:/tmp/mbelib$ mkdir build
+
+dima@shorty:/tmp/mbelib$ cd build
+
+dima@shorty:/tmp/mbelib/build$ cmake ..
+...
+
+dima@shorty:/tmp/mbelib/build$ make
+...
+Linking C static library libmbe.a
+
+#+end_example
+
+OK. We built =mbelib=, now we can build =dsd=. Same as before, except we tweak
+the =Makefile= to find and use the library we just built, and to use the
+statically-linked version so that we don't need to mess with RPATHs.
+
+#+begin_example
+
+dima@shorty:/tmp$ git clone https://github.com/szechyjs/dsd
+...
+
+dima@shorty:/tmp$ cd dsd
+
+dima@shorty:/tmp/dsd$ git tag -l
+v1.3
+v1.4.1
+v1.6.0
+
+dima@shorty:/tmp/dsd$ git reset --hard v1.6.0
+HEAD is now at 5d147c9 version 1.6.0
+
+dima@shorty:/tmp/dsd$ perl -p -i -e 's{/usr/local/include}{/tmp/mbelib/}g; s{-lmbe}{/tmp/mbelib/build/libmbe.a}' Makefile
+
+dima@shorty:/tmp/dsd$ make
+...
+gcc -O2 -Wall -o dsd dsd_main.o dsd_symbol.o dsd_dibit.o dsd_frame_sync.o dsd_file.o dsd_audio.o dsd_serial.o dsd_frame.o dsd_mbe.o dsd_upsample.o p25p1_hdu.o p25p1_ldu1.o p25p1_ldu2.o p25p1_tdulc.o p25_lcw.o x2tdma_voice.o x2tdma_data.o dstar.o nxdn_voice.o nxdn_data.o dmr_voice.o dmr_data.o provoice.o -L/usr/local/lib -lm /tmp/mbelib/build/libmbe.a 
+
+#+end_example
+
+*** Decoding the stream
+
+Now we can think about listening in. The overall data flow is
+
+- Tune in, demodulate the narrow-band FM signal into a 48KHz-sampled signal
+- Use =dsd= to decode this 48KHz-sampled signal to produce 8KHz-sampled audio
+
+**** FM
+
+There are several basic tools one can use for this. I'd prefer to use the
+commandline =rtl_sdr= or =rtl_fm= from the [[https://packages.debian.org/sid/rtl-sdr][rtl-sdr]] Debian package. The issue I
+ran into was that we're tuning into a relatively narrow-band signal, so the
+tuning is sensitive, and small tuning errors make you miss the signal you want
+entirely. RTL-SDR is a cheap device, and its tuning inaccuracy alone is enough
+to break this. There exists an [[https://github.com/steve-m/kalibrate-rtl][RTL-SDR calibration tool]] to compensate for the
+hardware inaccuracy, but I still wasn't able to successfully tune into the
+frequencies, as defined in the LAPD channel list linked above. I didn't push on
+this very hard, so this could very well be my fault.
+
+So instead of the commandline tools, I ended up GQRX. Pretty much all the LAPD
+frequencies are in the 484MHz range or the 506MHz range. I set the tuner into
+the right neighborhood, then the FFT waterfall plot in GQRX visually shows you
+which frequencies are active. You can roughly tune in simply by looking at the
+plot, and you can fine-tune by listening to the demodulated signal, trying to
+find the characteristic digital buzz and no static. There are multiple
+digital-sounding channels and multiple types of encoding are present (sound
+different). You can play around to find a signal that =dsd= knows how to decode.
+Note that since we're now looking for channels empirically, we compensate for
+tuning inaccuracies, but the LAPD frequency list becomes useless, and we don't
+even know what specifically we're listening to.
+
+The GQRX window looks like this:
+
+[[file:files/SDR/gqrx_dsd.png]]
+
+We're clearly listening to an active transmission: we're tuned to the channel
+indicated by the red line, and the waterfall plot shows intermittent activity
+there. The signal is intermittent because the transmitter is only active when
+there's data to send, i.e. when the human talking into the radio is pressing the
+button.
+
+**** P25
+
+We now need to get the data out of GQRX and into =dsd=. =dsd= wants to get its
+input from (and send its output to) =/dev/audio=. Even if my input was coming
+from a sound device, it wouldn't be =/dev/audio= on my box. That's a holdover
+from some ancient system that ALSA doesn't provide by default, and I want to
+avoid it if possible. Turns out =dsd= just looks at raw samples, so we can
+simply send it appropriately-formatted bits (16 bits per sample, little endian,
+48KHz sample rate). GQRX has several export capabilities, one of them being raw
+UDP output. This is perfect for this application, and I turn on that GQRX mode
+by pressing the appropriate button (bottom of the screenshot; two computers are
+pictured).
+
+We now have raw 48KHz samples coming out on UDP port 7355. We can make a named
+pipe, or better yet, we can pass the data to =dsd= on standard input:
+
+#+begin_src sh
+socat UDP-RECV:7355 - | ./dsd -i /dev/stdin
+#+end_src
+
+Almost done. We can now tune interactively with GQRX and decode the demodulated
+FM data on the fly with =dsd=. =dsd= says lots of stuff about signals it's
+receiving. When successfully decoding audio, I see things like this:
+
+#+begin_example
+Sync:  +P25p1     mod: C4FM inlvl:  7% nac:  466 src:   180359 tg:     1  LDU1  e:========================
+Sync:  +P25p1     mod: C4FM inlvl:  7% nac:  467 src:   180359 tg:     1  LDU2  e:=========
+Sync:  +P25p1     mod: C4FM inlvl:  7% nac:  466 src:   180359 tg:     1  LDU1  e:=====
+Sync:  +P25p1     mod: GFSK inlvl:  7% nac:  466 src:   180359 tg:     1  LDU2  e:======R================R=========
+Sync:  +P25p1     mod: C4FM inlvl:  7% nac:  466 src:   180359 tg:     1  LDU1  e:==================
+Sync:  +P25p1     mod: C4FM inlvl:  7% nac:  466 src:   180359 tg:     1  LDU2  e:===
+Sync:  +P25p1     mod: C4FM inlvl:  7% nac:  466 src:   180359 tg:     1  LDU1  e:=====================
+Sync:  +P25p1     mod: C4FM inlvl:  7% nac:  466 src:  1228951 tg:     1  LDU2  e:========
+Sync:  +P25p1     mod: C4FM inlvl:  7% nac:  466 src:  1228951 tg:     1  LDU1  e:====
+Sync:  +P25p1     mod: GFSK inlvl:  7% nac:  466 src:   180359 tg:     1  LDU2  e:==================
+#+end_example
+
+We still can't hear the results because =dsd= doesn't write them anywhere
+useful. We can send those to ALSA with a named pipe and =aplay=:
+
+#+begin_src sh
+# In one shell
+mkfifo /tmp/pipe
+socat UDP-RECV:7355 - | ./dsd -i /dev/stdin -o /tmp/pipe
+
+# In another shell, in parallel
+aplay -r 8000 -f S16_LE -t raw -c 1 < /tmp/pipe
+#+end_src
+
+So this setup works for me. Now one can go back, and fix stuff; stuff like
+inaccurate tuning. It'd be nice to automatically tune into valid channels, of
+better yet to follow the trunking signals, but that's more work than I'm willing
+to put into this.
 
 * init                                                             :noexport:
 Local Variables:
