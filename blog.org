@@ -2422,6 +2422,23 @@ inaccurate tuning. It'd be nice to automatically tune into valid channels, of
 better yet to follow the trunking signals, but that's more work than I'm willing
 to put into this.
 
+
+*** Commandline-only listening (no GQRX)
+
+Once we find a channel we like, using GQRX to interactively tune the radio (as
+described above), we can run the whole pipeline with one command (possibly
+zsh-only):
+
+#+begin_src sh
+rtl_fm -F1 -o4 -g32 -f 484.7918M -s48000 - | ./dsd -f1 -mc -i /dev/stdin -o >(aplay -r 8000 -f S16_LE -t raw -c 1)
+#+end_src
+
+Here 484.7918Mhz is the frequency I found by poking around with GQRX. =-F1 and
+-o4= are tuning parameters (possibly highly suboptimal). The =-f1 -mc= options
+to =dsd= indicate what signal should be expected; this would vary if listening
+to something other than LAPD. Seems to work. And the total CPU comsumption is
+about 1/3 of what gqrx requires.
+
 * init                                                             :noexport:
 Local Variables:
 eval: (progn
