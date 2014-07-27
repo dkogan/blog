@@ -2430,7 +2430,7 @@ described above), we can run the whole pipeline with one command (possibly
 zsh-only):
 
 #+begin_src sh
-rtl_fm -F1 -o4 -g32 -f 484.7918M -s48000 - | ./dsd -f1 -mc -i /dev/stdin -o >(aplay -r 8000 -f S16_LE -t raw -c 1)
+./dsd -f1 -mc -i <(rtl_fm -F1 -o4 -g32 -f 484.7918M -s48000 -) -o >(aplay -r 8000 -f S16_LE -t raw -c 1)
 #+end_src
 
 Here 484.7918Mhz is the frequency I found by poking around with GQRX. =-F1 and
