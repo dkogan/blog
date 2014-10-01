@@ -2493,7 +2493,7 @@ and I get out a finished invoice. Before I get into the details, here's a sample
  #+NAME: summary
  | / |            |             |
  |   | *Rate*     | *Total due* |
- |   | $100.00    | _$1234.00_  |
+ |   | $100.00    | _$941.67_   |
  | ^ | ratetarget | totaltarget |
  #+TBLFM: $ratetarget=$rate;$%.2f::$totaltarget=remote(clocktable, "@II$>");_$%.2f_
 
