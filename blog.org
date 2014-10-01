@@ -2439,6 +2439,181 @@ to =dsd= indicate what signal should be expected; this would vary if listening
 to something other than LAPD. Seems to work. And the total CPU comsumption is
 about 1/3 of what gqrx requires.
 
+** DONE Org-mode for invoices
+   CLOSED: [2014-10-01 Wed 10:11]
+
+Like many people I work as a contractor, so I need to keep track of my hours and
+to generate monthly invoices. Org-mode already has a [[http://orgmode.org/manual/Clocking-work-time.html][nice way to track hours]] and
+a way to [[http://orgmode.org/manual/Exporting.html][export to a PDF]]. What's missing is a reasonable way to bridge those two
+functions, to getnerate invoices, and the way I do this is described in this
+post.
+
+The main approach here is to maintain a =timecard.org= file that contains all
+the timing information. As I work, I clock in and out of tasks in this file.
+Then when an invoice needs to be prepared I simply export this file as a PDF,
+and I get out a finished invoice. Before I get into the details, here's a sample
+=timecard.org=:
+
+#+BEGIN_SRC org
+
+ #+STARTUP: showall
+ #+LaTeX_CLASS_OPTIONS: [letterpaper,10pt]
+ #+LATEX_HEADER: \usepackage[letterpaper,tmargin=0.5in,bmargin=1.0in,lmargin=1.0in,rmargin=1.0in,headheight=0in,headsep=0in,footskip=0.0in]{geometry}
+ #+LATEX_HEADER: \usepackage{lmodern}
+ #+LATEX_HEADER: \usepackage[labelformat=empty,textformat=empty]{caption}
+ #+LATEX_HEADER: \parindent 0in
+ #+LATEX_HEADER: \parskip 0.1in
+ #+LATEX_HEADER: \setlength\LTleft{0pt} \setlength\LTright\fill
+ #+OPTIONS: toc:nil num:nil 
+ #+AUTHOR:
+ #+DATE:
+ #+TITLE: INVOICE
+
+
+ #+CONSTANTS: rate=100.0
+
+ #+BEGIN_LATEX
+ \thispagestyle{empty}
+ #+END_LATEX
+
+
+ * Invoice number: 1
+ * Invoice date: [2014-09-01 Mon]
+
+ | / | <                    | >                     |
+ |---+----------------------+-----------------------|
+ |   | *Contractor*         | *Client*              |
+ |---+----------------------+-----------------------|
+ |   | Billy Bob Johnson    | WidgetWorks Inc       |
+ |   | 21 N. First Ave      | 12 Main St.           |
+ |   | Widgettown, CA 91234 | Gadgetville, CA 91235 |
+ |   | william@isp.net      |                       |
+ |---+----------------------+-----------------------|
+
+ #+NAME: summary
+ | / |            |             |
+ |   | *Rate*     | *Total due* |
+ |   | $100.00    | _$1234.00_  |
+ | ^ | ratetarget | totaltarget |
+ #+TBLFM: $ratetarget=$rate;$%.2f::$totaltarget=remote(clocktable, "@II$>");_$%.2f_
+
+
+ *Please make checks payable to _William Johnson_*
+
+ #+TBLNAME: clocktable
+ #+BEGIN: clocktable :maxlevel 3 :tcolumns 4 :scope file :block 2014-08 :narrow 60
+ #+CAPTION: Clock summary at [2014-09-01 Mon 09:44], for August 2014.
+ | <60>                                                         |        |      |      |           |
+ | Headline                                                     | Time   |      |      | Amount($) |
+ |--------------------------------------------------------------+--------+------+------+-----------|
+ | *Total time*                                                 | *9:25* |      |      |    941.67 |
+ |--------------------------------------------------------------+--------+------+------+-----------|
+ | Tasks                                                        | 9:25   |      |      |    941.67 |
+ | \__ Foo the bar                                              |        | 3:20 |      |    333.33 |
+ | \_____ Implementing foo                                      |        |      | 3:20 |    333.33 |
+ | \__ Frobnicate the baz                                       |        | 6:05 |      |    608.33 |
+ #+TBLFM: @3$5..@>$5=vsum($2..$4)*$rate;t::@2$5=string("Amount($)")
+ #+END:
+
+
+
+ * Tasks                                                            :noexport:
+ ** Foo the bar
+ *** Meeting about the nature of bar
+     CLOCK: [2014-09-07 Sun 00:24]--[2014-09-07 Sun 01:00] =>  0:36
+ *** Implementing foo
+     CLOCK: [2014-08-28 Thu 19:40]--[2014-08-28 Thu 23:00] =>  3:20
+ ** Frobnicate the baz
+     CLOCK: [2014-08-25 Mon 10:55]--[2014-08-25 Mon 17:00] =>  6:05
+
+
+ * local lisp stuff                                                 :noexport:
+ Local Variables:
+ eval: (progn
+   (set (make-local-variable 'org-time-clocksum-format)
+        '(:hours "%d" :require-hours t :minutes ":%02d" :require-minutes t))
+   (setq org-latex-tables-centered nil
+         org-latex-default-table-environment "longtable")
+   (local-set-key
+    (kbd "<f5>")
+    (lambda ()
+      (interactive)
+      ;;
+      ;; Bump up the invoice number
+      (beginning-of-buffer)
+      (re-search-forward "Invoice number: \\([0-9]+\\)")
+      (let ((n (string-to-number (match-string 1))))
+        (kill-region (match-beginning 1) (match-end 1))
+        (insert (format "%d" (1+ n))))
+      ;;
+      ;; Set the invoice date
+      (beginning-of-buffer)
+      (re-search-forward "Invoice date: *")
+      (kill-region (point)
+                   (save-excursion
+                     (end-of-line) (point)))
+      (org-insert-time-stamp (current-time) nil t)
+      ;;
+      ;;
+      ;; Update the main clock table
+      (beginning-of-buffer)
+      (search-forward "#+BEGIN: clocktable")
+      ;;
+      ;; Here an advice is needed to make sure the Amount column is added
+      ;; This advice is made unnecessary by this patch:
+      ;; http://lists.gnu.org/archive/html/emacs-orgmode/2014-10/msg00002.html
+      (unwind-protect
+          (progn
+            (defadvice org-table-goto-column
+                (before
+                 always-make-new-columns
+                 (n &optional on-delim force)
+                 activate)
+              "always adds new columns when we move to them"
+              (setq force t))
+            ;;
+            (org-clocktable-shift 'right 1))
+        ;;
+        (ad-deactivate 'org-table-goto-column))
+      ;;
+      ;; Update the summary table
+      (beginning-of-buffer)
+      (search-forward "| totaltarget")
+      (org-table-recalculate t))))
+ End:
+
+#+END_SRC
+
+As described in the [[http://orgmode.org/manual/Clocking-work-time.html][manual]], the time-tracking in org works with the user
+producing an outline of tasks and then clocking in and out of them. Org can then
+generate a table to summarize the hours spent on various tasks in a particular
+period.
+
+The =timecard.org= has
+
+- some Latex commands to determine how the invoices look
+- some specific information for /that/ invoice (invoice number, date, totals)
+- the clock-table that contains the time and $ summaries
+- the task outline that the user clocks in and out of
+- some emacs lisp to update all these things in unison
+
+The contracting rate is defined in a =#+CONSTANTS= at the top of the file. The
+task outline itself is /not/ exported, but the clock-table it produces is. The
+clock-table that org makes contains only timing information and nothing about
+money, so I have a formula in that table that adds a column about how much each
+task cost.
+
+Every month before generating a PDF the data all needs to be updated, and the
+emacs-lisp at the bottom does that. It's a bit more complicated than I'd like it
+to be, but it works well. It exports the new clock-table, updates the totals,
+the data, invoice number, etc. Normally I simply hit =F5=, and this invokes the
+lisp and updates everything. The end-result currently looks like [[file:files/invoice/invoice.pdf][this]].
+
+Not the prettiest thing in the world, but it serves the purpose just fine. One
+could fine-tune the org exporter far more to generate prettier invoices if they
+care enough to do so.
+
+
 * init                                                             :noexport:
 Local Variables:
 eval: (progn
