@@ -2445,7 +2445,7 @@ about 1/3 of what gqrx requires.
 Like many people I work as a contractor, so I need to keep track of my hours and
 to generate monthly invoices. Org-mode already has a [[http://orgmode.org/manual/Clocking-work-time.html][nice way to track hours]] and
 a way to [[http://orgmode.org/manual/Exporting.html][export to a PDF]]. What's missing is a reasonable way to bridge those two
-functions, to getnerate invoices, and the way I do this is described in this
+functions, to generate invoices, and the way I do this is described in this
 post.
 
 The main approach here is to maintain a =timecard.org= file that contains all
