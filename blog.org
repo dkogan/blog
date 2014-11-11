@@ -2484,7 +2484,7 @@ Then when an invoice needs to be prepared I simply export this file as a PDF,
 and I get out a finished invoice. Before I get into the details, here's a sample
 =timecard.org=:
 
-#+BEGIN_SRC org
+#+BEGIN_SRC org :exports code
 
  #+STARTUP: showall
  #+LaTeX_CLASS_OPTIONS: [letterpaper,10pt]
