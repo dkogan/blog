@@ -350,6 +350,12 @@ could be some. Same for the DEM data
 ** DONE X11 urgency hint and notifications                    :tools:desktop:
    CLOSED: [2014-03-19 Wed 00:20]
 
+#+begin_o_blog_alert info Follow-up posts
+[[file:{lisp}(ob:link-to-post (ob:get-post-by-title "Already-running process notifications")){/lisp}][Already-running process notifications]]
+
+[[file:{lisp}(ob:link-to-post (ob:get-post-by-title "Even better notifications")){/lisp}][Even better notifications]]
+#+end_o_blog_alert
+
 X11 has a common system for window notifications: the urgency hint. The relevant
 section of the [[http://tronche.com/gui/x/icccm/sec-4.html#s-4.1.2.4][ICCCM standard]]:
 
@@ -440,6 +446,10 @@ make; seturgent
 #+end_src
 ** DONE Already-running process notifications                 :tools:desktop:
    CLOSED: [2014-03-20 Thu 22:35]
+
+#+begin_o_blog_alert info Follow-up posts
+[[file:{lisp}(ob:link-to-post (ob:get-post-by-title "Even better notifications")){/lisp}][Even better notifications]]
+#+end_o_blog_alert
 
 The tool described in the last post ([[file:{lisp}(ob:link-to-post (ob:get-post-by-title "X11 urgency hint and notifications")){/lisp}][X11 urgency hint and notifications]]) works
 well, but there's a common use case it does not support: completion notification
@@ -540,6 +550,12 @@ day.
 
 ** DONE Cscope benchmarks                              :tools:dev:data:emacs:
    CLOSED: [2014-03-25 Tue 03:36]
+
+#+begin_o_blog_alert info Follow-up posts
+[[file:{lisp}(ob:link-to-post (ob:get-post-by-title "GNU Global benchmarks")){/lisp}][GNU Global benchmarks]]
+
+[[file:{lisp}(ob:link-to-post (ob:get-post-by-title "More Cscope benchmarks")){/lisp}][More Cscope benchmarks]]
+#+end_o_blog_alert
 
 I read and write lots of C code, and I find the [[http://cscope.sourceforge.net/][cscope]] tool to be invaluable in
 searching and navigating code bases. Recently I took over maintership of the
@@ -683,6 +699,10 @@ worth the work, so I'm keeping =xcscope= as is.
 
 ** DONE GNU Global benchmarks                                :tools:data:dev:
    CLOSED: [2014-03-30 Sun 00:42]
+
+#+begin_o_blog_alert info Follow-up posts
+[[file:{lisp}(ob:link-to-post (ob:get-post-by-title "More Cscope benchmarks")){/lisp}][More Cscope benchmarks]]
+#+end_o_blog_alert
 
 The [[file:{lisp}(ob:link-to-post (ob:get-post-by-title "Cscope benchmarks")){/lisp}][last post]] reports some performance numbers for [[http://cscope.sourceforge.net][cscope]]. There's another,
 similar tool that I've been curious about: [[http://www.gnu.org/s/global/global.html][GNU global]]. It's like cscope in many
@@ -1071,6 +1091,10 @@ the original kernel, but I obviously don't care. By default =eth0= is at
 
 ** DONE Reading DWARF prototypes in ltrace                        :tools:dev:
    CLOSED: [2014-04-14 Mon 02:51]
+
+#+begin_o_blog_alert info Follow-up posts
+[[file:{lisp}(ob:link-to-post (ob:get-post-by-title "Reading DWARF prototypes in ltrace (part 2)")){/lisp}][Reading DWARF prototypes in ltrace (part 2)]]
+#+end_o_blog_alert
 
 From time to time I use the [[http://ltrace.org/][=ltrace=]] tool for introspection into user-space
 processes. This is similar to =strace=, but hooks into library API calls intead
@@ -2219,6 +2243,12 @@ the code looks nicer and we don't need cookies.
 
 ** DONE Debian cross-gcc snapshot packages                        :tools:dev:
    CLOSED: [2014-07-20 Sun 01:55]
+
+#+begin_o_blog_alert info Note
+This is largely out-of-date. These packages are now in Debian/unstable, and I
+shut down the server described here in favor of the packages in the main
+archive.
+#+end_o_blog_alert
 
 For a while, getting a cross-compiler on Debian was much more complicated than
 simply running an =apt-get install=. The /current/ situation is that
