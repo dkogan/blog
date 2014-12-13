@@ -2783,6 +2783,231 @@ This all does the right thing. Currently there's an issue in that
 the same one (since it uses the hostname to differentiate, and the hostname is
 now =my_znc_server.com= for both). Otherwise, this works fine.
 
+** DONE Mu4e and desktop notifications                  :emacs:tools:desktop:
+   CLOSED: [2014-12-12 Fri 20:54]
+[[file:{lisp}(ob:link-to-post (ob:get-post-by-title "Even better notifications")){/lisp}][Some previous posts]] talked about desktop notifications via the X11 urgency hint.
+Here I talk specifically about how I handle mail notifications specifically.
+
+I use [[http://www.djcbsoftware.nl/code/mu/mu4e.html][mu4e]] to read mail in Emacs. This is great for reading mail, but it leaves
+some tasks to external tools (I consider this a good thing):
+
+- interacting with mail servers instead of a local [[http://en.wikipedia.org/wiki/Maildir][maildir]]
+- automatically receiving mail
+
+The former is generally done with [[http://offlineimap.org][offlineimap]] or [[http://isync.sourceforge.net/mbsync.html][mbsync]]. For the latter,
+everybody seems to do something different.
+
+To handle main receiving and notifications I use the [[http://en.wikipedia.org/wiki/IMAP_IDLE][IMAP IDLE]] command to handle
+event-based (/not/ timer-based) receiving of mail, and I use the X11 UrgencyHint
+(described for instance here: [[file:{lisp}(ob:link-to-post (ob:get-post-by-title "X11 urgency hint and notifications")){/lisp}][X11 urgency hint and notifications]]) to notify me
+of incoming messages. As any other UrgencyHint-based system, support from one's
+window manager is crucial. I use [[http://notion.sourceforge.net][notion]] as my WM, which has /fantastic/ support
+for this, so this all works /really/ well for me.
+
+If I want event-based notifications, I run this =mailalert.pl= script:
+
+#+begin_src perl
+#!/usr/bin/perl
+use strict;
+use warnings;
+use feature qw(say);
+
+use Getopt::Euclid;
+
+use Mail::IMAPClient;
+use IO::Stty;
+use X11::Protocol;
+use X11::Protocol::WM;
+use X11::WindowHierarchy;
+
+use autodie;
+
+use Parallel::ForkManager;
+
+my $passwd = getPassword();
+
+my %imapOptions    =
+  ( Server         => 'mail.xxxxx.com',
+    User           => 'username',
+    Password       => $passwd,
+    Ssl            => 1,
+    Socketargs     => [SSL_verify_mode => "SSL_VERIFY_NONE"],
+    Debug          => 0,
+    Uid            => 1,
+    Keepalive      => 1,
+    Reconnectretry => 3,
+ );
+
+my $folders = getFolders( \%imapOptions );
+
+say STDERR "Got folder list. Idling on each";
+
+my $pm = new Parallel::ForkManager(1000);
+for my $folder (@$folders)
+{
+  my $pid = $pm->start and next;
+
+  my $imap = Mail::IMAPClient->new(%imapOptions) or die "Couldn't connect to imap";
+  $imap->select($folder)                         or die "Couldn't select '$folder'";
+
+  my %ids_saw;
+  while(1)
+  {
+    my @unseen = $imap->unseen;
+    my @newsubjects;
+    for my $id( @unseen )
+    {
+      next if $ids_saw{$id};
+      $ids_saw{$id} = 1;
+      push @newsubjects, $imap->subject($id);
+    }
+
+    if( @newsubjects )
+    {
+      alert();
+      my $date = `date`;
+      chomp $date;
+      say "$date; Pid $pid Saw unread email in '$folder':";
+      print join('', map {"  $_\n"} @newsubjects);
+
+      sleep(60*$ARGV{'--min'}) if $ARGV{'--min'};
+    }
+
+    my $IDLEtag     = $imap->idle           or die "idle failed: $@\n";
+    my $idle_result = $imap->idle_data(250) or die "idle_data failed: $@\n";
+    $imap->done($IDLEtag);
+  }
+
+  $pm->finish;
+}
+$pm->wait_all_children;
+
+
+
+sub getPassword
+{
+  say "Enter password: ";
+
+  my $stty_old = IO::Stty::stty(\*STDIN,'-g');
+  IO::Stty::stty(\*STDIN,'-echo');
+  $passwd = <>;
+  IO::Stty::stty(\*STDIN,$stty_old);
+
+  chomp $passwd;
+
+  return $passwd;
+}
+
+sub getFolders
+{
+  my $opts = shift;
+
+  my $imap = Mail::IMAPClient->new(%$opts) or die "Couldn't connect to imap";
+  say STDERR "Connected. Getting folder list.";
+
+  my $folders = $imap->folders
+    or die "List folders error: ", $imap->LastError, "\n";
+  $imap->disconnect;
+
+  return $folders;
+}
+
+sub alert
+{
+  # I got mail! Alert the user
+
+  # I try to set urgency on a mu4e window if there is one. Otherwise, I set the
+  # urgency on the mailalert window itself
+
+  my $x = X11::Protocol->new()
+    or die "Couldn't open X11 display";
+
+  # by default, set it to the mailalert ID
+  my $xid = $ENV{WINDOWID};
+
+  my @mu4e = x11_filter_hierarchy( filter => qr/emacs.*mu4e/ );
+  if( @mu4e )
+  {
+    # found some mu4e windows. Alert the first one
+    $xid = $mu4e[0]{id};
+
+    # there's a mu4e window already. Get the mail
+    system(qw(emacsclient -a '' -e), '(mu4e-update-mail-and-index t)');
+  }
+
+  X11::Protocol::WM::change_wm_hints( $x, $xid,
+                                      urgency => 1 );
+}
+
+
+__END__
+
+=head1 NAME
+
+mailalert.pl - IMAP IDLE mail checker
+
+=head1 SYNOPSIS
+
+ ./mailalert.pl
+ ... sits there until mail comes in
+
+=head1 DESCRIPTION
+
+This tool uses IMAP IDLE to wait for new email without polling. When a message
+comes in, it tries to find the mail window and set the urgency hint on it
+
+=head1 OPTIONAL ARGUMENTS
+
+=over
+
+=item --min <minimum_interval>
+
+If given, do not alert the user more often than this many minutes.
+
+=for Euclid:
+  minimum_interval.type: int > 0
+
+=back
+
+=head1 AUTHOR
+
+Dima Kogan, C<< <dima@secretsauce.net> >>
+
+#+end_src
+
+To use it, fill in the IMAP server and username details. The script then queries
+one for the password when it is executed. This script connects to the IMAP
+server, and waits for new mail on all folders. When new mail arrives to any
+folder, it calls =alert()=, which does 2 things:
+
+- Finds the mu4e Emacs window, and sets the UrgencyHint on it
+- Tells Emacs to contact the server and download, reindex the mail
+
+The server operations are handled by evaluating
+
+#+begin_src emacs-lisp
+(mu4e-update-mail-and-index t)
+#+end_src
+
+as Emacs Lisp. This is a mu4e function that carries out the obvious operations.
+Mu4e is told how to receive the mail by a bit of configuration the Emacs init
+files. In my case:
+
+#+begin_src emacs-lisp
+(setq mu4e-get-mail-command "offlineimap -q")
+#+end_src
+
+This works for me. The only real downside is that due to the way IMAP is
+implemented, only a single folder can be monitored for updates at a time. The
+script above thus makes a connection to the server for each folder that exists.
+If you have a lot of folders, this is quite a few simultaneous connections! A
+consequence of this is that my script is silly, and looks at each folder in a
+separate fork, with the forks not talking to each other. Thus if mail arrives to
+more than one folder at the same time (as happens often when you initially start
+the script), multiple =(mu4e-update-mail-and-index t)= are made at the same
+time. Fortunately, this simply generates a warning, and doesn't do anything
+bad, so my script can remain silly, and I can get on with my life.
+
 * init                                                             :noexport:
 Local Variables:
 eval: (progn
