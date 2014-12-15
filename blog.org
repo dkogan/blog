@@ -2975,6 +2975,15 @@ Dima Kogan, C<< <dima@secretsauce.net> >>
 
 #+end_src
 
+This is (clearly) a perl script; all the dependencies are available in Debian:
+
+- libgetopt-euclid-perl
+- libmail-imapclient-perl
+- libio-stty-perl
+- libx11-protocol-perl
+- libx11-protocol-other-perl
+- libx11-windowhierarchy-perl
+
 To use it, fill in the IMAP server and username details. The script then queries
 one for the password when it is executed. This script connects to the IMAP
 server, and waits for new mail on all folders. When new mail arrives to any
