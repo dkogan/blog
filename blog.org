@@ -2643,7 +2643,6 @@ Not the prettiest thing in the world, but it serves the purpose just fine. One
 could fine-tune the org exporter far more to generate prettier invoices if they
 care enough to do so.
 
-
 ** DONE ZNC and ERC                                             :emacs:tools:
    CLOSED: [2014-10-08 Wed 14:16]
 
@@ -3016,6 +3015,30 @@ more than one folder at the same time (as happens often when you initially start
 the script), multiple =(mu4e-update-mail-and-index t)= are made at the same
 time. Fortunately, this simply generates a warning, and doesn't do anything
 bad, so my script can remain silly, and I can get on with my life.
+
+** DONE Word-oriented navigation in emacs-lisp                        :emacs:
+   CLOSED: [2015-01-01 Thu 18:03]
+I recently hit a [[http://debbugs.gnu.org/17558][bug]] in a recent build of GNU Emacs. The crux of the matter was
+that word-relative functions such as =forward-word= now respect =subword-mode=
+and =superword-mode=. This is good for interactive use, but can have unintended
+consequences in existing code, which is what happened with ERC: ERC expected
+=forward-word= to move consistently, but now it behaves differently if
+=subword-mode= is active.
+
+The solution seems to be to forgo =forward-mode= and friends for interactive
+use, and to use more low-level functions in programs. For instance, I replaced
+=(upcase-word 1)= with
+
+#+BEGIN_SRC emacs-lisp
+ (skip-syntax-forward "^w")
+ (let*
+     ((word-start (point))
+      (word-end
+       (progn (skip-syntax-forward "w") (point))))
+   (upcase-region word-start word-end))
+#+END_SRC
+
+Way more verbose than I would like, but it works.
 
 * init                                                             :noexport:
 Local Variables:
