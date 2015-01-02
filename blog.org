@@ -2784,6 +2784,7 @@ now =my_znc_server.com= for both). Otherwise, this works fine.
 
 ** DONE Mu4e and desktop notifications                  :emacs:tools:desktop:
    CLOSED: [2014-12-12 Fri 20:54]
+
 [[file:{lisp}(ob:link-to-post (ob:get-post-by-title "Even better notifications")){/lisp}][Some previous posts]] talked about desktop notifications via the X11 urgency hint.
 Here I talk specifically about how I handle mail notifications specifically.
 
@@ -3018,6 +3019,7 @@ bad, so my script can remain silly, and I can get on with my life.
 
 ** DONE Word-oriented navigation in emacs-lisp                        :emacs:
    CLOSED: [2015-01-01 Thu 18:03]
+
 I recently hit a [[http://debbugs.gnu.org/17558][bug]] in a recent build of GNU Emacs. The crux of the matter was
 that word-relative functions such as =forward-word= now respect =subword-mode=
 and =superword-mode=. This is good for interactive use, but can have unintended
