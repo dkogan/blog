@@ -3042,6 +3042,344 @@ use, and to use more low-level functions in programs. For instance, I replaced
 
 Way more verbose than I would like, but it works.
 
+** DONE User-space introspection with Linux perf                  :tools:dev:
+   CLOSED: [2015-01-28 Wed 19:42]
+
+The Linux kernel comes with a performance counter/profiler: [[https://perf.wiki.kernel.org/index.php/Main_Page][=perf=]]. This was
+originally a kernel-only tool, but it can now do some userspace stuff as well.
+=perf= is very powerful, but annoyingly under-documented. Plenty was written on
+the topic, so here I'll mention only some hangups and strange behaviors I've
+observed trying to use it. If I figure out enough of this, this could be used to
+improve the docs.
+
+For the below I'm using =perf= version 3.16.0 from Debian package
+=linux-tools-3.16= version 3.16-2 on an amd64 box running a Debian vanilla
+kernel 3.16-3-amd64 package version 3.16.5-1.
+
+*** Basic userspace introspection
+
+Let's say I have a tiny test program: =tst.c=:
+
+#+BEGIN_SRC C
+#include <stdio.h>
+#include <stdlib.h>
+
+int func(int xxx)
+{
+    int zzz = xxx;
+
+    printf("zzz: %d\n", zzz);
+    return zzz+5;
+}
+int main(int argc, char* argv[])
+{
+    int i=0;
+    for( i=0; i<10; i++)
+        printf("yyy: %d\n", func(argc + i));
+
+    return 0;
+}
+#+END_SRC
+
+One can run it, and get the obvious results:
+
+#+BEGIN_EXAMPLE
+dima@shorty:/tmp$ gcc -g -o tst tst.c && ./tst
+
+zzz: 1
+yyy: 6
+zzz: 2
+yyy: 7
+zzz: 3
+yyy: 8
+zzz: 4
+yyy: 9
+zzz: 5
+yyy: 10
+zzz: 6
+yyy: 11
+zzz: 7
+yyy: 12
+zzz: 8
+yyy: 13
+zzz: 9
+yyy: 14
+zzz: 10
+yyy: 15
+#+END_EXAMPLE
+
+Building with =-g= is significant since it allows =perf= to read the DWARF
+information to know about symbols and variables.
+
+The main command to to manipulate arbitrary probes, such as userspace ones, is
+=perf probe=. The main command to get information from each probe hit
+individually (instead of as an aggregate) is =perf script=. Let's do some basic
+probing: let's see all the function returns from =func=:
+
+#+BEGIN_EXAMPLE
+dima@shorty:/tmp$ sudo perf probe -x tst --add 'out=func%return $retval'                         
+
+Added new event:
+  probe_tst:out        (on func%return in /tmp/tst with $retval)
+
+You can now use it in all perf tools, such as:
+
+        perf record -e probe_tst:out -aR sleep 1
+
+
+dima@shorty:/tmp$ sudo perf record -g -e probe_tst:out -aR ./tst      
+zzz: 1
+yyy: 6
+zzz: 2
+yyy: 7
+zzz: 3
+yyy: 8
+zzz: 4
+yyy: 9
+zzz: 5
+yyy: 10
+zzz: 6
+yyy: 11
+zzz: 7
+yyy: 12
+zzz: 8
+yyy: 13
+zzz: 9
+yyy: 14
+zzz: 10
+yyy: 15
+[ perf record: Woken up 1 times to write data ]
+[ perf record: Captured and wrote 0.712 MB perf.data (~31090 samples) ]
+
+
+dima@shorty:/tmp$ sudo perf report --stdio                                              
+
+Failed to open /tmp/perf-20159.map, continuing without symbols
+# Samples: 10  of event 'probe_tst:out'
+# Event count (approx.): 10
+#
+# Children      Self  Command  Shared Object                 Symbol
+# ........  ........  .......  .............  .....................
+#
+   100.00%     0.00%      tst  libc-2.19.so   [.] __libc_start_main
+                |
+                --- __libc_start_main
+
+   100.00%   100.00%      tst  tst            [.] main             
+                |
+                --- main
+                    __libc_start_main
+
+
+
+dima@shorty:/tmp$ sudo perf script         
+
+Failed to open /tmp/perf-20159.map, continuing without symbols
+tst 20159 [001] 629384.650622: probe_tst:out: (400506 <- 400561) arg1=0x6
+                  400561 main (/tmp/tst)
+            7fda0633eb45 __libc_start_main (/lib/x86_64-linux-gnu/libc-2.19.so)
+
+tst 20159 [001] 629384.650653: probe_tst:out: (400506 <- 400561) arg1=0x7
+                  400561 main (/tmp/tst)
+            7fda0633eb45 __libc_start_main (/lib/x86_64-linux-gnu/libc-2.19.so)
+
+tst 20159 [001] 629384.650675: probe_tst:out: (400506 <- 400561) arg1=0x8
+                  400561 main (/tmp/tst)
+            7fda0633eb45 __libc_start_main (/lib/x86_64-linux-gnu/libc-2.19.so)
+
+....
+#+END_EXAMPLE
+
+So things basically work. We made a probe called =out= to fire when =func=
+returns (=func%return=). We asked to record the actual return value at that time
+(=$retval=). The we looked at the aggregate call graph with =perf report=.
+Finally, we used =perf script= to look at detailed output for each time we hit
+this probe. In particular, we get the return value, given to us as =arg1=.
+
+*** Pitfall: incorrect reading of function argument
+
+Let put in a probe at the start of =func=, and print out the value of the
+argument:
+
+#+BEGIN_EXAMPLE
+
+dima@shorty:/tmp$ sudo perf probe -x tst --add 'in=func xxx'                                     
+
+Added new event:
+  probe_tst:in         (on func in /tmp/tst with xxx)
+
+You can now use it in all perf tools, such as:
+
+        perf record -e probe_tst:in -aR sleep 1
+
+
+dima@shorty:/tmp$ sudo perf record -g -e probe_tst:in -aR ./tst      
+zzz: 1
+yyy: 6
+zzz: 2
+yyy: 7
+....
+
+
+dima@shorty:/tmp$ sudo perf script         
+
+Failed to open /tmp/perf-20159.map, continuing without symbols
+tst 20159 [001] 629384.650566: probe_tst:in: (400506) xxx=0
+                  400506 func (/tmp/tst)
+            7fda0633eb45 __libc_start_main (/lib/x86_64-linux-gnu/libc-2.19.so)
+
+tst 20159 [001] 629384.650639: probe_tst:in: (400506) xxx=1
+                  400506 func (/tmp/tst)
+            7fda0633eb45 __libc_start_main (/lib/x86_64-linux-gnu/libc-2.19.so)
+
+tst 20159 [001] 629384.650661: probe_tst:in: (400506) xxx=2
+                  400506 func (/tmp/tst)
+            7fda0633eb45 __libc_start_main (/lib/x86_64-linux-gnu/libc-2.19.so)
+....
+
+#+END_EXAMPLE
+
+
+This is wrong! It says the passed-in value is 0 then 1 then 2. Actually it's 1
+then 2 then 3. Let's put in two more probes to examine this:
+
+- Another probe at =func=, but looking at the =di= register. The calling
+  convention dictates that this is where the argument would go
+- A probe in the middle of =func=, after =zzz= was set. At that point, I'd like
+  to look at both =xxx= and =zzz=
+
+We ask =perf= about what it thinks line numbers are in function =func= (line
+numbers here are relative to the start of the function not the start of the
+file):
+
+#+BEGIN_EXAMPLE
+dima@shorty:/tmp$ sudo perf probe -x tst -L 'func'  
+
+<func@/tmp/tst.c:0>
+      0  int func(int xxx)
+      1  {
+      2      int zzz = xxx;
+         
+      4      printf("zzz: %d\n", zzz);
+      5      return zzz+5;
+      6  }
+         int main(int argc, char* argv[])
+         {
+             int i=0;
+#+END_EXAMPLE
+
+So I place my probe on line 4:
+
+#+BEGIN_EXAMPLE
+
+dima@shorty:/tmp$ sudo perf probe -x tst --add 'inreg=func %di'
+
+Added new event:
+  probe_tst:inreg      (on func in /tmp/tst with %di)
+
+You can now use it in all perf tools, such as:
+
+        perf record -e probe_tst:inreg -aR sleep 1
+
+
+dima@shorty:/tmp$ sudo perf probe -x tst --add 'mid=func:4 xxx zzz'                           
+
+Added new event:
+  probe_tst:mid        (on func:4 in /tmp/tst with xxx zzz)
+
+You can now use it in all perf tools, such as:
+
+        perf record -e probe_tst:mid -aR sleep 1
+
+
+dima@shorty:/tmp$ sudo perf record -g -e probe_tst:inreg,probe_tst:mid -aR ./tst      
+
+zzz: 1
+yyy: 6
+zzz: 2
+yyy: 7
+....
+
+
+dima@shorty:/tmp$ sudo perf script         
+
+dima@shorty:/tmp$ sudo perf script
+Failed to open /tmp/perf-20335.map, continuing without symbols
+tst 20335 [000] 629951.439663: probe_tst:inreg: (400506) arg1=0x1
+                  400506 func (/tmp/tst)
+            7f61a293fb45 __libc_start_main (/lib/x86_64-linux-gnu/libc-2.19.so)
+
+tst 20335 [000] 629951.439681: probe_tst:mid: (400517) xxx=1 zzz=1
+                  400517 func (/tmp/tst)
+            7fffffffe000 [unknown] (/tmp/perf-20335.map)
+            7f61a293fb45 __libc_start_main (/lib/x86_64-linux-gnu/libc-2.19.so)
+
+tst 20335 [000] 629951.439720: probe_tst:inreg: (400506) arg1=0x2
+                  400506 func (/tmp/tst)
+            7f61a293fb45 __libc_start_main (/lib/x86_64-linux-gnu/libc-2.19.so)
+
+tst 20335 [000] 629951.439725: probe_tst:mid: (400517) xxx=2 zzz=2
+                  400517 func (/tmp/tst)
+            7fffffffe000 [unknown] (/tmp/perf-20335.map)
+            7f61a293fb45 __libc_start_main (/lib/x86_64-linux-gnu/libc-2.19.so)
+
+tst 20335 [000] 629951.439733: probe_tst:inreg: (400506) arg1=0x3
+                  400506 func (/tmp/tst)
+            7f61a293fb45 __libc_start_main (/lib/x86_64-linux-gnu/libc-2.19.so)
+
+tst 20335 [000] 629951.439738: probe_tst:mid: (400517) xxx=3 zzz=3
+                  400517 func (/tmp/tst)
+            7fffffffe000 [unknown] (/tmp/perf-20335.map)
+            7f61a293fb45 __libc_start_main (/lib/x86_64-linux-gnu/libc-2.19.so)
+....
+#+END_EXAMPLE
+
+Aha. So looking at the register =di= instead of the variable =xxx= makes it
+work. Or I can look at the variable a little later; that works too. This is an
+easy pitfall to get caught in. I'll try to investigate more and file a bug.
+
+*** Pitfall: rebuilding
+
+When using =perf= to introspect one's own code, you hit another issue early.
+Suppose we just did all the probing above. Now we rebuild the program under test
+(with or without modifications), and probe again:
+
+#+BEGIN_EXAMPLE
+dima@shorty:/tmp$ gcc -g -o tst tst.c
+
+dima@shorty:/tmp$ sudo perf record -g -e probe_tst:inreg,probe_tst:mid -aR ./tst
+
+zzz: 1
+yyy: 6
+zzz: 2
+yyy: 7
+
+
+dima@shorty:/tmp$ sudo perf report --stdio                                                 
+
+Error:
+The perf.data file has no samples!
+#+END_EXAMPLE
+
+Whoa! This just worked. What happened? It turns out =perf= records the build-id
+that a particular probe corresponds to. So when you rebuild, the build-id
+changes, and the probe no longer triggers. I haven't yet seriously looked into
+disabling and/or fixing this. The easiest workaround is to simply remove all the
+probes with
+
+#+BEGIN_EXAMPLE
+sudo perf probe -x tst --del "*"
+#+END_EXAMPLE
+
+Then when you re-add the probes, they will use the new build-id. This /really/
+needs better handling upstream as well. I'll patch when I get the time.
+
+
+** emacs idleness
+** scope amp debugging
+** Math. Horizonator?
+** multi-arch in general
+
 * init                                                             :noexport:
 Local Variables:
 eval: (progn
