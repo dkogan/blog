@@ -22,7 +22,7 @@
   :END:
 
    The text is in the public domain. All code is copyright [[mailto:dima -at- secretsauce -dot- net][Dima Kogan]], licensed
-   under the LGPL.
+   under the LGPL /unless otherwise noted/
 
 ** Navigation
   :PROPERTIES:
