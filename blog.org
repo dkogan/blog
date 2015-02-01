@@ -3387,8 +3387,9 @@ and and I'm not moving.
 
 Python land appears to have a reasonably functional gnuplot interface:
 [[http://gnuplot-py.sourceforge.net/][=gnuplot.py=]]. It works, but is very clunky to use with numpy. So I wrote
-[[https://github.com/dkogan/python_gplot][python_gplot]], a wrapper around =gnuplot.py= that provides an interface very
-similar to my original design for [[https://github.com/dkogan/PDL-Graphics-Gnuplot][PDL::Graphics::Gnuplot]]. Example:
+[[https://github.com/dkogan/python_gplot][=python_gplot=]], a wrapper around =gnuplot.py= that provides an interface very
+similar to my original design for [[https://github.com/dkogan/PDL-Graphics-Gnuplot][PDL::Graphics::Gnuplot]]. Examples (ASCII plots
+just as a demo):
 
 #+BEGIN_EXAMPLE
 dima@shorty:~/projects/python_gplot$ cat test.py
