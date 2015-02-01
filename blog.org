@@ -3374,6 +3374,195 @@ sudo perf probe -x tst --del "*"
 Then when you re-add the probes, they will use the new build-id. This /really/
 needs better handling upstream as well. I'll patch when I get the time.
 
+** DONE Gnuplot for numpy                             :tools:python:data:dev:
+   CLOSED: [2015-01-31 Sat 20:24]
+
+I've been using [[http://pdl.perl.org][PDL]] for numerical computation. It works ok, but is crufty and
+incomplete in many ways. I'm thus starting to look at numpy as an alternative,
+as much as I hate switching languages. Such transitions are full of dealing with
+people's NIH ambitions, and one has to pick one's battles. One battle I refuse
+to concede is switching away to numpy's preferred NIH plotting system:
+matplotlib. I've been using gnuplot for something like 20 years at this point,
+and and I'm not moving.
+
+Python land appears to have a reasonably functional gnuplot interface:
+[[http://gnuplot-py.sourceforge.net/][=gnuplot.py=]]. It works, but is very clunky to use with numpy. So I wrote
+[[https://github.com/dkogan/python_gplot][python_gplot]], a wrapper around =gnuplot.py= that provides an interface very
+similar to my original design for [[https://github.com/dkogan/PDL-Graphics-Gnuplot][PDL::Graphics::Gnuplot]]. Example:
+
+#+BEGIN_EXAMPLE
+dima@shorty:~/projects/python_gplot$ cat test.py
+
+#!/usr/bin/python2
+
+from numpy import *
+from gplot import *
+
+x = arange(100)
+y = x ** 2
+
+
+gplot( x,y, cmd="set terminal dumb" )
+
+g2 = python_gplot("set terminal dumb")
+g2.plot({'with': 'lines'},
+        y, x)
+g2.plot( (x-100, y),
+         ({'with': 'lines'},
+          -x,y) )
+
+
+
+
+dima@shorty:~/projects/python_gplot$ ./test.py
+
+
+
+ 100.000 +-+----+-----+------+-----+------+------+-----+------+-----+----+-+
+         +      +     +      +     +      +      +     +      +   ++++++   +
+  90.000 +-+                                               ++++-++       +-+
+         |                                           ++-+++                |
+  80.000 +-+                                    +++++                    +-+
+         |                                 +++++                           |
+  70.000 +-+                          +++++                              +-+
+         |                        ++++                                     |
+  60.000 +-+                  ++++                                       +-+
+  50.000 +-+              ++++                                           +-+
+         |            ++++                                                 |
+  40.000 +-+        +++                                                  +-+
+         |       +++                                                       |
+  30.000 +-+   +++                                                       +-+
+         |   ++                                                            |
+  20.000 +-++                                                            +-+
+         |++                                                               |
+  10.000 +-+                                                             +-+
+         +      +     +      +     +      +      +     +      +     +      +
+   0.000 +-+----+-----+------+-----+------+------+-----+------+-----+----+-+
+         0     1000  2000   3000  4000   5000   6000  7000   8000  9000  10000
+
+
+
+
+ 10000.000 +-+----------+------------+-----------+------------+----------+A+
+           ++++         +            +           +            +         AAA+
+  9000.000 +-+++                                                       AA+-+
+           |   +++                                                   AAA   |
+  8000.000 +-+   +++                                               AAA   +-+
+           |       +++                                           AAA       |
+  7000.000 +-+       +++                                       AAA       +-+
+           |           +++                                   AAA           |
+  6000.000 +-+            ++                               AA            +-+
+  5000.000 +-+              +++                         AAA              +-+
+           |                  +++                     AAA                  |
+  4000.000 +-+                   +++               AAA                   +-+
+           |                       +++           AAA                       |
+  3000.000 +-+                        +++     AAA                        +-+
+           |                             +AAAA                             |
+  2000.000 +-+                         AAAA ++++                         +-+
+           |                       AAAA         ++++                       |
+  1000.000 +-+                AAAAA                 +++++                +-+
+           +          AAAAAAAA       +           +       ++++++++          +
+     0.000 AAAAAAAAAAA--+------------+-----------+------------+----------+-+
+         -100          -80          -60         -40          -20           0
+
+                                                                                                  
+
+
+ 10000.000 +-+---+------+-----+------+-----+-----+------+-----+------+---+A+
+           +     +      +     +      +     +     +      +     +      +  AAA+
+  9000.000 +-+                                                         AA+-+
+           |                                                         AAA   |
+  8000.000 +-+                                                     AAA   +-+
+           |                                                     AAA       |
+  7000.000 +-+                                                 AAA       +-+
+           |                                                 AAA           |
+  6000.000 +-+                                             AA            +-+
+  5000.000 +-+                                          AAA              +-+
+           |                                          AAA                  |
+  4000.000 +-+                                     AAA                   +-+
+           |                                     AAA                       |
+  3000.000 +-+                                AAA                        +-+
+           |                              AAAA                             |
+  2000.000 +-+                         AAAA                              +-+
+           |                       AAAA                                    |
+  1000.000 +-+                AAAAA                                      +-+
+           +     +    AAAAAAAA+      +     +     +      +     +      +     +
+     0.000 AAAAAAAAAAA--+-----+------+-----+-----+------+-----+------+---+-+
+           0     10     20    30     40    50    60     70    80     90   100
+#+END_EXAMPLE
+
+*** Brief description
+
+Here you can plot into a global =gnuplot= instance using the =gplot()= function.
+Or you can create a new instance by instantiating =class python_gplot=. In
+either case, you can pass in plot parameters for a single set of data /or/ a
+tuple of such parameters if we want to plot multiple pieces of data on the same
+plot.
+
+Each set of plot parameters is a list that's an =ndarray= of =y= values or =x=,
+=y=. Optionally, the first element of this list can be a =dict= that's passed to
+=gnuplot.py= unmodified.
+
+Lastly, arbitrary =gnuplot= commands can be given with
+
+#+BEGIN_SRC python
+gplot( ...., cmd="gnuplot command!!!")
+#+END_SRC
+
+or in a constructor:
+
+#+BEGIN_SRC python
+g = python_gplot("gnuplot command!!!")
+#+END_SRC
+
+*** Explained examples
+
+Let's say you have two =ndarray= objects: =x= and =y=.
+
+In its most simple form you can plot =y= versus =x=:
+
+#+BEGIN_SRC python
+gplot( x,y )
+#+END_SRC
+
+If you want to pick a different terminal, say:
+
+#+BEGIN_SRC python
+gplot( x,y, cmd="set terminal dumb" )
+#+END_SRC
+
+If you just want to plot =y= against integers, it's even simpler:
+
+#+BEGIN_SRC python
+gplot( y )
+#+END_SRC
+
+If you want to make such a plot but with points /and/ lines:
+
+#+BEGIN_SRC python
+gplot( {'with': 'linespoints'}, y )
+#+END_SRC
+
+If you want to plot two curves on the same plot:
+
+#+BEGIN_SRC python
+gplot( (x,y),
+       ({'with': 'linespoints'}, y,x) )
+#+END_SRC
+
+*** Bugs
+
+This is an extremely early alpha. I think it works, but haven't used it very
+much yet. I'll improve this as I need features. 3D plotting will happen at some
+point (maybe it works already). Also, this is my first python effort, and the
+code quality will improve. Documentation is extremely lacking right now. This
+will likewise improve as I use this.
+
+*** License
+
+Copyright 2015, Dima Kogan. Distributed under the terms of GNU LGPL, like
+=gnuplot.py=
+
 
 ** emacs idleness
 ** scope amp debugging
