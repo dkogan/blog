@@ -3383,7 +3383,7 @@ as much as I hate switching languages. Such transitions are full of dealing with
 people's NIH ambitions, and one has to pick one's battles. One battle I refuse
 to concede is switching away to numpy's preferred NIH plotting system:
 matplotlib. I've been using gnuplot for something like 20 years at this point,
-and and I'm not moving.
+and I'm not moving.
 
 Python land appears to have a reasonably functional gnuplot interface:
 [[http://gnuplot-py.sourceforge.net/][=gnuplot.py=]]. It works, but is very clunky to use with numpy. So I wrote
