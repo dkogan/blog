@@ -3564,6 +3564,71 @@ will likewise improve as I use this.
 Copyright 2015, Dima Kogan. Distributed under the terms of GNU LGPL, like
 =gnuplot.py=
 
+** DONE Bike headlight circuitry                                    :data:EE:
+   CLOSED: [2015-02-20 Fri 00:52]
+
+I just bought a bright headlight for my bicycle: [[http://www.dorcy.com/p-594-41-4001-3aa-led-bicycle-light-personal-light.aspx][Dorcy 41-4001]]. It's fairly
+bright and beefy, which is good. It also runs on 3 AA alkaline batteries, which
+isn't so much. I want to convert this headlight to run on a Li-ion cell instead.
+This would give it a longer runtime and make it rechargeable.
+
+*** Setup
+
+Li-ion cells produce a higher voltage than alkaline ones (nominally 3.7V instead
+of 1.5V), so this isn't necessarily a drop-in replacement. The headlight uses
+the 3 AA cells in series to get 4.5V nominal. The headlight description says
+
+#+BEGIN_EXAMPLE
+LED: USA Made CREE XML (T6) High Power White LED
+Power Driven:5.0Watt (3.10~3.15V 1500~1600MA ± 5%)
+#+END_EXAMPLE
+
+The [[http://www.cree.com/LED-Components-and-Modules/Products/XLamp/Discrete-Directional/XLamp-XML][LED manufacturer description]] lists a typical forward voltage of 3.1V and a
+maximum current of 3A, so this is all consistent.
+
+To replace the power source I need to know how the driving circuit works. I
+naively assumed that there's a switching regulator being used, feeding back on
+the current to drive the LED efficiently and to maintain a constant current (and
+thus constant light output) in a range of voltages. To test this theory I ran
+the light from my benchtop power supply instead of the AA batteries. I expected
+to see the input current track the input voltage inversely (keeping the input
+power roughly constant). Instead, I saw them moving together, with the light
+brightness varying noticeably with input voltage. This is what you'd see if
+there was a simple resistor used to limit the LED current. Seriously???
+
+*** Results
+
+First, I get what I know: the LED characteristics themselves. These are on page
+5 of the datasheet linked [[http://www.cree.com/LED-Components-and-Modules/Products/XLamp/Discrete-Directional/XLamp-XML][here]]. I extracted the [[file:files/Dorcylight/diode.dat][i-V data]], and the i-V curve of the
+LED (under nominal conditions) looks like this ([[file:files/Dorcylight/diode.gp][source]]):
+
+#+ATTR_HTML: :width 80%
+[[file:files/Dorcylight/cree_characteristics.svg]]
+
+Now let me assume a trivial resistor-diode driver circuit and try to fit my
+[[file:files/Dorcylight/iv.dat][observed input i-V data]] ([[file:files/Dorcylight/iv.gp][source]])
+
+#+ATTR_HTML: :width 80%
+[[file:files/Dorcylight/input_iv.svg]]
+
+I didn't go to the nominal triple-alkaline voltage because my power supply can't
+produce more than 3A. The fit isn't perfect, so there's likely some
+unaccounted-for effect happening (temperature, for instance), but I can believe
+the overall model is right. The fitted resistor value is 0.28 Ohms! So if, for
+instance, we're driving at 3.8V, the sourced current is about 2A, and about 3.2V
+is in the diode, with 0.6V in the resistor. So at /this/ arbitrary operating
+point the resistor burns 0.6*2 = 1.2W of power, which is 0.6/3.8 = 16% of the
+whole energy, which I suppose isn't terrible. As input voltages rise, we will
+get less and less efficient, so fully-charged alkalines will produce the most
+light, but will do it less efficiently than used alkalines.
+
+So it looks like a single Lithium-ion cell will definitely work, but I'll be
+getting much less current than fully-charged alkalines. It isn't clear what this
+means for luminosity. The LED datasheet says that it produces 280 lumens at
+0.7A, but we get this at a very low voltage AND the headlight is rated for 220
+lumens. /This/ is a highly inconsistent piece of data, and I don't really know
+what to say about it. I'm satisfied that Li-ion won't break anything, and at
+worst will be dim, so I'll just try it.
 
 ** emacs idleness
 ** scope amp debugging
@@ -3573,6 +3638,9 @@ Copyright 2015, Dima Kogan. Distributed under the terms of GNU LGPL, like
 * init                                                             :noexport:
 Local Variables:
 eval: (progn
+          (org-babel-do-load-languages
+           'org-babel-load-languages
+            '((gnuplot . t)))
           (auto-fill-mode)
           (load-library "compile")
           (load-library "o-blog")
