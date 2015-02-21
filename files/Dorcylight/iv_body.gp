@@ -1,7 +1,7 @@
 reset
-set output "input_iv.svg"
+set output "iv_body.svg"
 set terminal svg
-set title "Dorcy 41-4001 driver circuit characterization"
+set title "Dorcy 41-4001 (body only) driver circuit characterization"
 set xlabel "Input V"
 set ylabel "Input i"
 set grid

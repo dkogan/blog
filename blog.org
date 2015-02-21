@@ -3609,7 +3609,7 @@ Now let me assume a trivial resistor-diode driver circuit and try to fit my
 [[file:files/Dorcylight/iv.dat][observed input i-V data]] ([[file:files/Dorcylight/iv.gp][source]])
 
 #+ATTR_HTML: :width 80%
-[[file:files/Dorcylight/input_iv.svg]]
+[[file:files/Dorcylight/iv_body.svg]]
 
 I didn't go to the nominal triple-alkaline voltage because my power supply can't
 produce more than 3A. The fit isn't perfect, so there's likely some
