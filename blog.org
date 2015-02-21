@@ -3565,14 +3565,14 @@ Copyright 2015, Dima Kogan. Distributed under the terms of GNU LGPL, like
 =gnuplot.py=
 
 ** DONE Bike headlight circuitry                                    :data:EE:
-   CLOSED: [2015-02-20 Fri 00:52]
+   CLOSED: [2015-02-20 Fri 20:57]
 
 I just bought a bright headlight for my bicycle: [[http://www.dorcy.com/p-594-41-4001-3aa-led-bicycle-light-personal-light.aspx][Dorcy 41-4001]]. It's fairly
 bright and beefy, which is good. It also runs on 3 AA alkaline batteries, which
 isn't so much. I want to convert this headlight to run on a Li-ion cell instead.
 This would give it a longer runtime and make it rechargeable.
 
-*** Setup
+*** Overview
 
 Li-ion cells produce a higher voltage than alkaline ones (nominally 3.7V instead
 of 1.5V), so this isn't necessarily a drop-in replacement. The headlight uses
@@ -3596,39 +3596,73 @@ power roughly constant). Instead, I saw them moving together, with the light
 brightness varying noticeably with input voltage. This is what you'd see if
 there was a simple resistor used to limit the LED current. Seriously???
 
-*** Results
+*** LED characterization
 
-First, I get what I know: the LED characteristics themselves. These are on page
-5 of the datasheet linked [[http://www.cree.com/LED-Components-and-Modules/Products/XLamp/Discrete-Directional/XLamp-XML][here]]. I extracted the [[file:files/Dorcylight/diode.dat][i-V data]], and the i-V curve of the
-LED (under nominal conditions) looks like this ([[file:files/Dorcylight/diode.gp][source]]):
+First, I gather what I know: the LED characteristics themselves. These are on
+page 5 of the datasheet linked [[http://www.cree.com/LED-Components-and-Modules/Products/XLamp/Discrete-Directional/XLamp-XML][here]]. I extracted the [[file:files/Dorcylight/diode.dat][i-V data]], and the i-V curve
+of the LED under nominal conditions looks like this ([[file:files/Dorcylight/diode.gp][source]]):
 
 #+ATTR_HTML: :width 80%
 [[file:files/Dorcylight/cree_characteristics.svg]]
 
-Now let me assume a trivial resistor-diode driver circuit and try to fit my
-[[file:files/Dorcylight/iv.dat][observed input i-V data]] ([[file:files/Dorcylight/iv.gp][source]])
+*** Headlight body characterization
+
+The headlight is composed of
+
+- the main housing (contains the LED and the battery pack)
+- battery cap (contains ON switch)
+
+The initial assumption was that everything we care about lives in the housing,
+so I characterized that first. I scanned a range of input voltages, taking note
+of the input currents drawn. Let me assume a trivial resistor-diode driver
+circuit and try to fit my [[file:files/Dorcylight/iv_body.dat][observed input i-V data]] ([[file:files/Dorcylight/iv_body.gp][source]])
 
 #+ATTR_HTML: :width 80%
 [[file:files/Dorcylight/iv_body.svg]]
 
-I didn't go to the nominal triple-alkaline voltage because my power supply can't
-produce more than 3A. The fit isn't perfect, so there's likely some
-unaccounted-for effect happening (temperature, for instance), but I can believe
-the overall model is right. The fitted resistor value is 0.28 Ohms! So if, for
-instance, we're driving at 3.8V, the sourced current is about 2A, and about 3.2V
-is in the diode, with 0.6V in the resistor. So at /this/ arbitrary operating
-point the resistor burns 0.6*2 = 1.2W of power, which is 0.6/3.8 = 16% of the
-whole energy, which I suppose isn't terrible. As input voltages rise, we will
-get less and less efficient, so fully-charged alkalines will produce the most
-light, but will do it less efficiently than used alkalines.
+I didn't go to the nominal triple-alkaline voltage (4.5V) because my power
+supply can't produce more than 3A. The fit isn't perfect, so there's likely
+something else going on. The fitted resistor value is 0.28 Ohms! Could this
+really be true? The alligator clips could have resistances in this range.
+Furthermore, the LED datasheet says that it produces 280 lumens at 0.7A, but we
+get this at a very low voltage /and/ the headlight is rated for 220 lumens.
+/This/ is a highly inconsistent piece of data. Something else is going on.
 
-So it looks like a single Lithium-ion cell will definitely work, but I'll be
-getting much less current than fully-charged alkalines. It isn't clear what this
-means for luminosity. The LED datasheet says that it produces 280 lumens at
-0.7A, but we get this at a very low voltage AND the headlight is rated for 220
-lumens. /This/ is a highly inconsistent piece of data, and I don't really know
-what to say about it. I'm satisfied that Li-ion won't break anything, and at
-worst will be dim, so I'll just try it.
+*** Headlight body /and/ battery cap characterization
+
+What if the battery cap is more than a dumb switch? It's beefy and sealed, so
+there /could/ be something in there. I hooked everything up cables, and scanned
+the voltages again. Once again, let me assume a trivial resistor-diode driver
+circuit and try to fit my [[file:files/Dorcylight/iv_full.dat][observed input i-V data]] ([[file:files/Dorcylight/iv_full.gp][source]])
+
+#+ATTR_HTML: :width 80%
+[[file:files/Dorcylight/iv_full.svg]]
+
+Much better! The inferred resistance is 1.9 Ohms. Low, but I can believe it. The
+body was /just/ the LED, and the resistances were my (poor) connections.
+Alkalines generally start at around 1.6V, then decay to 1.0V or so as you use
+them. Ballpark average: 1.3V, so 3 of those are at ~4V. The data we just
+gathered puts this current draw at 600mA, which is a bit below 700mA; this makes
+sense since the rated light output is 220 lumens, a bit lower than the 280
+lumens we're supposed get at 700mA.
+
+*** Musings
+
+I'm now confident I know what's going on. I'm satisfied that Li-ion won't break
+anything, but it will be dim. Li-ion batteries have varying discharge curves;
+generally they start at 4.2V or so, then drop to 3.0V-3.5V as you use them. This
+will result in a dramatic drop in the current and thus light intensity.
+
+This is just lame. Without regulation the light gets dimmer as the batteries are
+used up /and/ it's just inefficient. Taking their nominal operating point of 4V
+you get 3.1V in the LED and you throw away 0.9V in the resistor for an
+efficiency of ~75%. In this scheme the efficiency gets worse at higher voltages
+(brighter light). I guess you could do worse, but it's just dumb.
+
+My particular rechargable plan won't produce great results. I guess I can lower
+the resistance by installing something in parallel. Maybe I will, but I will
+complain the whole time.
+
 
 ** emacs idleness
 ** scope amp debugging
