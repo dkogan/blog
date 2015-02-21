@@ -25,6 +25,6 @@ id(vd) = a + b*vd + c*vd**2
 vd(r,v) = ( -(b + 1/r) + sqrt( (b + 1/r)**2 - 4*c * (a-v/r)) ) / (2*c)
 
 r=1
-fit (x-vd(r,x))/r "iv.dat" noerror via r
+fit (x-vd(r,x))/r "iv_body.dat" noerror via r
 
-plot "iv.dat" with points notitle, (x-vd(r,x))/r notitle
+plot "iv_body.dat" with points notitle, (x-vd(r,x))/r notitle
