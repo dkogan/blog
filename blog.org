@@ -3663,6 +3663,58 @@ My particular rechargable plan won't produce great results. I guess I can lower
 the resistance by installing something in parallel. Maybe I will, but I will
 complain the whole time.
 
+** DONE Bike headlight circuit continued                                 :EE:
+   CLOSED: [2015-03-14 Sat 02:34]
+
+In the [[file:{lisp}(ob:link-to-post (ob:get-post-by-title "Bike headlight circuitry")){/lisp}][last post]] I complained about the poor regulation of a flashlight I
+bought. Apparently I was willing to dump unreasonable amounts of time to right
+this wrong, so I bought some parts, hacked them in and I now have a regulated
+flashlight driven by a big Li-ion rechargable cell.
+
+The battery is a single 3500 mAh MNKE IMR 26650 cell. Apparently these are
+popular in the vaping community. Ok then.
+
+Very little is required to add regulation. I'm using an [[http://www.st.com/web/en/catalog/sense_power/FM142/CL1854/SC1575/PF253333][LED2000]] driver IC to do
+all the work. This is a buck switching regulator that feeds back on current in
+order to drive an LED with a particular current. The [[file:files/Dorcylight/schematics.pdf][circuit]] I built is the
+reference design for this IC. I added a TVS diode to absorb the voltage spikes
+that could result if the LED is disconnected as it is being driven; this is a
+potentially poor mechanical connection, so this is important. I added a PTC
+resistor to protect against short circuits. Furthermore, I'm using a switch
+controller IC and a MOSFET to interact with the on/off button. The circuit is
+not at all interesting.
+
+What /is/ interesting is the construction. I never built a board, so this is all
+free-formed and then encased in hot glue at the end. I'm using 22-gauge magnet
+wire for everything. This is nicely thick and low impedance, but stripping it is
+a pain in the butt. In fact, this whole free-forming excercise was really
+time-consuming, and I don't feel particularly good about the results. The thing
+works right now, but I can easily imagine that it'll stop working at any point.
+At that point, I could make a PCB to construct something more reliable, but I've
+already put way too much time into this, so simply buying another light would be
+the answer.
+
+Before I realized that the button assembly in the cap could be opened, all the
+circuitry was meant to go in the gap between the battery and the housing:
+
+#+ATTR_HTML: :width 80%
+[[file:files/Dorcylight/R0023853.jpg.scaled.jpg]]
+#+ATTR_HTML: :width 80%
+[[file:files/Dorcylight/R0023862.jpg.scaled.jpg]]
+
+After I figured out that I could get to the on/off button circuitry, I put
+everything into the cap:
+
+#+ATTR_HTML: :width 80%
+[[file:files/Dorcylight/R0023864.jpg.scaled.jpg]]
+
+Then encase in hot glue, and done:
+
+#+ATTR_HTML: :width 80%
+[[file:files/Dorcylight/R0023867.jpg.scaled.jpg]]
+#+ATTR_HTML: :width 80%
+[[file:files/Dorcylight/R0023868.jpg.scaled.jpg]]
+
 
 ** emacs idleness
 ** scope amp debugging
