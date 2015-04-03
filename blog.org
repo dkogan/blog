@@ -3715,6 +3715,56 @@ Then encase in hot glue, and done:
 #+ATTR_HTML: :width 80%
 [[file:files/Dorcylight/R0023868.jpg.scaled.jpg]]
 
+** DONE Linux tracepoints for 32-bit code on a 64-bit kernel      :tools:dev:
+   CLOSED: [2015-04-03 Fri 15:28]
+
+So I was trying to use [[http://www.sysdig.org][sysdig]] to see what a Windows application running under
+[[http://www.winehq.org][wine]] was doing, and sysdig was telling me nothing about it. A [[https://github.com/draios/sysdig/issues/278][bug report]] and
+some investigating yielded the answer: Linux tracepoints do not work for 32-bit
+processes running on a 64-bit kernel. As a trivial example, you can build tst.c:
+
+#+BEGIN_SRC C
+#include <stdio.h>
+#include <stdlib.h>
+
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+
+int main(int argc, char* argv[])
+{
+    while(1)
+    {
+        int fd = open("/dev/null", O_RDONLY);
+        close(fd);
+        sleep(1);
+    }
+
+    return 0;
+}
+#+END_SRC
+
+natively: =gcc -o tst tst.c=, and sysdig will see the 3 syscalls here just fine.
+But building it in 32-bit mode with =gcc -m32 -o tst tst.c= makes sysdig blind.
+One doesn't even have to use sysdig. I tried to use tracepoints through the
+interface in =/sys= with the same results: events are seen without =-m32=, but
+cannot be seen with it:
+
+#+BEGIN_EXAMPLE
+
+root@shorty:/home/dima# cd /sys/kernel/debug/tracing
+
+root@shorty:/sys/kernel/debug/tracing# echo 'syscalls:sys_enter_open' >> /sys/kernel/debug/tracing/set_event 
+
+root@shorty:/sys/kernel/debug/tracing# echo 'common_pid == 16211' > events/syscalls/sys_enter_open/filter
+
+root@shorty:/sys/kernel/debug/tracing# cat trace_pipe
+^C
+
+#+END_EXAMPLE
+
+This may or may not be easy to fix, but this rabbithole probably runs deep, so
+I'm stopping here.
 
 ** emacs idleness
 ** scope amp debugging
