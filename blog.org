@@ -3766,6 +3766,86 @@ root@shorty:/sys/kernel/debug/tracing# cat trace_pipe
 This may or may not be easy to fix, but this rabbithole probably runs deep, so
 I'm stopping here.
 
+
+** DONE Steepest streets in Los Angeles                            :data:GIS:
+   CLOSED: [2015-05-03 Sun 00:05]
+
+A century ago, city planners didn't have the restraint that modern planners do,
+and as a result some older LA neighborhoods have some exceptionally steep
+streets. Random people on the internet usually claim that some combination of
+Fargo St, Baxter St (both in Silver Lake) and Eldred St (climbing Mt Washington
+from Highland Park) are the steepest, with Eldred barely taking the crown. I've
+never seen any justification of this, and being skeptical of things random
+people on the internet say, I decided to check.
+
+The basic strategy is the same as the [[file:{lisp}(ob:link-to-post (ob:get-post-by-title "Using DEMs to get GPX elevation profiles")){/lisp}][last time]], but using real tools. I want to
+get a detailed-enough DEM, and to sample it along given street paths (from [[http://www.openstreetmap.org][OSM]]).
+The SRTM data I used the last time isn't detailed enough: the higher-res SRTM
+data has cell about 30 meters wide. LA county has a [[http://egis3.lacounty.gov/dataportal/2011/01/26/2006-10-foot-digital-elevation-model-dem-public-domain/][publicly-available dataset]]
+with a higher resolution: cells about 3m wide. This should be sufficient.
+
+After downloading the 2GB file, the DEM can be read into [[http://www.qgis.org][QGIS]] by opening the
+=dem_10ft/hdr.adf= file as a raster layer. Note that it takes QGIS a bit of time
+to load the whole thing. The =Quick OSM= plugin works reasonably well to import
+OSM data into QGIS (can be installed through the Plugin manager in the =Plugins=
+directory in QGIS). Once the DEM and the street geometry are loaded, we can
+generate the elevation profile. There are several plugins that do this. With
+some coaxing, I was able to get the "Profile tool" plugin to do what I needed
+here.
+
+*** Results
+
+I checked Eldred, Fargo and Baxter. The term "steepest street" is
+poorly-defined, so based on a completely arbitrary measure or "steepest over a
+reasonable length" we have
+
+- Eldred and Fargo tied for 1st
+- Baxter 3rd
+
+The sampled elevation-vs-horizontal travel data is here (everything in ft):
+
+- [[file:files/la_hills/eldred.dat][Eldred]]
+- [[file:files/la_hills/fargo.dat][Fargo]]
+- [[file:files/la_hills/baxter.dat][Baxter]]
+
+The elevation profiles for the 3 streets in their steepest sections looks like
+this (Baxter, Fargo starting at the 2 fwy, and going East; [[file:files/la_hills/profiles_full.gp][source]]):
+
+#+ATTR_HTML: :width 80%
+[[file:files/la_hills/profiles_full.svg]]
+
+We can see that as you travel West from Ave 50, Eldred St loses elevation, and
+then regains it quickly, getting more steep as it goes. We can also see that
+while the steepest section of Fargo is a bit steeper than Baxter, Baxter keeps
+going and has several more slightly-less-steep bumps.
+
+If we plot the steepest sections of all 3 streets on top of one another, we get
+this ([[file:files/la_hills/profiles_relative.gp][source]]):
+
+
+#+ATTR_HTML: :width 80%
+[[file:files/la_hills/profiles_relative.svg]]
+
+Once again, Fargo is steeper than Baxter. The steepest section of Fargo is very
+similar to Eldred, but Fargo retains is steepness longer than Eldred does.
+
+One could try to split hairs about whether Fargo or Baxter are steeper, but
+based on this data, they're even for all purposes.
+
+Clearly this all is only valid if the source data is valid. It looks mostly
+reasonable. The DEM is detailed enough to show each street in a little valley,
+and this aligns well with Eldred. Fargo and Baxter lie in an area with a natural
+valley, but the street alignment ignores it cutting at an angle, which is
+consistent with the USGS topo. The absolute heights are fairly consistent with
+the USGS topo. I believe these results.
+
+It's also possible that there's some other candidate steep street out there.
+Some random internet person claimed 28th Street in San Pedro had a steep
+section, but none was comparable to these 3. This is good enough for me and I'm
+stopping here.
+
+
+
 ** emacs idleness
 ** scope amp debugging
 ** Math. Horizonator?
