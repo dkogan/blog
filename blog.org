@@ -4067,6 +4067,21 @@ Hawkins, the Cabin Flat Campground and Shoemaker Canyon Road.
 ** Math. Horizonator?
 ** multi-arch in general
 
+
+
+* making dvipng work                                               :noexport:
+- OPTIONS do not work. Need to enable explicitly with
+  (setq org-html-with-latex 'dvipng)
+
+- o-blog translates the path of file: links and copies the file in
+  (o-blog-publish-linked-files)
+
+- equations aren't processed there
+
+- equations are touched by the ltxpng stuff in ox-html.el such as
+
+  org-html--format-image
+
 * init                                                             :noexport:
 Local Variables:
 eval: (progn
