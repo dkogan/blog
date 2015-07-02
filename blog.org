@@ -3377,6 +3377,10 @@ needs better handling upstream as well. I'll patch when I get the time.
 ** DONE Gnuplot for numpy                             :tools:python:data:dev:
    CLOSED: [2015-01-31 Sat 20:24]
 
+#+begin_o_blog_alert info Follow-up posts
+I did much more work on this: [[file:{lisp}(ob:link-to-post (ob:get-post-by-title "Gnuplot for numpy. For real this time")){/lisp}][Gnuplot for numpy. For real this time]]
+#+end_o_blog_alert
+
 I've been using [[http://pdl.perl.org][PDL]] for numerical computation. It works ok, but is crufty and
 incomplete in many ways. I'm thus starting to look at numpy as an alternative,
 as much as I hate switching languages. Such transitions are full of dealing with
@@ -4060,6 +4064,58 @@ to Nowhere.
 
 The bounding spots for the roads-only point is the same road up to South Mt
 Hawkins, the Cabin Flat Campground and Shoemaker Canyon Road.
+
+** DONE Gnuplot for numpy. For real this time
+   CLOSED: [2015-07-02 Thu 15:05]
+
+In the [[file:{lisp}(ob:link-to-post (ob:get-post-by-title "Gnuplot for numpy")){/lisp}][last post]] I talked about a gnuplot backend for numpy to make it possible
+to live without matplotlib. I just did quite a bit of work to port my [[https://github.com/dkogan/PDL-Graphics-Gnuplot][PDL
+plotting library]] to python and numpy. The result: [[https://github.com/dkogan/PDL-Graphics-Gnuplot][gnuplotlib]]. This is a fairly
+direct port, so the API and the design goals are similar. The module tries to be
+a thin shim between python and gnuplot, so if the user wants to do something
+fancy, they should read the gnuplot docs to figure out how to get the fancy
+thing done, and then communicate it to gnuplotlib. I see this as a good thing.
+Some basic examples from the main documentation:
+
+#+BEGIN_SRC python
+ import numpy      as np
+ import gnuplotlib as gp
+ from scipy.constants import pi
+
+ x = np.arange(101) - 50
+ gp.plot(x**2)
+ [ basic parabola plot pops up ]
+
+
+ g1 = gp.gnuplotlib(title = 'Parabola with error bars',
+                    _with = 'xyerrorbars')
+ g1.plot( x**2 * 10, np.abs(x)/10, np.abs(x)*5,
+          legend    = 'Parabola',
+          tuplesize = 4 )
+ [ parabola with x,y errobars pops up in a new window ]
+
+
+ x,y = np.ogrid[-10:11,-10:11]
+ gp.plot( x**2 + y**2,
+          title     = 'Heat map',
+          cmds      = 'set view map',
+          _with     = 'image',
+          tuplesize = 3)
+ [ Heat map pops up where first parabola used to be ]
+
+
+ theta = np.linspace(0, 6*pi, 200)
+ z     = np.linspace(0, 5,    200)
+ g2 = gp.gnuplotlib(_3d = True)
+ g2.plot( (np.cos(theta),  np.sin(theta), z),
+          (np.cos(theta), -np.sin(theta), z))
+ [ Two 3D curves together in a new window: spirals ]
+#+END_SRC python
+
+See the main docs for more. During the course of this excercise I now have a
+fully-formed opinion of python from a perl perspective (meh). And one of numpy
+from a PDL perspective (also meh). But at least they're now "standard" for some
+meaning of that word, so we'll see.
 
 
 ** emacs idleness
