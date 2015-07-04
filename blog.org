@@ -4065,7 +4065,7 @@ to Nowhere.
 The bounding spots for the roads-only point is the same road up to South Mt
 Hawkins, the Cabin Flat Campground and Shoemaker Canyon Road.
 
-** DONE Gnuplot for numpy. For real this time
+** DONE Gnuplot for numpy. For real this time         :tools:python:data:dev:
    CLOSED: [2015-07-02 Thu 15:05]
 
 In the [[file:{lisp}(ob:link-to-post (ob:get-post-by-title "Gnuplot for numpy")){/lisp}][last post]] I talked about a gnuplot backend for numpy to make it possible
@@ -4110,7 +4110,7 @@ Some basic examples from the main documentation:
  g2.plot( (np.cos(theta),  np.sin(theta), z),
           (np.cos(theta), -np.sin(theta), z))
  [ Two 3D curves together in a new window: spirals ]
-#+END_SRC python
+#+END_SRC
 
 See the main docs for more. During the course of this excercise I now have a
 fully-formed opinion of python from a perl perspective (meh). And one of numpy
