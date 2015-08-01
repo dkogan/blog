@@ -4117,6 +4117,108 @@ fully-formed opinion of python from a perl perspective (meh). And one of numpy
 from a PDL perspective (also meh). But at least they're now "standard" for some
 meaning of that word, so we'll see.
 
+** DONE Validating a CRC computation on an AVR
+   CLOSED: [2015-08-01 Sat 16:38]
+
+Recently I implemented a self-reprogramming feature for an AVR XMEGA-E5 cpu.
+Naturally one wants to have some validation logic to make sure that what was
+burned to the flash is right. This is a common want, so Atmel implemented in
+hardware a chunk of logic to compute the CRC checksum of a block of flash
+memory. This is nice. What is less nice is their documentation, which is lacking
+to put it nicely. To use their hardware CRC, I need to make sure it matches a
+CRC that I compute in software. This was needlessly difficult, and hopefully
+this will serve as a guide for somebody in the future.
+
+The AVR supports a CRC16 checksum (CCITT) and a CRC32 checksum (IEEE 802.3). I
+use the bigger 32-bit checksum here.
+
+The *XMEGA E MANUAL* describes in section "29.11.2.6" how to compute the CRC of
+a block of flash memory. It says
+
+#+BEGIN_EXAMPLE
+The CRC checksum will be available in the NVM DATA register
+#+END_EXAMPLE
+
+This is a lie. On my partiular CPU, there are 24 bits worth of NVM.DATA, so this
+cannot be true for a 32-bit checksum. The checksum /really/ ends up in the
+CRC.CHECKSUM registers.
+
+In Section 24.3 the manual says
+
+#+BEGIN_EXAMPLE
+when CRC-32 polynomial is used, the final checksum read is bit reversed and complemented
+
+#+END_EXAMPLE
+
+I'm not 100% sure what's going on here; I /think/ that "bit reversed and
+complemented" simply means "binary NOT", but I'm not certain. In any case, there
+also seems to be a difference in behavior if we're checksumming flash memory
+(=CRC_SOURCE_FLASH_gc=) or if we're looking at =CRC.DATAIN= input
+(=CRC_SOURCE_IO_gc=).
+
+By default, the CRC module resets from zero. However to match other CRC32
+implementations, it is apparently necessary to reset from 1 instead
+(=CRC_RESET_RESET1_gc=). Oh, and this reset must happen /before/ the CRC module
+is turned on.
+
+Section 24.7.2 says
+
+#+BEGIN_EXAMPLE
+When running CRC-32 and appending the checksum at the end
+of the packet (as little endian), the final checksum should be 0x2144df1c, and
+not zero. However, if the checksum is complemented before it is appended (as
+little endian) to the data, the final result in the checksum register will be
+zero
+#+END_EXAMPLE
+
+This is a lie also. The constant 0x2144df1c is indeed there. However if you
+append a complemented (meaning binary NOT instead of a 2-complement) CRC then
+you get 0xFFFFFFFF and not 0.
+
+So in the end, if I have a flash of size =SIZE_APP_FLASH_BYTES=, then I compute
+the CRC32 of the first =SIZE_APP_FLASH_BYTES-4= bytes, and append a binary NOT
+of this CRC to the end. I can then validate by making sure that this CRC matches
+0xFFFFFFFF. On the AVR:
+
+#+BEGIN_SRC C
+
+  bool CRC_matches(void)
+  {
+      CRC.CTRL |= CRC_RESET_RESET1_gc;
+      CRC.CTRL  = CRC_CRC32_bm | CRC_SOURCE_FLASH_gc;
+      nvm_issue_flash_range_crc(0, SIZE_APP_FLASH_BYTES-1);
+      nvm_wait_until_ready();
+      while( CRC.STATUS & CRC_BUSY_bm ) ;
+
+      return
+        CRC.CHECKSUM0 == '\xFF' &&
+        CRC.CHECKSUM1 == '\xFF' &&
+        CRC.CHECKSUM2 == '\xFF' &&
+        CRC.CHECKSUM3 == '\xFF';
+  }
+
+#+END_SRC
+
+When preparing this image, I have perl pad, compute the CRC, binary-NOT and
+append:
+
+#+BEGIN_SRC perl
+use Digest::CRC 'crc32';
+
+sub prepareImage
+{
+    my ($rawimage) = @_;
+
+    my $Npad = $SIZE_APP_FLASH_BYTES-4 - length($rawimage);
+    my $ff   = pack('C', 0xFF);
+    my $pad  = $ff x $Npad;
+
+    my $crc = crc32($rawimage . $pad);
+    return $rawimage . $pad . pack('V', 0xFFFFFFFF & ~$crc);
+}
+
+#+END_SRC
+
 
 ** emacs idleness
 ** scope amp debugging
