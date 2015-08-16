@@ -4448,7 +4448,7 @@ All the inconvenience coefficients computed from this data look like this ([[fil
 [[file:files/culdesacs/all_coefficients.png]]
 
 As expected, straight roads away from the starting point are highly efficient,
-and we wee this in the Vermont corridor, 3rd street, and to a lesser extent 6th
+and we see this in the Vermont corridor, 3rd street, and to a lesser extent 6th
 street going East. Also as expected, routes that do not align with the street
 grid are inefficient: we see inefficiency bumps going NW and SW from the
 starting point. Eastward from the start the street grid tilts, so things are
@@ -4465,7 +4465,7 @@ prepend the coefficient of inconvenience, re-sort the list and take 50 most
 inconvenient locations by invoking
 
 #+BEGIN_EXAMPLE
-<query_34.0690448_-118.292924_20miles.out
+$ <query_34.0690448_-118.292924_20miles.out
    awk '$4 {printf "%f %f %f %f %f\n",($3-$4)/$4,$1,$2,$3,$4}' |
    sort -n -k1 -r | head -n 50
 #+END_EXAMPLE
@@ -4525,6 +4525,7 @@ The output is this:
 |      0.719789 | 34.031509 | -118.279755 |       7475.278809 |         4346.624512 |
 |      0.719616 | 34.095020 | -118.236320 |      10248.023438 |         5959.484863 |
 
+
 There are 3 clusters of data. All the stuff < 500m away from the start is mostly
 degenerate and uninteresting ([[file:files/culdesacs/montage_34.0691_-118.290_300m_16.gp][source]]):
 
@@ -4545,9 +4546,9 @@ park: http://www.openstreetmap.org/#map=18/34.03173/-118.27892.
 Here the sidewalks appear as separate ways that don't connect with the roads
 they abut. So according to the data, connecting to the network of sidewalks can
 only happen in one location, making these appear less convenient than they
-actually are. (I think these should be removed entirely, but it looks like the
-OSM committee people think both ways are fine. OK; it'll be fixed eventually in
-some way).
+actually are. (I think these should be removed from OSM, but it looks like the
+OSM committee people think that mapping sidewalks as separate ways is
+acceptable. OK; it'll be fixed eventually in some way).
 
 The next cluster of data is about 6km away as the crow flies ([[file:files/culdesacs/montage_34.094719_-118.235779_300m_16.gp][source]]):
 
