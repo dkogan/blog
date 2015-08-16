@@ -4070,7 +4070,7 @@ Hawkins, the Cabin Flat Campground and Shoemaker Canyon Road.
 
 In the [[file:{lisp}(ob:link-to-post (ob:get-post-by-title "Gnuplot for numpy")){/lisp}][last post]] I talked about a gnuplot backend for numpy to make it possible
 to live without matplotlib. I just did quite a bit of work to port my [[https://github.com/dkogan/PDL-Graphics-Gnuplot][PDL
-plotting library]] to python and numpy. The result: [[https://github.com/dkogan/PDL-Graphics-Gnuplot][gnuplotlib]]. This is a fairly
+plotting library]] to python and numpy. The result: [[https://github.com/dkogan/gnuplotlib][gnuplotlib]]. This is a fairly
 direct port, so the API and the design goals are similar. The module tries to be
 a thin shim between python and gnuplot, so if the user wants to do something
 fancy, they should read the gnuplot docs to figure out how to get the fancy
