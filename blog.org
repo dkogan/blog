@@ -3691,7 +3691,7 @@ not at all interesting.
 What /is/ interesting is the construction. I never built a board, so this is all
 free-formed and then encased in hot glue at the end. I'm using 22-gauge magnet
 wire for everything. This is nicely thick and low impedance, but stripping it is
-a pain in the butt. In fact, this whole free-forming excercise was really
+a pain in the butt. In fact, this whole free-forming exercise was really
 time-consuming, and I don't feel particularly good about the results. The thing
 works right now, but I can easily imagine that it'll stop working at any point.
 At that point, I could make a PCB to construct something more reliable, but I've
@@ -4112,7 +4112,7 @@ Some basic examples from the main documentation:
  [ Two 3D curves together in a new window: spirals ]
 #+END_SRC
 
-See the main docs for more. During the course of this excercise I now have a
+See the main docs for more. During the course of this exercise I now have a
 fully-formed opinion of python from a perl perspective (meh). And one of numpy
 from a PDL perspective (also meh). But at least they're now "standard" for some
 meaning of that word, so we'll see.
