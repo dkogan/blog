@@ -27,14 +27,14 @@ response_histogram.svg: intrackx.scap
 
 perf_overview.png: perf.plum.orig.fg
 	< $< egrep -v ' sched|irq| cs\b| cpu\b' | \
-	feedgnuplot --domain --dataid --with 'points ps 1' \
+	feedgnuplot --domain --dataid --with 'points ps 2' \
 	            --hardcopy $@ --terminal $(PNG_TERM) \
 	            --xlabel Cycle --ylabel 'Time (ms)' \
 	            --ymin 0 --ymax 4
 
 perf_ftdi.svg: perf.plum.orig.fg
 	< $< egrep ftdi | \
-	feedgnuplot --domain --dataid --autolegend --with 'points ps 1' \
+	feedgnuplot --domain --dataid --autolegend --with 'points ps 2' \
 	            --hardcopy $@ --terminal $(SVG_TERM) \
 	            --xlabel Cycle --ylabel 'Time (ms)' \
 	            --ymin 0 --ymax 4
@@ -42,22 +42,22 @@ perf_ftdi.svg: perf.plum.orig.fg
 perf_zoom_success.svg: perf.plum.orig.fg
 	x=1; ymin=0.935; ymax=0.98; \
 	< $< \
-	awk "!/^#/ && \$$1 >= $$x && \$$1 < $$(($$x+1)) && \$$3 >= $$ymin && \$$3 <= $$ymax" | \
-	feedgnuplot --domain --dataid --autolegend --with 'points ps 1' \
-	            --style cpu 'with labels' --rangesize cpu 2 \
+	awk "!/^#/ && \$$1 >= $$x && \$$1 < $$(($$x+1)) && \$$3 >= $$ymin && \$$3 <= $$ymax { if(\$$2 == \"cpu\") { cpu = \$$4; print cpu,id,y } else { id=\$$2; y=\$$3} } " | \
+	feedgnuplot --domain --dataid --autolegend --with 'points ps 2' \
 	            --hardcopy $@ --terminal $(SVG_TERM) \
-	            --xlabel Cycle --ylabel 'Time (ms)' \
-	            --xmin $$((x-0.1)) --xmax $$((x+0.9)) --ymin $$ymin --ymax $$ymax
+	            --xlabel CPU --ylabel 'Time (ms)' \
+	            --set 'xtics 0,1,4' \
+	            --xmin -0.1 --xmax 4.1 --ymin $$ymin --ymax $$ymax
 
 perf_zoom_failure.svg: perf.plum.orig.fg
 	x=11; ymin=1.07; ymax=1.12; \
 	< $< \
-	awk "!/^#/ && \$$1 >= $$x && \$$1 < $$(($$x+1)) && \$$3 >= $$ymin && \$$3 <= $$ymax" | \
-	feedgnuplot --domain --dataid --autolegend --with 'points ps 1' \
-	            --style cpu 'with labels' --rangesize cpu 2 \
+	awk "!/^#/ && \$$1 >= $$x && \$$1 < $$(($$x+1)) && \$$3 >= $$ymin && \$$3 <= $$ymax { if(\$$2 == \"cpu\") { cpu = \$$4; print cpu,id,y } else { id=\$$2; y=\$$3} } " | \
+	feedgnuplot --domain --dataid --autolegend --with 'points ps 2' \
 	            --hardcopy $@ --terminal $(SVG_TERM) \
-	            --xlabel Cycle --ylabel 'Time (ms)' \
-	            --xmin $$((x-0.1)) --xmax $$((x+0.9)) --ymin $$ymin --ymax $$ymax
+	            --xlabel CPU --ylabel 'Time (ms)' \
+	            --set 'xtics 0,1,4' \
+	            --xmin -0.1 --xmax 4.1 --ymin $$ymin --ymax $$ymax
 
 
 

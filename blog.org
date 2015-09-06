@@ -5037,10 +5037,9 @@ interrupt:
 - IRQ 16 fires. It's apparently handling both USB (ehci) and ethernet (eth0).
 - Both of these are handled
 - then the USB is further processed by the soft IRQ handler, which (eventually)
-  calls =ftdi_process_read_urb=. The annotation in this plot (it's odd; sorry)
-  indicates that the /swapper/ process was what CPU 0 was doing before it was
-  interrupted. This is an internal kernel *idle* process: i.e. the CPU was not
-  doing anything.
+  calls =ftdi_process_read_urb=. The events indicate that the /swapper/ process
+  is what CPU 0 was doing before it was interrupted. This is an internal kernel
+  *idle* process: i.e. the CPU was not doing anything.
 - As before we see the scheduling of the deferred task:
   =workqueue_activate_work=.
 - When this task is scheduled we see some scheduler events: =sched_stat_sleep=
@@ -5053,7 +5052,7 @@ interrupt:
   CPU handling the interrupt is the same as the CPU handling the deferred task.
   I see this consistently even as I change the CPU servicing the interrupt
 
-The raw events for CPU 0 corresponding to the task switch are:
+The raw events for CPU 0 corresponding to the successful task switch are:
 
 #+BEGIN_EXAMPLE
          swapper     0 [000] 93115.013222: workqueue:workqueue_queue_work: work struct=0xffff88081e452810 function=flush_to_ldisc workqueue=0xffff88082ec0ac00 req_cpu=256 cpu=0
@@ -5071,19 +5070,7 @@ The raw events for CPU 0 corresponding to the task switch are:
 wait at all to be scheduled. As soon as it was ready to run, it was allowed to.
 Great.
 
-OK. What does the failure case? That time the hammering read() is on CPU 2 and
-once again the interrupt is serviced by CPU 0. When it was interrupted, CPU 0
-was not idle, however: it was running the =perf= process (used to gather the
-data we're looking at). Here, the deferred scheduling happens as in the
-successful case; we see =sched_stat_sleep= and =sched_wakeup=, but the scheduled
-process doesn't run, at least not immediately.
-
-It is significant that the CPU being interrupted was idle in the successful
-case: it had nothing else to do other than to service our interrupt. Here it
-/did/ have something to do: when the IRQ handler exited, the CPU went back to
-=perf=.
-
-The raw events for CPU 0:
+OK. What about the failure case? The raw events look like this:
 
 #+BEGIN_EXAMPLE
      frobnicator 24483 [002] 93115.322925: syscalls:sys_enter_write: fd: 0x00000007, buf: 0x01f15cf4, count: 0x00000007
@@ -5104,7 +5091,17 @@ The raw events for CPU 0:
      kworker/0:1   142 [000] 93115.326712: workqueue:workqueue_execute_start: work struct 0xffff88081e452810: function flush_to_ldisc
 #+END_EXAMPLE
 
-OK, so eventually =perf= releases the CPU and our task can run. Here the cycle
+That time the hammering read() is on CPU 2 and once again the interrupt is
+serviced by CPU 0. When it was interrupted, CPU 0 was not idle, however: it was
+running the =perf= process (used to gather the data we're looking at). Here, the
+deferred scheduling happens as in the successful case; we see =sched_stat_sleep=
+and =sched_wakeup=, but the scheduled process doesn't run, at least not
+immediately.
+
+It is significant that the CPU being interrupted was idle in the successful
+case: it had nothing else to do other than to service our interrupt. Here it
+/did/ have something to do: when the IRQ handler exited, the CPU went back to
+=perf=. Eventually =perf= releases the CPU and our task can run. Here the cycle
 started at t=93115.322925, the reply was received and the task was scheduled at
 t=93115.324019 (1.1ms later). However the CPU wasn't released until
 t=93115.326712, which is 3.8ms after the start, and past our 3.5ms deadline.
@@ -5133,16 +5130,16 @@ process's data. While waiting for data, the =frobnicator= process spends all its
 time calling read(), which in turn goes directly into the kernel. This hammering
 read() behavior likely doesn't take priority over the workqueue in the kernel,
 and our data can be delivered in a timely fashion. So it appears that on the
-older kernel there was some sort of de-facto CPU segragation going on that
-allowed the workqueue tasks to run on a CPU that was doing nothing else. I.e. we
-were getting lucky.
+older kernel there was some sort of de-facto CPU segregation going on that
+allowed the workqueue tasks to run on an uncontested CPU. I.e. we were getting
+lucky.
 
 *** Mitigation
 
 We have a CPU contention issue. Potential fixes:
 
-1. Make sure the CPU servicing the interrupt is never busy when the interrupt
-   happens
+1. Make sure the CPU servicing the interrupt is never busy when an interrupt
+   fires
 2. Set up the process priorities to prioritize the workqueue above other user
    processes
 
