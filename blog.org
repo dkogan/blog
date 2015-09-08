@@ -4962,7 +4962,7 @@ If we make the same plot, but focus /only/ on the FTDI stuff, we get this:
 
 [[file:files/kernel_frobnicator/perf_ftdi.svg]]
 
-OK. Must less going on. FTDI USB packets are supposed to come in every 1ms, and
+OK. Much less going on. FTDI USB packets are supposed to come in every 1ms, and
 we can see this: =ftdi_process_read_urb= runs in response to the USB interrupt,
 and we see stuff happen every 1ms or so. Each FTDI USB packet is supposed to
 contain 2 bytes of status, followed by a payload. Thus to get our 1-byte payload
