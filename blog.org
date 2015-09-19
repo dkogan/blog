@@ -5204,6 +5204,29 @@ default on Ubuntu, and it's not obvious if it's a net positive or not). Any
 kernel update could break something, and more testing would be required, but
 that was probably assumed from the start anyway. OK. Done.
 
+** DONE Bike headlight circuit. Again                                    :EE:
+   CLOSED: [2015-09-18 Fri 22:14]
+
+[[file:{lisp}(ob:link-to-post (ob:get-post-by-title "Bike headlight circuit continued")){/lisp}][The last time]] I dealt with this stupid headlight, I made things work with some
+ridiculous construction techniques. Well, those construction techniques finally
+made something die. I still had a full set of parts, and the schematics in an
+EDA tool, so I laid out a PCB to try again with more reasonable construction
+techniques. The schematics and layout are in their own [[https://github.com/dkogan/flashlight_regulator][git repo]]. The tools were
+=gschem= and =pcb= from the gEDA project. Somebody told me to look at [[http://www.oshpark.com][oshpark]]
+for the fabrication, and 3 copies of my board cost me $4. Deal. The fabbed
+boards look nice:
+
+#+ATTR_HTML: :width 80%
+[[file:files/Dorcylight/shipped.jpg]]
+
+And assembly wasn't a giant pain:
+
+#+ATTR_HTML: :width 80%
+[[file:files/Dorcylight/stuffed.jpg]]
+
+If /this/ breaks for some reason, I /really/ should just buy another light.
+
+
 ** Math. Horizonator?
 ** multi-arch in general
 
