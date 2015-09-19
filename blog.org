@@ -3571,6 +3571,10 @@ Copyright 2015, Dima Kogan. Distributed under the terms of GNU LGPL, like
 ** DONE Bike headlight circuitry                                    :data:EE:
    CLOSED: [2015-02-20 Fri 20:57]
 
+#+begin_o_blog_alert info Follow-up posts
+I redid the circuitry: [[file:{lisp}(ob:link-to-post (ob:get-post-by-title "Bike headlight circuit continued")){/lisp}][Bike headlight circuit continued]] and [[file:{lisp}(ob:link-to-post (ob:get-post-by-title "Bike headlight circuit. Again")){/lisp}][Bike headlight circuit. Again]]
+#+end_o_blog_alert
+
 I just bought a bright headlight for my bicycle: [[http://www.dorcy.com/p-594-41-4001-3aa-led-bicycle-light-personal-light.aspx][Dorcy 41-4001]]. It's fairly
 bright and beefy, which is good. It also runs on 3 AA alkaline batteries, which
 isn't so much. I want to convert this headlight to run on a Li-ion cell instead.
@@ -3669,6 +3673,10 @@ complain the whole time.
 
 ** DONE Bike headlight circuit continued                                 :EE:
    CLOSED: [2015-03-14 Sat 02:34]
+
+#+begin_o_blog_alert info Follow-up posts
+I finally laid out a PCB: [[file:{lisp}(ob:link-to-post (ob:get-post-by-title "Bike headlight circuit. Again")){/lisp}][Bike headlight circuit. Again]]
+#+end_o_blog_alert
 
 In the [[file:{lisp}(ob:link-to-post (ob:get-post-by-title "Bike headlight circuitry")){/lisp}][last post]] I complained about the poor regulation of a flashlight I
 bought. Apparently I was willing to dump unreasonable amounts of time to right
