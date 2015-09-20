@@ -5234,6 +5234,82 @@ And assembly wasn't a giant pain:
 
 If /this/ breaks for some reason, I /really/ should just buy another light.
 
+** DONE Debugging GNU Emacs memory leaks (part 1)           :tools:dev:emacs:
+   CLOSED: [2015-09-19 Sat 23:40]
+
+*** Overview
+
+Like many people I run my emacs as a long-running daemon. This allows for the
+clients to start quickly, and for state to be preserved as long as the emacs
+daemon is running. This works great. However, in the last year or so I've had a
+very rough time doing this: something in emacs leaks memory, eats all the RAM on
+my machine and at best I have to kill emacs, or at worst restart my whole
+machine, since "swapping" can make it unresponsive. It's quite difficult to
+debug this, since it's not obvious when memory is leaking in a long-running
+process. On top of that, emacs is a lisp vm with its own GC, so it's not even
+completely clear when the =free= happens, or if the memory is then returned to
+the OS or not. To make it even worse, I couldn't create a reproducible test case
+that would reliably leak memory quickly. If such a test existed, one could then
+attempt to debug. It was only clear that during normal use memory consumption
+would steadily increase. I asked on the =emacs-devel= mailing list a while back
+without any obvious results:
+
+https://lists.gnu.org/archive/html/emacs-devel/2015-02/msg00705.html
+
+*** A leak plugged
+
+Many months later I finally figured out how to make it leak on command, and the
+results are described below and on the mailing list:
+
+https://lists.gnu.org/archive/html/emacs-devel/2015-09/msg00619.html
+
+Apparently starting up a daemon and then repeatedly creating/destroying a client
+frame made the memory use consistently climb. The following =zsh= snippet
+tickles this bug:
+
+#+BEGIN_SRC bash
+$ emacs --daemon
+
+$ while true; do
+    for i in `seq 10`; do
+      timeout 5 emacsclient -a '' -c & ;
+    done;
+    sleep 10;
+  done
+#+END_SRC
+
+The memory use could be monitored with this bit of =zsh=:
+
+#+BEGIN_SRC bash
+$ while true; do
+    ps -h -p `pidof emacs` -O rss; sleep 1;
+  done
+#+END_SRC
+
+The leak was visible both with =emacs -Q= (don't load any user configuration)
+and with =emacs= (load my full configuration), but the leak was much more
+pronounced if my configuration was loaded. I then bisected my configuration to
+find the bit that was causing the leak, and I found it: =winner-mode=.
+
+Apparently =winner-mode= keeps a list of all active frames, but it doesn't clean
+dead frames off of this list. In a long-running daemon workflow frames are
+created and destroyed all the time, so this list ends up keeping references to
+data structures that are no longer active. This in turn prevents the GC from
+cleaning up the associated memory. A simple patch to =winner-mode= fixes this,
+and we can clearly see the results:
+
+#+ATTR_HTML: :width 80%
+[[file:files/emacs_leak_debugging/winner.svg]]
+
+So I fixed /a/ memory leak. It's not obvious that this is /the/ memory leak that
+I'm feeling most. And clearly there are other leaks, since the memory
+consumption is growing even with no configuration loaded at all. Still, we're on
+our way.
+
+
+** more emacs                                                      :noexport:
+
+http://debbugs.gnu.org/cgi/bugreport.cgi?bug=21509
 
 ** Math. Horizonator?
 ** multi-arch in general
