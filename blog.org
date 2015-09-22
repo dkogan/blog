@@ -5299,7 +5299,7 @@ cleaning up the associated memory. A simple patch to =winner-mode= fixes this,
 and we can clearly see the results:
 
 #+ATTR_HTML: :width 80%
-[[file:files/emacs_leak_debugging/winner.svg]]
+[[file:files/emacs_leak_debugging/winner/winner.svg]]
 
 So I fixed /a/ memory leak. It's not obvious that this is /the/ memory leak that
 I'm feeling most. And clearly there are other leaks, since the memory
