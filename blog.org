@@ -5237,6 +5237,10 @@ If /this/ breaks for some reason, I /really/ should just buy another light.
 ** DONE Debugging GNU Emacs memory leaks (part 1)           :tools:dev:emacs:
    CLOSED: [2015-09-19 Sat 23:40]
 
+#+begin_o_blog_alert info Follow-up posts
+[[file:{lisp}(ob:link-to-post (ob:get-post-by-title "Debugging GNU Emacs memory leaks (part 2)")){/lisp}][Debugging GNU Emacs memory leaks (part 2)]]
+#+end_o_blog_alert
+
 *** Overview
 
 Like many people I run my emacs as a long-running daemon. This allows for the
@@ -5306,10 +5310,769 @@ I'm feeling most. And clearly there are other leaks, since the memory
 consumption is growing even with no configuration loaded at all. Still, we're on
 our way.
 
+** DONE Debugging GNU Emacs memory leaks (part 2)           :tools:dev:emacs:
+   CLOSED: [2015-10-01 Thu 16:14]
+
+I'm continuing to look for and plug memory leaks. The [[file:{lisp}(ob:link-to-post (ob:get-post-by-title "Debugging GNU Emacs memory leaks (part 1)")){/lisp}][previous effort]]
+successfully plugged a leak, but there's much more to find here. I found some
+more stuff, which is documented here. The corresponding bug report is
+
+http://debbugs.gnu.org/cgi/bugreport.cgi?bug=21556
+
+*** Preliminaries
+
+I'm instrumenting all allocation/deallocation functions, and analyzing the data
+with some simple (and not-yet-nice) tools to look for anomalies. I need to
+generate backtraces, so I use [[https://perf.wiki.kernel.org/][=perf=]] as the main instrumentation tool. Generally
+backtraces are computed from frame pointers, but all =-O= optimization levels in
+=gcc= strip those out, so I build my own emacs with =-fno-omit-frame-pointer= to
+keep them in place. It is possible to make backtraces with =perf= even without
+frame pointers (using DWARF debug information), but this results in much larger
+trace files. This extra load generally overwhelms my machine, and important data
+ends up culled at data-collection time.
+
+I'm using the lucid X11 widgets for my emacs.
+
+I'm on Debian/sid, so debug symbols are generally split off into separate
+packages. It appears that =perf= has a bug, and needs a patch to find these
+properly. I did that and posted on LKML:
+http://lkml.iu.edu/hypermail/linux/kernel/1509.0/04006.html
+
+*** Test configuration
+
+I set up emacs to continually leak memory. Here I do that by running
+
+#+BEGIN_SRC bash
+emacs -Q --daemon
+while true; do timeout 1 emacsclient -a '' -c; sleep 1; done
+#+END_SRC
+
+This is similar to the setup in the previous post, but I create one client frame
+at a time instead of 10 at a time. The sequence is 1-second-with-frame followed
+by 1-second-without-frame; a new frame pops up every 2 seconds. This appears to
+be sufficient as the memory leaks fairly quickly. Note that there are at least
+two different leaks here. One of the leaks results from an X error:
+
+http://debbugs.gnu.org/cgi/bugreport.cgi?bug=21509
+
+Here I do not chase that leak, but look for the non-X-error-caused leaks. I
+sample the memory consumption with this zsh snippet:
+
+#+BEGIN_SRC bash
+while (true) { ps -h -p `pidof emacs` -O rss; sleep 1 } | awk '{print $2;}'
+#+END_SRC
+
+and it looks like this:
+
+#+ATTR_HTML: :width 80%
+[[file:files/emacs_leak_debugging/first_client/first_client.svg]]
+
+This leak is about 90kB/s or 180kB/frame! As this runs, I make a record of all
+memory allocation operations. I use =perf= to do this:
+
+#+BEGIN_SRC bash
+perf probe --del '*'
+perf probe -x /lib/x86_64-linux-gnu/libc-2.19.so --add 'malloc=malloc bytes'
+perf probe -x /lib/x86_64-linux-gnu/libc-2.19.so --add 'malloc_ret=malloc%return $retval'
+perf probe -x /lib/x86_64-linux-gnu/libc-2.19.so --add 'calloc=calloc elem_size n'
+perf probe -x /lib/x86_64-linux-gnu/libc-2.19.so --add 'calloc_ret=calloc%return $retval'
+perf probe -x /lib/x86_64-linux-gnu/libc-2.19.so --add 'realloc=realloc oldmem bytes'
+perf probe -x /lib/x86_64-linux-gnu/libc-2.19.so --add 'realloc_ret=realloc%return $retval'
+perf probe -x /lib/x86_64-linux-gnu/libc-2.19.so --add 'aligned_alloc alignment bytes'
+perf probe -x /lib/x86_64-linux-gnu/libc-2.19.so --add 'aligned_alloc_ret=aligned_alloc%return $retval'
+perf probe -x /lib/x86_64-linux-gnu/libc-2.19.so --add 'posix_memalign alignment size'
+perf probe -x /lib/x86_64-linux-gnu/libc-2.19.so --add 'posix_memalign_ret=posix_memalign%return $retval'
+perf probe -x /lib/x86_64-linux-gnu/libc-2.19.so --add 'free mem'
+
+timeout 40 perf record -m512 -r50 -g --call-graph=fp -p `pidof emacs` \
+                       -eprobe_libc:{free,{malloc,calloc,realloc}{,_ret}} \
+                       -eprobe_libc:aligned_alloc{,_1,_ret} \
+                       -eprobe_libc:posix_memalign{,_ret}
+#+END_SRC
+
+So I probe all the memory allocation/deallocation operations and log all
+inputs/outputs. This creates a (very large) =perf.data= file. Backtraces are
+available if frame pointers are available, so a =malloc()= called directly from
+emacs has a backtrace (because I built with =-fno-omit-frame-pointer=). However
+=malloc()= that goes through something like =libgtk= first does not. =perf= can
+get overloaded and not write all the data, and I make sure to only keep full
+data sets.
+
+I =perf record= for 40 seconds. Since I make a new frame every 2 seconds, about
+20 new clients were created in that time.
+
+I now convert the log file to a human-readable one:
+
+#+BEGIN_SRC bash
+perf script > script
+#+END_SRC
+
+This makes a human-readable, but even larger file.
+
+*** Analysis
+
+I now run the =script= file through a =parse_script.pl= tool to follow all
+allocations, and report any that have not been freed:
+
+#+BEGIN_SRC perl
+#!/usr/bin/perl
+
+use strict;
+use warnings;
+
+
+use feature 'say';
+
+
+my $Nbytes_allocated = 0;
+my %allocated;
+
+my ($prev_addr, $prev_ret, $prev_type, $prev_realloc0, $prev_realloc0_addr, $prev_realloc0_bytes);
+my $allocating;
+
+
+while(<>)
+{
+    next unless /probe_libc:([^:]+)/;
+
+    my $type = $1;
+    my $ret = $type =~ /_ret$/;
+    $type =~ s/_ret$//;
+
+
+    if ( $ret && !( !$prev_ret && $type eq $prev_type) &&
+         !($prev_realloc0 && $prev_type eq 'malloc' && $prev_ret && $type eq 'realloc') ) {
+        die "$type ret, but prev wasn't a corresponding !ret";
+    }
+    elsif ( !$ret && !$prev_ret &&
+            !($prev_realloc0 && $prev_type eq 'realloc' && !$prev_ret && $type eq 'malloc') &&
+            $. > 1) {
+        die "$type !ret following another !ret";
+    }
+    elsif ( $prev_realloc0 && !($type eq 'malloc' || $type eq 'realloc'))
+    {
+        die "realloc(0, N) must be followed by malloc(N)";
+    }
+    elsif ( !$ret )
+    {
+        if ($type eq 'malloc' && /bytes=([0-9a-z]+)/)
+        {
+            $allocating = hex $1;
+            if ( $prev_realloc0 && $allocating != $prev_realloc0_bytes )
+            {
+                die "realloc(0, N) must be followed by malloc(N)";
+            }
+        }
+        elsif ($type eq 'calloc' && /elem_size=([0-9a-z]+).*n=([0-9a-z]+)/)
+        {
+            $allocating = (hex $1) * (hex $2);
+        }
+        elsif ($type eq 'aligned_alloc' && /bytes=([0-9a-z]+)/)
+        {
+            $allocating = hex $1;
+        }
+        elsif ($type eq 'realloc' && /oldmem=([0-9a-z]+).*bytes=([0-9a-z]+)/)
+        {
+            if ( hex($1) == 0 )
+            {
+                # realloc(0, xxx) is always mapped to a malloc apparently. I treat
+                # this specially
+                $prev_realloc0       = 1;
+                $prev_realloc0_bytes = hex $2;
+            }
+            else
+            {
+                $allocating = hex $2;
+                $prev_addr = $1;
+            }
+        }
+        elsif ($type eq 'free' && /mem=([0-9a-z]+)/)
+        {
+            if ( hex($1) != 0)  # free(0) does nothing
+            {
+                if (!defined $allocated{$1})
+                {
+                    say "Unallocated free at $1. Line $.";
+                }
+                else
+                {
+                    $Nbytes_allocated -= $allocated{$1}{bytes};
+                    delete $allocated{$1};
+                }
+            }
+
+            $ret = 1;           # free has no free-ret so I set that now
+        }
+        else
+        {
+            say "Unknown !ret line: '$_'";
+            exit;
+        }
+    }
+    elsif ( $ret )
+    {
+        if ( !/arg1=([0-9a-z]+)/ )
+        {
+            die "Ret didn't get arg1";
+        }
+
+        my $addr = $1;
+
+        if ( hex($addr) == 0 )
+        {
+            say "$type returned NULL. Giving up";
+            exit;
+        }
+        elsif ( $type =~ /^(?:[cm]alloc|aligned_alloc)$/ )
+        {
+            if (defined $allocated{$addr})
+            {
+                say "Double alloc at $addr. Line $.";
+            }
+            else
+            {
+                $allocated{$addr}{bytes} = $allocating;
+                $allocated{$addr}{line} = $.;
+                $Nbytes_allocated += $allocating;
+            }
+
+            if ( $prev_realloc0 && $type eq 'malloc')
+            {
+                $prev_realloc0_addr = $addr;
+            }
+        }
+        elsif ( $type eq 'realloc' )
+        {
+            if ( $prev_realloc0 )
+            {
+                if ( $addr ne $prev_realloc0_addr )
+                {
+                    die "realloc(0, N) must be followed by malloc(N); differing addr";
+                }
+
+                $prev_realloc0       = undef;
+                $prev_realloc0_addr  = undef;
+                $prev_realloc0_bytes = undef;
+            }
+            else
+            {
+                my $prev0 = (hex($prev_addr) == 0);
+
+                if (!$prev0 && !defined $allocated{$prev_addr})
+                {
+                    say "realloc not alloced at $prev_addr. Line $.";
+                    $prev0 = 1;
+                }
+
+                if ($addr ne $prev_addr && defined $allocated{$addr})
+                {
+                    say "Double realloc at $addr. Line $.";
+                }
+
+                if ( !$prev0 )
+                {
+                    $Nbytes_allocated -= $allocated{$prev_addr}{bytes};
+                    delete $allocated{$prev_addr};
+                }
+
+                $allocated{$addr}{bytes} = $allocating;
+                $allocated{$addr}{line} = $.;
+                $Nbytes_allocated += $allocating;
+            }
+        }
+        else
+        {
+            say "Unknown ret line: '$_'";
+            exit;
+        }
+
+
+        $allocating = undef;
+    }
+
+
+    $prev_type = $type;
+    $prev_ret = $ret;
+}
+
+
+$Nbytes_allocated /= 1e6;
+say "Total allocated: $Nbytes_allocated MB";
+say '';
+
+for my $addr ( sort { $allocated{$a}{line} <=> $allocated{$b}{line}} keys %allocated )
+{
+    my ($bytes,$line) = ($allocated{$addr}{bytes},
+                         $allocated{$addr}{line});
+    say "Leaked " . sprintf('%5d', $bytes) . " bytes at line $line ($addr)";
+}
+#+END_SRC
+
+Allocations reported as leaky by this tool aren't necessarily leaky; I sampled
+for a finite amount of time, and maybe the memory hasn't been freed /yet/.
+However anything that has been allocated near the beginning of the log file, and
+hasn't been freed by the end is potentially a leak, and should be investigated.
+I make a plot of leak size vs line number:
+
+#+BEGIN_SRC bash
+<leaks awk '$1=="Leaked" {print $6,$2}' | feedgnuplot --domain --points --xlabel 'script line number' --ylabel 'size leaked'
+#+END_SRC
+
+and the result looks like this:
+
+#+ATTR_HTML: :width 80%
+[[file:files/emacs_leak_debugging/first_client/leaks.svg]]
+
+Note that it looks like we leak exactly 60984 bytes (can see that when zoom in)
+at regular intervals, about 20 times. There are 20 frames created in this log,
+so this is a strong indication that whatever happens with those allocations
+happens every time we create (or destroy) a client frame. Looking at the
+backtrace for those allocations, we see that they're all in
+
+#+BEGIN_EXAMPLE
+b62c XftFontOpenInfo (/usr/lib/x86_64-linux-gnu/libXft.so.2.3.2)
+#+END_EXAMPLE
+
+So we're leaking a font! Those are large, and plugging this leak would be /very/
+good. This was called through a library so no backtrace was available. I trace
+this again looking /just/ at these allocations, with full DWARF backtrace
+tracking:
+
+#+BEGIN_SRC bash
+perf probe -x /usr/lib/x86_64-linux-gnu/libXft.so.2 --add XftFontOpenInfo
+timeout 40 perf record -m512 -r50 -g --call-graph=dwarf -p `pidof emacs` -eprobe_libc:malloc --filter bytes==60984
+#+END_SRC
+
+Backtrace:
+
+#+BEGIN_EXAMPLE
+emacs-snapshot- 17249 [001] 681364.216285: probe_libc:malloc: (7fbff4f01020) bytes=0xee38
+            7fbff4f01020 malloc (/lib/x86_64-linux-gnu/libc-2.19.so)
+            7fbff9b9d62c XftFontOpenInfo (/usr/lib/x86_64-linux-gnu/libXft.so.2.3.2)
+            7fbff9b9e4da XftFontOpenPattern (/usr/lib/x86_64-linux-gnu/libXft.so.2.3.2)
+                  5c46b5 xftfont_open (/usr/bin/emacs-snapshot-lucid)
+                  5767e8 font_open_entity (/usr/bin/emacs-snapshot-lucid)
+                  576e5c font_load_for_lface (/usr/bin/emacs-snapshot-lucid)
+                  57703a font_open_by_spec (/usr/bin/emacs-snapshot-lucid)
+                  577095 font_open_by_name (/usr/bin/emacs-snapshot-lucid)
+                  4d0390 x_default_font_parameter (/usr/bin/emacs-snapshot-lucid)
+                  4d7f98 Fx_create_frame (/usr/bin/emacs-snapshot-lucid)
+                  55f933 Ffuncall (/usr/bin/emacs-snapshot-lucid)
+                  595823 exec_byte_code (/usr/bin/emacs-snapshot-lucid)
+                  55f350 funcall_lambda (/usr/bin/emacs-snapshot-lucid)
+                  55f72b Ffuncall (/usr/bin/emacs-snapshot-lucid)
+                  595823 exec_byte_code (/usr/bin/emacs-snapshot-lucid)
+                  55f72b Ffuncall (/usr/bin/emacs-snapshot-lucid)
+                  560d13 Fapply (/usr/bin/emacs-snapshot-lucid)
+                  55f831 Ffuncall (/usr/bin/emacs-snapshot-lucid)
+                  595823 exec_byte_code (/usr/bin/emacs-snapshot-lucid)
+                  55f72b Ffuncall (/usr/bin/emacs-snapshot-lucid)
+                  595823 exec_byte_code (/usr/bin/emacs-snapshot-lucid)
+                  55f72b Ffuncall (/usr/bin/emacs-snapshot-lucid)
+                  595823 exec_byte_code (/usr/bin/emacs-snapshot-lucid)
+                  55f72b Ffuncall (/usr/bin/emacs-snapshot-lucid)
+                  595823 exec_byte_code (/usr/bin/emacs-snapshot-lucid)
+                  55f72b Ffuncall (/usr/bin/emacs-snapshot-lucid)
+                  595823 exec_byte_code (/usr/bin/emacs-snapshot-lucid)
+                  55f72b Ffuncall (/usr/bin/emacs-snapshot-lucid)
+                  560bb0 Fapply (/usr/bin/emacs-snapshot-lucid)
+                  560d8a apply1 (/usr/bin/emacs-snapshot-lucid)
+                  55df4a internal_condition_case_1 (/usr/bin/emacs-snapshot-lucid)
+                  5992e0 read_process_output (/usr/bin/emacs-snapshot-lucid)
+#+END_EXAMPLE
+
+So this is the leaky allocation path. What's the "normal" =free= path that's not
+happening? At this point I've played with this enough to notice that these
+issues only come up for the first frame. If I create a frame, leave it open, and
+then use my loop to create/destroy the /second/ frame, then this leak does not
+occur. Probing that situation I know what the proper =free= path is:
+
+#+BEGIN_EXAMPLE
+            7fbd19a85660 free (/lib/x86_64-linux-gnu/libc-2.19.so)
+            7fbd1e730af4 XftFontManageMemory (/usr/lib/x86_64-linux-gnu/libXft.so.2.3.2)
+            7fbd1e72cab7 _XftCloseDisplay (/usr/lib/x86_64-linux-gnu/libXft.so.2.3.2)
+            7fbd1eb64e22 XCloseDisplay (/usr/lib/x86_64-linux-gnu/libX11.so.6.3.0)
+            7fbd1f4dd3d5 [unknown] (/usr/lib/x86_64-linux-gnu/libXt.so.6.0.0)
+            7fbd1f4ddffa XtCloseDisplay (/usr/lib/x86_64-linux-gnu/libXt.so.6.0.0)
+                  4c44ce x_delete_terminal (/usr/bin/emacs-snapshot-lucid)
+                  4b604b Fdelete_terminal (/usr/bin/emacs-snapshot-lucid)
+                  423397 delete_frame (/usr/bin/emacs-snapshot-lucid)
+                  55f928 Ffuncall (/usr/bin/emacs-snapshot-lucid)
+                  595823 exec_byte_code (/usr/bin/emacs-snapshot-lucid)
+                  55f72b Ffuncall (/usr/bin/emacs-snapshot-lucid)
+                  595823 exec_byte_code (/usr/bin/emacs-snapshot-lucid)
+                  55f72b Ffuncall (/usr/bin/emacs-snapshot-lucid)
+                  560bb0 Fapply (/usr/bin/emacs-snapshot-lucid)
+                  560d8a apply1 (/usr/bin/emacs-snapshot-lucid)
+                  55df4a internal_condition_case_1 (/usr/bin/emacs-snapshot-lucid)
+                  5995cf exec_sentinel (/usr/bin/emacs-snapshot-lucid)
+                  59b1d9 status_notify (/usr/bin/emacs-snapshot-lucid)
+                  5a1cbf wait_reading_process_output (/usr/bin/emacs-snapshot-lucid)
+#+END_EXAMPLE
+
+Fine. Looking at the Xft sources, it looks like actual allocation of fonts
+happens in =XftFontOpenInfo()=, past where we check for the font being
+already-open. The actual =free()= happens in =XftFontDestroy()=. I put a probe
+in each of these two places, then create/destroy a single client frame, and I
+see this:
+
+#+BEGIN_EXAMPLE
+$ perf probe -x /usr/lib/x86_64-linux-gnu/libXft.so --add 'XftFontOpenInfo_alloc=XftFontOpenInfo:121'
+
+$ perf probe -x /usr/lib/x86_64-linux-gnu/libXft.so --add XftFontDestroy
+
+$ sudo perf record -i -p `pidof emacs` -eprobe_libXft:XftFont{OpenInfo_alloc,Destroy}
+[ perf record: Woken up 1 times to write data ]
+[ perf record: Captured and wrote 0.097 MB perf.data (7 samples) ]
+
+$ perf script
+emacs-snapshot- 16337 [000] 12141.927687: probe_libXft:XftFontOpenInfo_alloc: (7f7906641620)
+emacs-snapshot- 16337 [000] 12141.961706: probe_libXft:XftFontOpenInfo_alloc: (7f7906641620)
+emacs-snapshot- 16337 [000] 12141.968348: probe_libXft:XftFontOpenInfo_alloc: (7f7906641620)
+emacs-snapshot- 16337 [000] 12142.010935: probe_libXft:XftFontOpenInfo_alloc: (7f7906641620)
+emacs-snapshot- 16337 [001] 12142.531279: probe_libXft:XftFontDestroy: (7f7906640e40)
+emacs-snapshot- 16337 [001] 12142.531471: probe_libXft:XftFontDestroy: (7f7906640e40)
+emacs-snapshot- 16337 [001] 12142.531553: probe_libXft:XftFontDestroy: (7f7906640e40)
+#+END_EXAMPLE
+
+Aha. So with each frame we allocate 4 fonts, but destroy only 3. Looking at the
+Xft sources, it looks like there are two different reference counters:
+=info->num_unref_fonts= and =font->ref=. When a window is closed,
+=XftFontManageMemory()= is called, and fonts are killed, based on
+=info->num_unref_fonts=. However, this is updated in =XftFontClose()= based on
+=font->ref=. So =XftFontClose()= /must/ be called by emacs and we can't assume
+that a window closing will do that for us.
+
+OK. Good to know. It looks like all the =free= calls are all coming from
+=delete_frame=, which clears out everything in the font cache. How does this
+font cache work? Presumably the leaky font is somehow not being added to the
+cache, or somehow not being read from there properly. Let me look at the cache.
+Most of the allocations come from =font_load_for_lface=. I use =gdb= to place a
+breakpoint, and to look at the cache each time. When I create a frame, I should
+see a new cache entry with each allocated font. The =emacs/src/.gdbinit= gdb
+script has some useful macros, so in =font_load_for_lface= I can look at the
+font cache with
+
+#+BEGIN_EXAMPLE
+pp f->output_data.x->display_info->name_list_element
+#+END_EXAMPLE
+
+The output of this goes to stderr, which the daemon helpfully redirects to
+=/dev/null=. I can still see it with =sysdig= however. It has a buffering
+problem that I get around with using =unbuffer=:
+
+#+BEGIN_EXAMPLE
+$ sudo unbuffer sysdig -s 60000 proc.pid=`pidof emacs` -c stderr | perl -ne 's/\r/\n/g; s/\n$//; print STDERR $_'     
+
+(":0.0" (x 1) (xft 1))
+(":0.0" (x 1)
+  (xft 1
+    (#<font-spec xft nil Monospace nil iso8859-1 nil nil nil nil nil nil nil ((:name . "monospace-10"))> .
+      [#<font-entity xft unknown DejaVu\ Sans\ Mono nil iso10646-1 bold oblique normal 0 nil 100 0 ((:font-entity "/usr/share/fonts/truetype/dejavu/DejaVuSansMono-BoldOblique.ttf" . 0) (:name . "monospace-10"))>
+       #<font-entity xft unknown DejaVu\ Sans\ Mono nil iso10646-1 bold normal normal 0 nil 100 0 ((:font-entity "/usr/share/fonts/truetype/dejavu/DejaVuSansMono-Bold.ttf" . 0) (:name . "monospace-10"))>
+       #<font-entity xft unknown DejaVu\ Sans\ Mono nil iso10646-1 normal normal normal 0 nil 100 0 ((:font-entity "/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf" . 0) (:name . "monospace-10"))>
+       #<font-entity xft unknown DejaVu\ Sans\ Mono nil iso10646-1 normal oblique normal 0 nil 100 0 ((:font-entity "/usr/share/fonts/truetype/dejavu/DejaVuSansMono-Oblique.ttf" . 0) (:name . "monospace-10"))>])))
+(":0.0" (x 1) (xft 1))
+(":0.0" (x 1)
+  (xft 1
+    (#<font-spec xft unknown DejaVu\ Sans\ Mono nil iso8859-1 nil nil nil nil nil nil nil nil> .
+      [#<font-entity xft unknown DejaVu\ Sans\ Mono nil iso10646-1 bold oblique normal 0 nil 100 0 ((:font-entity "/usr/share/fonts/truetype/dejavu/DejaVuSansMono-BoldOblique.ttf" . 0))>
+       #<font-entity xft unknown DejaVu\ Sans\ Mono nil iso10646-1 bold normal normal 0 nil 100 0 ((:font-entity "/usr/share/fonts/truetype/dejavu/DejaVuSansMono-Bold.ttf" . 0))>
+       #<font-entity xft unknown DejaVu\ Sans\ Mono nil iso10646-1 normal normal normal 0 nil 100 0 ((:font-entity "/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf" . 0))>
+       #<font-entity xft unknown DejaVu\ Sans\ Mono nil iso10646-1 normal oblique normal 0 nil 100 0 ((:font-entity "/usr/share/fonts/truetype/dejavu/DejaVuSansMono-Oblique.ttf" . 0))>])))
+#+END_EXAMPLE
+
+Aha! So I created a frame, 4 fonts were opened as usual, but for some reason
+between the 2nd and 3rd font open, the cache was cleared! Since the cache stores
+the fonts that eventually get deallocated, these fonts end up leaking! Where
+does this happen? Placing breakpoints into the code where it looks like the
+clear could be happening doesn't appear to find the culprit, and I want a
+watchpoint so that gdb can tell me when the cache is touched improperly. I need
+a watchpoint on an emacs lisp object, which isn't something you can do
+explicitly, but I can semi-manually find the raw pointer, and set a watchpoint
+on it. gdb session:
+
+
+#+BEGIN_EXAMPLE
+[ breakpoint on font_load_for_lface as before]
+
+[ opened frame. breakpoint hit the first time]
+
+(gdb) p f->output_data.x->display_info->name_list_element
+$228 = 24121555
+
+(gdb) xlist
+$229 = 0x10cc824
+Lisp_String
+$230 = (struct Lisp_String *) 0x10cc820
+":0.0"
+---
+$231 = 0x17011d3
+Lisp_Cons
+$232 = (struct Lisp_Cons *) 0x17011d0
+{
+  car = 0xc4e0, 
+  u = {
+    cdr = 0x17011c3, 
+    chain = 0x17011c3
+  }
+}
+---
+$233 = 0x17011a3
+Lisp_Cons
+$234 = (struct Lisp_Cons *) 0x17011a0
+{
+  car = 0xc750, 
+  u = {
+    cdr = 0x1701193, 
+    chain = 0x1701193
+  }
+}
+---
+nil
+
+(gdb) p $->u.cdr
+$235 = 24121747
+
+(gdb) xpr
+Lisp_Cons
+$236 = (struct Lisp_Cons *) 0x1701190
+{
+  car = 0x6, 
+  u = {
+    cdr = 0x0, 
+    chain = 0x0
+  }
+}
+
+(gdb) watch ((struct Lisp_Cons *) 0x1701190)->u.cdr
+Hardware watchpoint 24: ((struct Lisp_Cons *) 0x1701190)->u.cdr
+
+[ disable font_load_for_lface breakpoint ]
+(gdb) disa 6
+
+(gdb) commands 24
+Type commands for breakpoint(s) 24, one per line.
+End with a line saying just "end".
+>bt 5
+>c
+>end
+
+(gdb) c
+Continuing.
+Hardware watchpoint 24: ((struct Lisp_Cons *) 0x1701190)->u.cdr
+
+Old value = 0
+New value = 24122275
+XSETCDR (c=24121747, n=24122275) at lisp.h:1194
+#0  0x000000000054cdad in XSETCDR (c=24121747, n=24122275) at lisp.h:1194
+#1  0x000000000060eb2a in font_list_entities (f=0x19b7d20, spec=21168293) at font.c:2786
+#2  0x00000000006107f7 in font_find_for_lface (f=0x19b7d20, attrs=0x7ffcdb167570, spec=21052973, c=-1) at font.c:3261
+#3  0x0000000000610b80 in font_load_for_lface (f=0x19b7d20, attrs=0x7ffcdb167570, spec=21052973) at font.c:3334
+#4  0x0000000000610f72 in font_open_by_spec (f=0x19b7d20, spec=21052973) at font.c:3428
+#5  0x0000000000610fe5 in font_open_by_name (f=0x19b7d20, name=17336596) at font.c:3439
+
+Lisp Backtrace:
+"x-create-frame" (0xdb1678a0)
+"x-create-frame-with-faces" (0xdb167dd8)
+0x12b9d80 PVEC_COMPILED
+"apply" (0xdb168450)
+"frame-creation-function" (0xdb1689f0)
+"make-frame" (0xdb168f40)
+"make-frame-on-display" (0xdb1694a8)
+"server-create-window-system-frame" (0xdb169a78)
+"server-process-filter" (0xdb169ff8)
+Hardware watchpoint 24: ((struct Lisp_Cons *) 0x1701190)->u.cdr
+
+Old value = 24122275
+New value = 0
+0x00000000005d2172 in compact_font_cache_entry (entry=24121763) at alloc.c:5313
+#0  0x00000000005d2172 in compact_font_cache_entry (entry=24121763) at alloc.c:5313
+#1  0x00000000005d221b in compact_font_caches () at alloc.c:5339
+#2  0x00000000005d2742 in garbage_collect_1 (end=0x7ffcdb166830) at alloc.c:5515
+#3  0x00000000005d2e1d in Fgarbage_collect () at alloc.c:5720
+#4  0x000000000054eb21 in maybe_gc () at lisp.h:4515
+#5  0x00000000005f638c in Ffuncall (nargs=3, args=0x7ffcdb166988) at eval.c:2584
+
+Lisp Backtrace:
+"Automatic GC" (0x0)
+"map-keymap" (0xdb166990)
+"keymap-canonicalize" (0xdb166f38)
+"x-create-frame" (0xdb1678a0)
+"x-create-frame-with-faces" (0xdb167dd8)
+0x12b9d80 PVEC_COMPILED
+"apply" (0xdb168450)
+"frame-creation-function" (0xdb1689f0)
+"make-frame" (0xdb168f40)
+"make-frame-on-display" (0xdb1694a8)
+"server-create-window-system-frame" (0xdb169a78)
+"server-process-filter" (0xdb169ff8)
+Hardware watchpoint 24: ((struct Lisp_Cons *) 0x1701190)->u.cdr
+
+#+END_EXAMPLE
+
+
+Bam! The font cache was unexpectedly (to me) touched in
+=compact_font_cache_entry=. Looking at the font cache before and after this call
+makes it clear that this is the call that's erroneously clearing the font cache.
+Apparently it's part of the mark/sweep GC that runs in the sweep phase. For
+whatever reason the leaked font isn't marked, so the GC is clearing it out from
+the cache. This seems wrong, since simply taking it out of the cache will result
+in it not being freed later, but that's irrelevant: this font is not unused, so
+it should have been marked. Looking at the font marking business, the issue
+becomes clear: each font entity object contains a list of fonts. In
+=compact_font_cache_entry= we look for marks on the entity and not in any
+individual font. Apparently it is possible for an unmarked entity to contain a
+marked font, and this case wasn't being checked. And adding this check to
+=compact_font_cache_entry= makes this leak go away entirely. There could be
+other smaller leaks that happen here, but they're now hard to see because the
+leak in http://debbugs.gnu.org/cgi/bugreport.cgi?bug=21509 now dominates. Done!
 
 ** more emacs                                                      :noexport:
 
-http://debbugs.gnu.org/cgi/bugreport.cgi?bug=21509
+
+So what are these leaks? I follow all these 60984-byte allocations with a
+=follow_alloc.pl= script:
+
+#+BEGIN_SRC perl
+#!/usr/bin/perl
+use strict;
+use warnings;
+
+use Getopt::Euclid;
+use feature ':5.10';
+
+my $size = sprintf('0x%x', $ARGV{'<size>'} =~ /^0x/ ? hex($ARGV{'<size>'}) : $ARGV{'<size>'} );
+
+
+my $next_after_alloc_type;
+my %addrs;
+
+my $refcount = 0;
+
+my $printing;
+
+while(<>)
+{
+    if(/^$/)
+    {
+        print "\n" if $printing;
+        $printing = undef;
+        next;
+    }
+
+    if( $printing && /^\s/ )
+    {
+        print;
+        next;
+    }
+
+
+    next unless /probe_libc:([^:]+)/;
+
+    if( /$size\b/ )
+    {
+        if(/realloc/)
+        {
+            die "realloc not supported";
+        }
+
+        my $type = /probe_libc:([a-z_]+)/;
+        ($next_after_alloc_type) = $type;
+
+        # I don't print allocation entries. Those aren't interesting. Allocation
+        # EXITS are interesting and I print those further down
+        # doprint();
+    }
+    elsif( $next_after_alloc_type )
+    {
+        my $type = /probe_libc:([a-z_]+)/;
+        if($type ne $next_after_alloc_type)
+        {
+            die "Didn't get ret for type $type";
+        }
+
+        my ($addr) = /arg1=(0x[0-9a-f]+)/;
+        $addrs{$addr} = 1;
+
+        $next_after_alloc_type = undef;
+
+        $refcount++;
+
+        doprint();
+        next;
+    }
+    else
+    {
+        for my $addr(keys %addrs)
+        {
+            if(/$addr\b/)
+            {
+                if(/free|realloc/)
+                {
+                    $refcount--;
+                }
+
+                delete $addrs{$addr};
+                doprint();
+            }
+        }
+    }
+}
+
+sub doprint
+{
+    $printing = 1;
+    print "Line: $. Refcount: $refcount. $_";
+}
+
+
+
+=head1 NAME
+
+follow_alloc.pl - trace allocation of a particular size
+
+=head1 SYNOPSIS
+
+ $ ./follow_alloc.pl --size 0x1234
+
+=head1 DESCRIPTION
+
+Looks at C<perf script> output and reports stuff
+
+=head1 REQUIRED ARGUMENTS
+
+=over
+
+=item <size>
+
+Size of allocation to trace
+
+=for Euclid:
+  size.type: /0x[0-9a-f]+|[0-9]+/
+
+=back
+
+=head1 AUTHOR
+
+Dima Kogan, C<< <dima@secretsauce.net> >>
+#+END_SRC
+
+This acts as a filter to pull out the salient parts of the =script= file:
+
+#+BEGIN_SRC bash
+<script ./follow_alloc.pl 60984 > follow
+#+END_SRC
+
+#+begin_o_blog_alert info Follow-up posts
+[[file:{lisp}(ob:link-to-post (ob:get-post-by-title "Already-running process notifications")){/lisp}][Already-running process notifications]]
+
+[[file:{lisp}(ob:link-to-post (ob:get-post-by-title "Even better notifications")){/lisp}][Even better notifications]]
+#+end_o_blog_alert
+
+
+
+
 
 ** Math. Horizonator?
 ** multi-arch in general
