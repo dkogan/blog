@@ -1,8 +1,7 @@
 set output "both.svg"
 set terminal svg
 
-unset key
-set grid on
+set grid
 set xlabel "Time (s)"
 set ylabel "Memory usage (kB)"
 
