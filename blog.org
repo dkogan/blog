@@ -5924,9 +5924,21 @@ becomes clear: each font entity object contains a list of fonts. In
 =compact_font_cache_entry= we look for marks on the entity and not in any
 individual font. Apparently it is possible for an unmarked entity to contain a
 marked font, and this case wasn't being checked. And adding this check to
-=compact_font_cache_entry= makes this leak go away entirely. There could be
-other smaller leaks that happen here, but they're now hard to see because the
-leak in http://debbugs.gnu.org/cgi/bugreport.cgi?bug=21509 now dominates. Done!
+=compact_font_cache_entry= makes this leak go away entirely.
+
+A plot showing the memory usage whilt creating/destroying the first frame before
+and after the patch, shifted to start at 0:
+
+#+ATTR_HTML: :width 80%
+[[file:files/emacs_leak_debugging/first_client/both.svg]]
+
+The steps are bug http://debbugs.gnu.org/cgi/bugreport.cgi?bug=21509, which now
+dominates the memory leaking during this particular test. Between the steps the
+memory consumption is now more or less flat, which indicates that this patch is
+effective. Furthermore, during my actual use of emacs (as opposed to the testing
+use here) I always have multiple frames open, so in real life bug 21509 does not
+apply for me at all. There could be other smaller leaks that happen here, but
+until 21509 is fixed, they're difficult to see. Done!
 
 ** more emacs                                                      :noexport:
 
