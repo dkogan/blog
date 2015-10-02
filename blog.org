@@ -5940,6 +5940,19 @@ use here) I always have multiple frames open, so in real life bug 21509 does not
 apply for me at all. There could be other smaller leaks that happen here, but
 until 21509 is fixed, they're difficult to see. Done!
 
+
+#+begin_o_blog_alert info Update
+I discovered that bug 21509 can be worked around by turning off the scroll bar.
+Here's the same memory usage plot as above, but without bug 21509 confounding
+things:
+
+#+ATTR_HTML: :width 80%
+[[file:files/emacs_leak_debugging/first_client/both.noscrollbar.svg]]
+
+Looks like the patch drops the leak from 57kB/s (114 kB/frame) to 12kB/s
+(24kB/frame). Still work to be done, but this is very good.
+#+end_o_blog_alert
+
 ** more emacs                                                      :noexport:
 
 
