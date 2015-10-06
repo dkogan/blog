@@ -5239,6 +5239,7 @@ If /this/ breaks for some reason, I /really/ should just buy another light.
 
 #+begin_o_blog_alert info Follow-up posts
 [[file:{lisp}(ob:link-to-post (ob:get-post-by-title "Debugging GNU Emacs memory leaks (part 2)")){/lisp}][Debugging GNU Emacs memory leaks (part 2)]]
+[[file:{lisp}(ob:link-to-post (ob:get-post-by-title "Memory leak debugging tools")){/lisp}][Memory leak debugging tools]]
 #+end_o_blog_alert
 
 *** Overview
@@ -5312,6 +5313,10 @@ our way.
 
 ** DONE Debugging GNU Emacs memory leaks (part 2)           :tools:dev:emacs:
    CLOSED: [2015-10-01 Thu 16:14]
+
+#+begin_o_blog_alert info Follow-up posts
+[[file:{lisp}(ob:link-to-post (ob:get-post-by-title "Memory leak debugging tools")){/lisp}][Memory leak debugging tools]]
+#+end_o_blog_alert
 
 I'm continuing to look for and plug memory leaks. The [[file:{lisp}(ob:link-to-post (ob:get-post-by-title "Debugging GNU Emacs memory leaks (part 1)")){/lisp}][previous effort]]
 successfully plugged a leak, but there's much more to find here. I found some
@@ -5953,148 +5958,295 @@ Looks like the patch drops the leak from 57kB/s (114 kB/frame) to 12kB/s
 (24kB/frame). Still work to be done, but this is very good.
 #+end_o_blog_alert
 
-** more emacs                                                      :noexport:
+** DONE Memory leak debugging tools                         :tools:dev:emacs:
+   CLOSED: [2015-10-05 Mon 23:28]
 
+I consolidated the memory-leak-finding tools from [[file:{lisp}(ob:link-to-post (ob:get-post-by-title "Debugging GNU Emacs memory leaks (part 1)")){/lisp}][here]] and [[file:{lisp}(ob:link-to-post (ob:get-post-by-title "Debugging GNU Emacs memory leaks (part 2)")){/lisp}][here]] into their own
+repository: https://github.com/dkogan/memory_leak_instrumentation. It's written
+primarily for emacs, but the tools can be easily adapted for anything. The
+documentation is copied here:
 
-So what are these leaks? I follow all these 60984-byte allocations with a
-=follow_alloc.pl= script:
+*** Overview
 
-#+BEGIN_SRC perl
-#!/usr/bin/perl
-use strict;
-use warnings;
+This is a set of tools used to find memory leaks in long-running applications.
+These tools use [[http://perf.wiki.kernel.org/][=perf=]] to instrument all memory allocations/deallocations. These
+traces can then be analyzed to find allocated memory that was not properly
+cleaned up.
 
-use Getopt::Euclid;
-use feature ':5.10';
+This was written to find memory leaks in emacs daemon sessions. The resulting
+bugs and mailing list posts:
 
-my $size = sprintf('0x%x', $ARGV{'<size>'} =~ /^0x/ ? hex($ARGV{'<size>'}) : $ARGV{'<size>'} );
+- https://lists.gnu.org/archive/html/emacs-devel/2015-09/msg00814.html
+- http://debbugs.gnu.org/cgi/bugreport.cgi?bug=21509
+- http://debbugs.gnu.org/cgi/bugreport.cgi?bug=21556
+- http://debbugs.gnu.org/cgi/bugreport.cgi?bug=21623
 
+Some of the tools are emacs-specific, but some are not. Note that this is all
+fairly rough, and the user would want to understand how each tool works to be
+able to use it effectively. This is also not well-documented yet, but the links
+above, and the text below show examples.
 
-my $next_after_alloc_type;
-my %addrs;
+*** Tools
+**** Non-emacs-specific
 
-my $refcount = 0;
+***** =reademacsvar.sh=
+Exports some shell variables that all the scripts use to do their thing. Mostly
+this is paths, etc.
 
-my $printing;
+***** =plotmem.sh=
+Used to generate a realtime plot of memory usage of a particular process. This
+lets us see the leaks as they happen.
 
-while(<>)
-{
-    if(/^$/)
-    {
-        print "\n" if $printing;
-        $printing = undef;
-        next;
-    }
+***** =probes.sh=
+Creates =perf= probes that we care about. This is all allocation/deallocations,
+and anything else we like.
 
-    if( $printing && /^\s/ )
-    {
-        print;
-        next;
-    }
+***** =record_alloc.sh=
+Runs =perf record= to record all allocations/deallocations.
 
+***** =parse_script.pl=
+Reads the output of =perf script=, following all allocations. The output is a
+list of all unexpected memory operations (calling =free()= on a pointer that
+didn't come from =malloc()= for instance) and a list of all potentially leaky
+memory (anything that was allocated but not freed). If we started logging some
+time after the process has started, and finished logging before the process has
+finished then both of these will have false positives:
 
-    next unless /probe_libc:([^:]+)/;
+- We could see a =free()= of memory that was allocated before we started logging
+- We can report a leak for something that was =free()=-ed after we stopped
+  logging
 
-    if( /$size\b/ )
-    {
-        if(/realloc/)
-        {
-            die "realloc not supported";
-        }
+So take all output with a grain of salt, and use your best judgement
 
-        my $type = /probe_libc:([a-z_]+)/;
-        ($next_after_alloc_type) = $type;
+***** =plotleaks.sh=
+Takes the output of =parse_script.pl=, and makes a plot of potential leak sizes
+vs input line number. This is useful to quickly see the leaks. For instance,
+let's say the emacs session we're tracing leaks 3072 bytes each time a new frame
+is created, and that we created 10 frames in a row while running =perf record=.
+The plot this script produces would then show 10 points at 3072 evenly spaced
+through time. Leaks at the start of the session are most likely to be true ones
+(there was time to =free()= the memory), so I generally follow up anything that
+leaked lots of memory at the start.
 
-        # I don't print allocation entries. Those aren't interesting. Allocation
-        # EXITS are interesting and I print those further down
-        # doprint();
-    }
-    elsif( $next_after_alloc_type )
-    {
-        my $type = /probe_libc:([a-z_]+)/;
-        if($type ne $next_after_alloc_type)
-        {
-            die "Didn't get ret for type $type";
-        }
+***** =follow_alloc.pl=
+Reads the output of =perf script=, and filters out all memory operations that do
+not refer to a particular allocation size. This is useful to focus on particular
+allocations identified by =plotleaks.sh=. So if =plotleaks.sh= shows lots of
+leaks of size 3072, we use this to cut down the log to show only the leaks we
+care about.
 
-        my ($addr) = /arg1=(0x[0-9a-f]+)/;
-        $addrs{$addr} = 1;
+**** Emacs-specific
 
-        $next_after_alloc_type = undef;
+***** =daemon.sh=
+Starts up a new emacs daemon.
 
-        $refcount++;
+***** =client.sh=
+Creates a new client frame.
 
-        doprint();
-        next;
-    }
-    else
-    {
-        for my $addr(keys %addrs)
-        {
-            if(/$addr\b/)
-            {
-                if(/free|realloc/)
-                {
-                    $refcount--;
-                }
+***** =kill.sh=
+Kills the emacs daemon.
 
-                delete $addrs{$addr};
-                doprint();
-            }
-        }
-    }
-}
+***** =loopclient.sh=
+Repeatedly creates/destroys a client frame.
 
-sub doprint
-{
-    $printing = 1;
-    print "Line: $. Refcount: $refcount. $_";
-}
+***** =show_stderr.sh=
+Shows the STDERR output of a process (emacs in this case). This is useful
+because the emacs daemon redirects its STDERR to =/dev/null=, but gdb printing
+commands such as =pr= and =pp= write to STDERR, and we want to see this output.
 
+*** General notes
 
+When running =perf record=, the =perf= process can be overloaded and drop events
+as a result (an error message says this). A larger buffer can help (=-m= option)
+at the expense of using more RAM. It also helps to make smaller logs (fewer
+things to record, =fp= backtrace generation instead of =DWARF=; see below).
 
-=head1 NAME
+=perf= can generate backtraces in two ways:
+- Using the frame-pointer. This is the preferred method, but it only works for
+  functions that have a frame pointer. All gcc optimization levels strip this
+  out, so rebuild with =-fno-omit-frame-pointer= if possible.
+- Using DWARF debug information. This doesn't require frame pointers, but needs
+  debug info. Another down side is that this generates much bigger =perf= logs,
+  and =perf= is more likely to drop events. Currently =perf= has a bug in that
+  it's not able to read the split debug information in Debian packages, so you
+  need this patch: http://lkml.iu.edu/hypermail/linux/kernel/1509.0/04006.html
 
-follow_alloc.pl - trace allocation of a particular size
+If the binary application being instrumented is rebuilt, probes into that
+application need to be deleted and re-added.
 
-=head1 SYNOPSIS
+*** Example
 
- $ ./follow_alloc.pl --size 0x1234
+I'm observing that current build of emacs I'm using leaks memory. I can see this
+because I repeatedly create/destroy client frames in one terminal window:
 
-=head1 DESCRIPTION
+#+BEGIN_EXAMPLE
+$ ./daemon.sh
+Starting Emacs daemon.
 
-Looks at C<perf script> output and reports stuff
+$ ./loopclient.sh   
+Waiting for Emacs...
+Waiting for Emacs...
+Waiting for Emacs...
+...
+#+END_EXAMPLE
 
-=head1 REQUIRED ARGUMENTS
+And in another terminal window I look at memory consumption using
+=./plotmem.sh=. The plot looks like this:
 
-=over
+#+ATTR_HTML: :width 80%
+[[file:files/memory_leak_instrumentation/memory.svg]]
 
-=item <size>
+The memory use is climbing, so we have a leak. I make a memory consumption log
+while =./loopclient.sh= is running:
 
-Size of allocation to trace
+#+BEGIN_EXAMPLE
+$ ./record_alloc.sh 
+^C[ perf record: Captured and wrote 36.197 MB perf.data (165038 samples) ]
 
-=for Euclid:
-  size.type: /0x[0-9a-f]+|[0-9]+/
+$ sudo perf script > script
+#+END_EXAMPLE
 
-=back
+Now I analyze the log, and plot the leaks
 
-=head1 AUTHOR
+#+BEGIN_EXAMPLE
+$ ./parse_script.pl < script > leaks
 
-Dima Kogan, C<< <dima@secretsauce.net> >>
+$ ./plotleaks.sh leaks
+#+END_EXAMPLE
+
+The leaks look like this:
+
+#+ATTR_HTML: :width 80%
+[[file:files/memory_leak_instrumentation/leaks.svg]]
+
+The large leak at the end is a false positive: it just hasn't been freed yet.
+Zooming-in to the smaller leaks at the start, I see this:
+
+#+ATTR_HTML: :width 80%
+[[file:files/memory_leak_instrumentation/leaks_zoomed.svg]]
+
+So there's a recurring leak of about 3000 bytes. Zooming in more, I see that
+these are all leaks of exactly 3072 bytes. Let me trace these leaks
+specifically:
+
+#+BEGIN_EXAMPLE
+$ ./follow_alloc.pl 3072 < script > script.3072
+#+END_EXAMPLE
+
+Looking through this filtered log, I see that the leaks all follow a pattern:
+
+#+BEGIN_EXAMPLE
+Line: 124809 Refcount: 1. enter emacs-tst 31381 [001] 609235.683003: probe_libc:malloc_ret: (7f7d99f5e020 <- 7f7d9eac1af0) arg1=0x34d4200
+                   24af0 _XQueryFont (/usr/lib/x86_64-linux-gnu/libX11.so.6.3.0)
+                 2400009 [unknown] ([unknown])
+
+Line: 124818 Refcount: 0. exit emacs-tst 31381 [001] 609235.683015: probe_libc:free: (7f7d99f5e660) mem=0x34d4200
+                   7c660 free (/lib/x86_64-linux-gnu/libc-2.19.so)
+        676942363846585f [unknown] ([unknown])
+
+Line: 124916 Refcount: 1. enter emacs-tst 31381 [001] 609235.683321: probe_libc:malloc_ret: (7f7d99f5e020 <- 7f7d9eac1af0) arg1=0x34d4200
+                   24af0 _XQueryFont (/usr/lib/x86_64-linux-gnu/libX11.so.6.3.0)
+                 2400009 [unknown] ([unknown])
+
+                         ...
+
+Line: 1572738 Refcount: 2. enter emacs-tst 31381 [000] 609237.688972: probe_libc:malloc_ret: (7f7d99f5e020 <- 7f7d9eac1af0) arg1=0xedc980
+                   24af0 _XQueryFont (/usr/lib/x86_64-linux-gnu/libX11.so.6.3.0)
+                 2400009 [unknown] ([unknown])
+
+Line: 1572747 Refcount: 1. exit emacs-tst 31381 [000] 609237.688984: probe_libc:free: (7f7d99f5e660) mem=0xedc980
+                   7c660 free (/lib/x86_64-linux-gnu/libc-2.19.so)
+        676942363846585f [unknown] ([unknown])
+
+Line: 1572845 Refcount: 2. enter emacs-tst 31381 [000] 609237.689323: probe_libc:malloc_ret: (7f7d99f5e020 <- 7f7d9eac1af0) arg1=0xedc980
+                   24af0 _XQueryFont (/usr/lib/x86_64-linux-gnu/libX11.so.6.3.0)
+                 2400009 [unknown] ([unknown])
+
+                         ...
+
+Line: 3000071 Refcount: 3. enter emacs-tst 31381 [000] 609239.698236: probe_libc:malloc_ret: (7f7d99f5e020 <- 7f7d9eac1af0) arg1=0x34eb190
+                   24af0 _XQueryFont (/usr/lib/x86_64-linux-gnu/libX11.so.6.3.0)
+                 2400009 [unknown] ([unknown])
+
+Line: 3000080 Refcount: 2. exit emacs-tst 31381 [000] 609239.698250: probe_libc:free: (7f7d99f5e660) mem=0x34eb190
+                   7c660 free (/lib/x86_64-linux-gnu/libc-2.19.so)
+        676942363846585f [unknown] ([unknown])
+
+Line: 3000178 Refcount: 3. enter emacs-tst 31381 [000] 609239.698617: probe_libc:malloc_ret: (7f7d99f5e020 <- 7f7d9eac1af0) arg1=0x34eb190
+                   24af0 _XQueryFont (/usr/lib/x86_64-linux-gnu/libX11.so.6.3.0)
+                 2400009 [unknown] ([unknown])
+
+                         ...
+                         ...
+                         ...
+#+END_EXAMPLE
+
+So we allocate 3072 bytes in =_XQueryFont=, then we =free()= this, then we
+allocate 3072 bytes again in =_XQueryFont=, and this second allocation leaks.
+Then time passes as we do these 3 things again. Every time (presumably with each
+frame) we leak 3072 bytes. Here the allocation was from =libX11.so=, which
+omitted frame pointers and thus we don't have useful backtraces. I make another
+trace using DWARF for backtraces. This is heavier, but I can limit logging to
+=malloc(3072)= since I now know that's what I care about. This cuts down on the
+data that =perf= needs to write:
+
+#+BEGIN_EXAMPLE
+$ source reademacsvar.sh
+
+$ sudo perf record ${=RECORD_OPTS} -g --call-graph=dwarf -p ${EMACS_PID} -eprobe_libc:malloc --filter 'bytes==3072'
+
+$ sudo perf script > script
+#+END_EXAMPLE
+
+Selecting the =malloc()= paths through =_XQueryFont= I get these:
+
+#+BEGIN_EXAMPLE
+emacs-tst  4165 [000] 612746.917886: probe_libc:malloc: (7fbbd7027020) bytes=0xc00
+	    7fbbd7027020 malloc (/lib/x86_64-linux-gnu/libc-2.19.so)
+	    7fbbdbb8aaf0 _XQueryFont (/usr/lib/x86_64-linux-gnu/libX11.so.6.3.0)
+	    7fbbdbb8b7aa XLoadQueryFont (/usr/lib/x86_64-linux-gnu/libX11.so.6.3.0)
+	    7fbbdbb8b54e _XF86LoadQueryLocaleFont (/usr/lib/x86_64-linux-gnu/libX11.so.6.3.0)
+	    7fbbdbb965d0 XLoadFont (/usr/lib/x86_64-linux-gnu/libX11.so.6.3.0)
+	    7fbbdc4f95e5 XtCvtStringToFont (/usr/lib/x86_64-linux-gnu/libXt.so.6.0.0)
+	    7fbbdc4f606d [unknown] (/usr/lib/x86_64-linux-gnu/libXt.so.6.0.0)
+	    7fbbdc4f6db7 XtCallConverter (/usr/lib/x86_64-linux-gnu/libXt.so.6.0.0)
+	          52c818 x_term_init (/tmp/emacs-tst.patched)
+	          5381e8 x_display_info_for_name (/tmp/emacs-tst.patched)
+	          52d3b7 check_x_display_info (/tmp/emacs-tst.patched)
+	          5345c5 Fx_create_frame (/tmp/emacs-tst.patched)
+                         ...
+
+emacs-tst  4165 [000] 612746.918039: probe_libc:malloc: (7fbbd7027020) bytes=0xc00
+	    7fbbd7027020 malloc (/lib/x86_64-linux-gnu/libc-2.19.so)
+	    7fbbdbb8aaf0 _XQueryFont (/usr/lib/x86_64-linux-gnu/libX11.so.6.3.0)
+	    7fbbdbb8b2bd XQueryFont (/usr/lib/x86_64-linux-gnu/libX11.so.6.3.0)
+	          52c851 x_term_init (/tmp/emacs-tst.patched)
+	          5381e8 x_display_info_for_name (/tmp/emacs-tst.patched)
+	          52d3b7 check_x_display_info (/tmp/emacs-tst.patched)
+	          5345c5 Fx_create_frame (/tmp/emacs-tst.patched)
+                         ...
+#+END_EXAMPLE
+
+Those 2 appear in clusters, which is consistent with the previous log. The first
+is freed, the second leaks. In emacs, both come from =x_term_init()=. Looking at
+the source, here are the relevant lines:
+
+#+BEGIN_SRC C
+    if (!XtCallConverter (dpy, XtCvtStringToFont, &d, 1, &fr, &to, NULL))
+      emacs_abort ();
+    if (x_had_errors_p (dpy) || !XQueryFont (dpy, font))
+      XrmPutLineResource (&xrdb, "Emacs.dialog.*.font: 9x15");
+    /* Do not free XFontStruct returned by the above call to XQueryFont.
+       This leads to X protocol errors at XtCloseDisplay (Bug#18403).  */
+    x_uncatch_errors ();
 #+END_SRC
 
-This acts as a filter to pull out the salient parts of the =script= file:
+Oh my. So we leak this on purpose, and that bug report describes why.
 
-#+BEGIN_SRC bash
-<script ./follow_alloc.pl 60984 > follow
-#+END_SRC
+*** License
 
-#+begin_o_blog_alert info Follow-up posts
-[[file:{lisp}(ob:link-to-post (ob:get-post-by-title "Already-running process notifications")){/lisp}][Already-running process notifications]]
-
-[[file:{lisp}(ob:link-to-post (ob:get-post-by-title "Even better notifications")){/lisp}][Even better notifications]]
-#+end_o_blog_alert
-
+All source released under the terms of the Lesser GNU General Public License,
+version 3 or later: https://www.gnu.org/copyleft/lesser.html
 
 
 
