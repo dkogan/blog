@@ -6285,7 +6285,36 @@ equivalent of [[http://pdl.perl.org/?docs%3DCore&title%3DPDL::Core#thread_define
 
 Something numpy does better than PDL is the wider range of types that can live
 in their arrays. I can thus put strings into arrays, and use broadcasting to
-plot stuff with different labels and styles. This clearly requires an example:
+plot stuff with different labels and styles. This clearly requires an example.
+Let's plot the [[https://en.wikipedia.org/wiki/Conchoid_of_de_Sluze][Conchoids of de Sluze]]:
+
+#+BEGIN_SRC python
+import numpy as np
+import gnuplotlib as gp
+
+theta = np.linspace(0, 2*np.pi, 1000)  # dim=(  1000,)
+a     = np.arange(-4,3)[:, np.newaxis] # dim=(7,1)
+
+gp.plot( theta,
+         1./np.cos(theta) + a*np.cos(theta), # broadcasted. dim=(7,1000)
+
+         _with  = 'lines',
+         set    = 'polar',
+         square = True,
+         yrange = [-5,5],
+         legend = a.ravel() )
+#+END_SRC
+
+This is a plot in polar coordinates. I use broadcasting to generate a numpy
+array that has all the =r= values for all my curves in it, and I plot it against
+the one array of =theta= values. I also use broadcasting to generate labels.
+Generally these would be strings, and I can do that with numpy, but here just
+printing the numerical value of the =a= parameter is sufficient. The result:
+
+#+ATTR_HTML: :width 80%
+[[file:files/gnuplotlib/conchoids.svg]]
+
+Another example:
 
 #+BEGIN_SRC python
 import numpy as np
@@ -6313,7 +6342,7 @@ varying color and =z= as a matrix with a varying point size. The result:
 #+ATTR_HTML: :width 50%
 [[file:files/gnuplotlib/broadcasted.svg]]
 
-Works ok. 
+Works OK, and this will be very useful.
 
 ** Math. Horizonator?
 ** multi-arch in general
