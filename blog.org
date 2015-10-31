@@ -4058,8 +4058,8 @@ I did this three times
 - avoiding all roads
 - avoiding all paved, driveable roads
 
-Both Poles of Inaccessibility are above the East Fork of the San Gabriel River,
-by Ross Mountain:
+All Poles of Inaccessibility are above the East Fork of the San Gabriel River,
+by Ross Mountain and Iron Mountain:
 
 | pole         | lat,lon            | distance to nearest (m) |
 |--------------+--------------------+-------------------------|
