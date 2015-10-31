@@ -4052,14 +4052,20 @@ OK. Done.
 
 *** Results
 
-I did this twice: once avoiding all roads, trails and again avoiding roads only.
+I did this three times
+
+- avoiding all roads, trails
+- avoiding all roads
+- avoiding all paved, driveable roads
+
 Both Poles of Inaccessibility are above the East Fork of the San Gabriel River,
 by Ross Mountain:
 
-| pole         | lat,lon               | distance to nearest (m) |
-|--------------+-----------------------+-------------------------|
-| roads,trails | 34.3206973,-117.76174 |                    4343 |
-| roads only   | 34.3107784,-117.74736 |                    5677 |
+| pole         | lat,lon            | distance to nearest (m) |
+|--------------+--------------------+-------------------------|
+| roads,trails | 34.3204, -117.7617 |                    4343 |
+| roads only   | 34.3108, -117.7474 |                    5677 |
+| paved roads  | 34.2992, -117.7167 |                    8157 |
 
 This is shown nicely on the map:
 
