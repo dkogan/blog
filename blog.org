@@ -5025,10 +5025,10 @@ corresponding raw events coming out of =perf script= are:
      kworker/0:1   142 [000] 93115.013238: probe:n_tty_receive_buf_common: (ffffffff8146edc0)
      kworker/0:1   142 [000] 93115.013239: workqueue:workqueue_execute_end: work struct 0xffff88081e452810
 
-        intrackx 24483 [001] 93115.013238: syscalls:sys_enter_read: fd: 0x00000007, buf: 0x01f417c4, count: 0x00007fff
-        intrackx 24483 [001] 93115.013240: probe:copy_from_read_buf: (ffffffff8146c1f0)
-        intrackx 24483 [001] 93115.013241: probe:copy_from_read_buf: (ffffffff8146c1f0)
-        intrackx 24483 [001] 93115.013242: syscalls:sys_exit_read: 0x1
+     frobnicator 24483 [001] 93115.013238: syscalls:sys_enter_read: fd: 0x00000007, buf: 0x01f417c4, count: 0x00007fff
+     frobnicator 24483 [001] 93115.013240: probe:copy_from_read_buf: (ffffffff8146c1f0)
+     frobnicator 24483 [001] 93115.013241: probe:copy_from_read_buf: (ffffffff8146c1f0)
+     frobnicator 24483 [001] 93115.013242: syscalls:sys_exit_read: 0x1
 #+END_EXAMPLE
 
 That makes sense. What about a failing case? Previously we saw cycle 11 time out
