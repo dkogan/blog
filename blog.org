@@ -6351,6 +6351,57 @@ varying color and =z= as a matrix with a varying point size. The result:
 
 Works OK, and this will be very useful.
 
+** DONE Mapping new keys to a modifier with xmodmap                 :desktop:
+   CLOSED: [2016-03-09 Wed 10:14]
+
+So even now, after more than 15 years of using X11, I can apparently run into
+user-facing corner cases that are weird and look like bugs. I just got an x230
+ThinkPad to serve as a portable laptop where my trusty T61 is too bulky.
+
+It has a particularly moronic keyboard. In particular, the menu key has been
+replaced by PrintScreen, which is appreciated by exactly nobody:
+
+http://www.google.com/search?q=x230+keyboard&tbm=isch
+
+As before, I want to map this to =Super_R= to talk to my [[http://notion.sourceforge.net/][window manager]]. So I do
+just that, naively:
+
+#+BEGIN_SRC sh
+xmodmap -e "keycode 107 = Super_R"
+#+END_SRC
+
+This appears to work in [[http://notion.sourceforge.net/][notion]], but in some ways it doesn't. It feels like this
+key is not recognized as the =mod4= modifier at all times. After some debugging,
+this was proved correct. The modifier status before /and/ after the =xmodmap=
+invocation above looks like this:
+
+#+BEGIN_EXAMPLE
+$ xmodmap -pm | grep mod4
+
+mod4        Super_L (0x85),  Super_R (0x86),  Super_R (0x87)
+#+END_EXAMPLE
+
+The values in () are keycodes. Note that the keycode I just added (107 == 0x6b)
+is missing. Apparently when adding new modifier keys, you need to re-add the
+modifier after setting up the new keycode. So what I was supposed to do above
+was this:
+
+#+BEGIN_SRC sh
+xmodmap -e "remove mod4 = Super_R" -e "keycode 107 = Super_R" -e "add mod4 = Super_R"
+#+END_SRC
+
+With that I do see the new keycode in the =mod4= map, and things work correctly:
+
+#+BEGIN_EXAMPLE
+$ xmodmap -pm | grep mod4
+
+mod4        Super_R (0x6b),  Super_L (0x85),  Super_R (0x86),  Super_R (0x87)
+#+END_EXAMPLE
+
+I don't doubt this is a well known behavior, but I really wish it was less
+user-hostile and I didn't have to spend over an hour tracking this down.
+
+
 ** Math. Horizonator?
 ** multi-arch in general
 
