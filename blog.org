@@ -6409,20 +6409,15 @@ mod4        Super_R (0x6b),  Super_L (0x85),  Super_R (0x86),  Super_R (0x87)
 I don't doubt this is a well known behavior, but I really wish it was less
 user-hostile and I didn't have to spend over an hour tracking this down.
 
-** Perf misreporting of user-space function arguments                 :tools:
+** DONE Perf misreporting of user-space function arguments            :tools:
+   CLOSED: [2016-03-24 Thu 21:27]
 
 In a [[file:{lisp}(ob:link-to-post (ob:get-post-by-title "User-space introspection with Linux perf")){/lisp}][previous post]] I noticed that [[http://perf.wiki.kernel.org][=perf=]] can misreport arguments to user-space
 functions. I just hit this issue again, and dug into it a bit. Unsurprisingly,
 it is a bug. It (probably) only affects unoptimized code, which could result in
 it being undetected/unfixed for this long. I don't really know to fix it, and if
-others don't either, then that's another reason. In any case, I sent the report
+others don't either, then that's another reason. In any case, I sent the [[http://article.gmane.org/gmane.linux.kernel/2183882][report]]
 to the mailing list, so we'll see what they say.
-
-xxxxxxxxxx
-
-
-
-
 
 The bug:
 
