@@ -3199,6 +3199,12 @@ this probe. In particular, we get the return value, given to us as =arg1=.
 
 *** Pitfall: incorrect reading of function argument
 
+#+begin_o_blog_alert info Update
+I hit this issue again, and looked into it. A [[file:{lisp}(ob:link-to-post
+(ob:get-post-by-title "Perf sometimes misreports user-space function
+arguments")){/lisp}][newer post]] describes the findings.
+#+end_o_blog_alert
+
 Let put in a probe at the start of =func=, and print out the value of the
 argument:
 
@@ -6403,6 +6409,101 @@ mod4        Super_R (0x6b),  Super_L (0x85),  Super_R (0x86),  Super_R (0x87)
 I don't doubt this is a well known behavior, but I really wish it was less
 user-hostile and I didn't have to spend over an hour tracking this down.
 
+** Perf misreporting of user-space function arguments                 :tools:
+
+In a [[file:{lisp}(ob:link-to-post (ob:get-post-by-title "User-space introspection with Linux perf")){/lisp}][previous post]] I noticed that [[http://perf.wiki.kernel.org][=perf=]] can misreport arguments to user-space
+functions. I just hit this issue again, and dug into it a bit. Unsurprisingly,
+it is a bug. It (probably) only affects unoptimized code, which could result in
+it being undetected/unfixed for this long. I don't really know to fix it, and if
+others don't either, then that's another reason. In any case, I sent the report
+to the mailing list, so we'll see what they say.
+
+xxxxxxxxxx
+
+
+
+
+
+The bug:
+
+Let's say I have a trivial C program =tst.c=:
+
+#+BEGIN_SRC C
+#include <stdio.h>
+#include <stdlib.h>
+int f(int x)
+{
+    return !printf("%d\n", x);
+}
+int main(int argc, char* argv[])
+{
+    return f(argc);
+}
+#+END_SRC
+
+I ask =perf= to trap all calls to =f()= and to give me the value of the =x=
+argument:
+
+#+BEGIN_EXAMPLE
+$ gcc-5 -g -o tst tst.c &&
+  perf probe -x tst --add 'f x' &&
+  perf record -eprobe_tst:f ./tst 2 3 4 &&
+  perf script    
+
+  .....
+
+  tst 24626 [003] 98586.485680: probe_tst:f: (4004e6) x=0
+#+END_EXAMPLE
+
+Note that the value passed to =f()= was 4, but perf reported it as 0 instead.
+
+If I look at what uprobes was actually asked to report, I see this:
+
+#+BEGIN_EXAMPLE
+$ cat /sys/kernel/debug/tracing/uprobe_events 
+
+p:probe_tst/f /tmp/tst:0x00000000000004e6 x=-12(%sp):s32
+#+END_EXAMPLE
+
+The corresponding disassembly is:
+
+#+BEGIN_EXAMPLE
+$ objdump -d tst | awk '/<f>:/,/^$/'
+
+00000000004004e6 <f>:
+  4004e6:       55                      push   %rbp
+  4004e7:       48 89 e5                mov    %rsp,%rbp
+  4004ea:       48 83 ec 10             sub    $0x10,%rsp
+  4004ee:       89 7d fc                mov    %edi,-0x4(%rbp)
+  4004f1:       8b 45 fc                mov    -0x4(%rbp),%eax
+  4004f4:       89 c6                   mov    %eax,%esi
+  4004f6:       bf b4 05 40 00          mov    $0x4005b4,%edi
+  4004fb:       b8 00 00 00 00          mov    $0x0,%eax
+  400500:       e8 bb fe ff ff          callq  4003c0 <printf@plt>
+  400505:       85 c0                   test   %eax,%eax
+  400507:       0f 94 c0                sete   %al
+  40050a:       0f b6 c0                movzbl %al,%eax
+  40050d:       c9                      leaveq 
+  40050e:       c3                      retq   
+#+END_EXAMPLE
+
+So uprobes was looking at the argument as a local stack variable. However the
+trap was placed at the start of the function, where the stack variable wasn't
+yet available (the argument is still in %di).
+
+This doesn't happen with optimized code, because (at least in this simple
+example) the variable is simply kept in %di, the DWARF data indicates this, and
+perf picks that up.
+
+Possible ways to address this:
+
+1. place the trace after the local variables are set (4004f1 in this example)
+2. Look at %di instead of the stack variable
+
+I didn't see anything obvious in the DWARF data to tell us how exactly to do
+either of these (but I can imagine I missed something). There's also a concern
+that both these are vulnerable to the optimizer coming in, and making them not
+work. I await the wisdom of the mailing list.
 
 ** Math. Horizonator?
 ** multi-arch in general
