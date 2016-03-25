@@ -3200,9 +3200,7 @@ this probe. In particular, we get the return value, given to us as =arg1=.
 *** Pitfall: incorrect reading of function argument
 
 #+begin_o_blog_alert info Update
-I hit this issue again, and looked into it. A [[file:{lisp}(ob:link-to-post
-(ob:get-post-by-title "Perf sometimes misreports user-space function
-arguments")){/lisp}][newer post]] describes the findings.
+I hit this issue again, and looked into it. A [[file:{lisp}(ob:link-to-post (ob:get-post-by-title "Perf misreporting of user-space function arguments")){/lisp}][newer post]] describes the findings.
 #+end_o_blog_alert
 
 Let put in a probe at the start of =func=, and print out the value of the
