@@ -6495,6 +6495,94 @@ either of these (but I can imagine I missed something). There's also a concern
 that both these are vulnerable to the optimizer coming in, and making them not
 work. I await the wisdom of the mailing list.
 
+** DONE glibc malloc inefficiency                     :tools:dev:memoryleaks:
+   CLOSED: [2016-04-08 Fri 17:35]
+
+So despite the previous efforts ([[file:{lisp}(ob:link-to-post (ob:get-post-by-title "Debugging GNU Emacs memory leaks (part 1)")){/lisp}][this]], [[file:{lisp}(ob:link-to-post (ob:get-post-by-title "Debugging GNU Emacs memory leaks (part 2)")){/lisp}][this]] and [[file:{lisp}(ob:link-to-post (ob:get-post-by-title "Memory leak debugging tools")){/lisp}][this]]) my emacs sessions are
+still taking up too much memory, causing me trouble. I dumped more time into it,
+and while I still think there're leaks somewhere, it's now clear that there's a
+major confounding factor: the specifics of the =malloc= implementation in glibc
+I'm using (currently version 2.22-5 from Debian).
+
+Like everything else, =malloc= isn't magical. In particular, it can suffer from
+memory fragmentation issues, as one would expect. Furthermore, when you call
+=free=, the memory may or may not be given back to the kernel immediately.
+Memory can be given back if the freed chunk is at the top of the data segment
+allocated by the application. Otherwise, glibc would need to reshuffle things
+around to place the unused space at the top. This reshuffling is costly, as is
+the overhead to move the top of the data segment in either direction.
+
+So the behavior of glibc is a tradeoff between execution speed and memory use:
+
+- If glibc aggressively tries to release memory to the OS, it may be spending
+  much time doing so, potentially for little benefit, since the application may
+  want to immediately reallocate any released memory
+- If glibc is very passive about releasing memory, then it will spend little
+  time doing extra work, but the application's memory footprint will be larger
+  than one would expect
+
+There are functions in glibc to control this tradeoff:
+
+- =mallopt= allows one to set some parameters to control the behavior, in
+  particular =M_TRIM_THRESHOLD= is significant here
+- =malloc_trim= can be invoked to release any memory /now/
+
+So the memory is given back during a manual =malloc_trim= call, or in =free=,
+when the parametrized logic says so.
+
+To observe the effect of this logic, I wrote this =malloc_trim.sh= script:
+
+#+begin_SRC bash
+#!/bin/zsh
+set -e
+
+PID=$1
+test -n "$PID" || { echo "Need PID on the cmdline" > /dev/stderr; exit 1; }
+
+before=`ps -h -p $PID -O rss  | awk '{print $2}'`
+gdb --batch-silent --eval-command 'print malloc_trim(0)' -p $PID
+after=`ps -h -p $PID -O rss  | awk '{print $2}'`
+
+echo "before: $before"
+echo "after: $after"
+echo "freed: $(($before - $after))"
+#+END_SRC
+
+It takes in a PID on the commandline, and invokes =malloc_trim=. The results are
+nothing short of miraculous (and very alarming). On my machine the largest
+memory consumers are usually emacs, a web browser and X. An arbitrary invocation
+of the script:
+
+#+BEGIN_EXAMPLE
+$ malloc_trim.sh `pidof emacs`
+before: 1624156
+after: 1101280
+freed: 522876
+
+$ malloc_trim.sh `pidof opera`
+before: 491636
+after: 327096
+freed: 164540
+
+$ malloc_trim.sh `pidof Xorg`
+before: 101224
+after: 53224
+freed: 48000
+#+END_EXAMPLE
+
+Or put another way:
+
+| process | Before trim (MB) | After trim (MB) | Freed (MB) |    % waste |
+|---------+------------------+-----------------+------------+------------|
+| emacs   |             1586 |            1075 |        511 |         32 |
+| opera   |              480 |             319 |        161 |         34 |
+| Xorg    |               99 |              52 |         47 |         47 |
+
+Holy crap. It's clearly not just emacs. None of this is a smoking gun that
+there's anything wrong, but it suggests strongly that the heuristics in =malloc=
+either have a bug, or the parameters aren't set aggressively enough. I debugged
+into it a bit, and the answer isn't obvious yet. I'll keep looking, however.
+
 ** Math. Horizonator?
 ** multi-arch in general
 
