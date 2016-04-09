@@ -3860,7 +3860,6 @@ Some random internet person claimed 28th Street in San Pedro had a steep
 section, but none was comparable to these 3. This is good enough for me and I'm
 stopping here.
 
-
 ** DONE Poles of Inaccessibility in the San Gabriel Mountains :hiking:data:GIS:
    CLOSED: [2015-05-06 Wed 17:04]
 
@@ -5249,7 +5248,7 @@ And assembly wasn't a giant pain:
 
 If /this/ breaks for some reason, I /really/ should just buy another light.
 
-** DONE Debugging GNU Emacs memory leaks (part 1)           :tools:dev:emacs:
+** DONE Debugging GNU Emacs memory leaks (part 1) :tools:dev:emacs:memoryleaks:
    CLOSED: [2015-09-19 Sat 23:40]
 
 #+begin_o_blog_alert info Follow-up posts
@@ -5326,7 +5325,7 @@ I'm feeling most. And clearly there are other leaks, since the memory
 consumption is growing even with no configuration loaded at all. Still, we're on
 our way.
 
-** DONE Debugging GNU Emacs memory leaks (part 2)           :tools:dev:emacs:
+** DONE Debugging GNU Emacs memory leaks (part 2) :tools:dev:emacs:memoryleaks:
    CLOSED: [2015-10-01 Thu 16:14]
 
 #+begin_o_blog_alert info Follow-up posts
@@ -5973,7 +5972,7 @@ Looks like the patch drops the leak from 57kB/s (114 kB/frame) to 12kB/s
 (24kB/frame). Still work to be done, but this is very good.
 #+end_o_blog_alert
 
-** DONE Memory leak debugging tools                         :tools:dev:emacs:
+** DONE Memory leak debugging tools             :tools:dev:emacs:memoryleaks:
    CLOSED: [2015-10-05 Mon 23:28]
 
 I consolidated the memory-leak-finding tools from [[file:{lisp}(ob:link-to-post (ob:get-post-by-title "Debugging GNU Emacs memory leaks (part 1)")){/lisp}][here]] and [[file:{lisp}(ob:link-to-post (ob:get-post-by-title "Debugging GNU Emacs memory leaks (part 2)")){/lisp}][here]] into their own
@@ -6263,9 +6262,7 @@ Oh my. So we leak this on purpose, and that bug report describes why.
 All source released under the terms of the Lesser GNU General Public License,
 version 3 or later: https://www.gnu.org/copyleft/lesser.html
 
-
-
-** DONE gnuplotlib and broadcasting in numpy        :tools:python:data:dev:
+** DONE gnuplotlib and broadcasting in numpy          :tools:python:data:dev:
    CLOSED: [2015-10-13 Tue 16:01]
 
 Up to this point, a major part of [[https://github.com/dkogan/PDL-Graphics-Gnuplot][PDL::Graphics::Gnuplot]] that was not supported
