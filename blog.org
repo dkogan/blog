@@ -6533,7 +6533,7 @@ when the parametrized logic says so.
 To observe the effect of this logic, I wrote this =malloc_trim.sh= script:
 
 #+begin_SRC bash
-#!/bin/zsh
+#!/bin/sh
 set -e
 
 PID=$1
