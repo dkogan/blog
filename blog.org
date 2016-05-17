@@ -7860,6 +7860,8 @@ eval: (progn
           (load-library "o-blog")
           (setq org-html-table-default-attributes
             '(:border "2" :cellspacing "0" :cellpadding "6" :rules "all" :frame "box"))
+          ;; don't automatically subscript with _
+          (setq org-export-with-sub-superscripts nil)
           (local-set-key (kbd "<f5>")
                          (lambda () (interactive)
                            (org-publish-blog (buffer-file-name))
