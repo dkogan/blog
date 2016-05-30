@@ -6266,6 +6266,10 @@ version 3 or later: https://www.gnu.org/copyleft/lesser.html
 ** DONE gnuplotlib and broadcasting in numpy          :tools:python:data:dev:
    CLOSED: [2015-10-13 Tue 16:01]
 
+#+begin_o_blog_alert info Follow-up posts
+I added generic broadcasting support to numpy: [[file:{lisp}(ob:link-to-post (ob:get-post-by-title "numpysane: a more reasonable numpy")){/lisp}][numpysane: a more reasonable numpy]]
+#+end_o_blog_alert
+
 Up to this point, a major part of [[https://github.com/dkogan/PDL-Graphics-Gnuplot][PDL::Graphics::Gnuplot]] that was not supported
 in [[https://github.com/dkogan/gnuplotlib][=gnuplotlib=]] was proper [[http://docs.scipy.org/doc/numpy/user/basics.broadcasting.html][broadcasting]] ("threading" in PDL-speak) support. What
 is this? Suppose you have 3 1D vectors: =x=, =y= and =y2=, and you want to plot
