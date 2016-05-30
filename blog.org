@@ -2813,13 +2813,14 @@ use strict;
 use warnings;
 use feature qw(say);
 
-use Getopt::Euclid;
-
 use Mail::IMAPClient;
 use IO::Stty;
 use X11::Protocol;
 use X11::Protocol::WM;
 use X11::WindowHierarchy;
+use IO::Socket::SSL 'SSL_VERIFY_PEER';
+
+use Getopt::Euclid;
 
 use autodie;
 
@@ -2828,11 +2829,11 @@ use Parallel::ForkManager;
 my $passwd = getPassword();
 
 my %imapOptions    =
-  ( Server         => 'mail.xxxxx.com',
-    User           => 'username',
+  ( Server         => 'mail.XXXXX.com',
+    User           => 'USERNAME',
     Password       => $passwd,
     Ssl            => 1,
-    Socketargs     => [SSL_verify_mode => "SSL_VERIFY_NONE"],
+    Socketargs     => [SSL_verify_mode => SSL_VERIFY_PEER],
     Debug          => 0,
     Uid            => 1,
     Keepalive      => 1,
@@ -2848,7 +2849,7 @@ for my $folder (@$folders)
 {
   my $pid = $pm->start and next;
 
-  my $imap = Mail::IMAPClient->new(%imapOptions) or die "Couldn't connect to imap";
+  my $imap = Mail::IMAPClient->new(%imapOptions) or die "Couldn't connect to imap for folder '$folder'";
   $imap->select($folder)                         or die "Couldn't select '$folder'";
 
   my %ids_saw;
@@ -2869,14 +2870,14 @@ for my $folder (@$folders)
       my $date = `date`;
       chomp $date;
       say "$date; Pid $pid Saw unread email in '$folder':";
-      print join('', map {"  $_\n"} @newsubjects);
+      print join('', map {$_ //= ""; "  $_\n"} @newsubjects);
 
       sleep(60*$ARGV{'--min'}) if $ARGV{'--min'};
     }
 
-    my $IDLEtag     = $imap->idle           or die "idle failed: $@\n";
-    my $idle_result = $imap->idle_data(250) or die "idle_data failed: $@\n";
-    $imap->done($IDLEtag);
+    my $IDLEtag     = $imap->idle           or die "idle failed: $@ for folder '$folder'\n";
+    my $idle_result = $imap->idle_data(250) or die "idle_data failed: $@ for folder '$folder'\n";
+    $imap->done($IDLEtag)                   or die "idle done failed: $@ for folder '$folder'\n";;
   }
 
   $pm->finish;
@@ -2933,7 +2934,7 @@ sub alert
     $xid = $mu4e[0]{id};
 
     # there's a mu4e window already. Get the mail
-    system(qw(emacsclient -a '' -e), '(mu4e-update-mail-and-index t)');
+    system(qw(emacsclient -a '' -e), '(when (get-buffer "*mu4e-main*") (mu4e-update-mail-and-index t))');
   }
 
   X11::Protocol::WM::change_wm_hints( $x, $xid,
