@@ -1692,7 +1692,7 @@ int main(void)
 This can be built simply with
 
 #+begin_src sh
-gcc -lX11 -o seturgent_fast{,.c}
+gcc -o seturgent_fast{,.c} -lX11
 #+end_src
 
 Running this for a bit the main discovery is that it's a bit easier to maintain
