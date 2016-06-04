@@ -1,5 +1,5 @@
 #+TITLE: Dima Kogan
-#-DESCRIPTION: Dima's notes
+#+DESCRIPTION: Dima's notes
 #+DATE: <2014-07-25 Fri 17:34>
 #+AUTHOR Dima Kogan
 
