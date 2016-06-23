@@ -3864,6 +3864,12 @@ stopping here.
 ** DONE Poles of Inaccessibility in the San Gabriel Mountains :hiking:data:GIS:
    CLOSED: [2015-05-06 Wed 17:04]
 
+
+#+begin_o_blog_alert info Update
+I visited the furthest Pole and placed a register there:
+[[http://sangabrielmnts.myfreeforum.org/about7040.html]]. Do visit and sign in!
+#+end_o_blog_alert
+
 So I was out hiking with a friend, and a question came up about where the least
 accessible point of the San Gabriel Mountains was, with "accessible" defined as
 having a road or trail nearby. I decided to answer this question. The resulting
