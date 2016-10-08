@@ -7842,6 +7842,140 @@ full README from the initial release appears verbatim below.
   published by the Free Software Foundation
 
   See https://www.gnu.org/licenses/lgpl.html
+
+** DONE Simple ASCII parsing: performance comparisons
+   CLOSED: [2016-10-08 Sat 16:17]
+
+*** Overview
+I'm currently dealing with large data files composed of white-separated text.
+These are very well supported by various UNIX tools, which makes it an
+attractive way to store data. Many processing tools are available, but I
+discovered that the performance differences of the various tools are larger than
+I had assumed. None of this is news to many people, but I thought it'd be useful
+to run a few experiments to quantify the differences.
+
+I ran a number of trials looking at a particular data file I had lying around.
+This file weighs in at about 40MB. It has roughly 120000 lines with about 100
+whitespace-separated records each (most records are just a single character). I
+want to test the most basic possible parsing program:
+
+1. read in the data one line at a time
+2. split each line into fields, chopping off the trailing newline
+3. print out all but the first field
+
+I'm comparing perl, python, gawk and mawk, cut, all installed from packages on
+my Debian/sid box running on an amd64 arch. The package versions:
+
+Everything is plain ASCII: I have =LANG=C= and =LC_ALL=C=.
+
+| Package name          |          version |
+|-----------------------+------------------|
+| perl                  |         5.22.2-1 |
+| python2.7             |         2.7.11-7 |
+| python3.6             |       3.6.0~b1-1 |
+| gawk                  | 1:4.1.3+dfsg-0.1 |
+| mawk                  |         1.3.3-17 |
+| coreutils (for =cut=) |           8.25-2 |
+
+*** Programs under test
+
+The perl code looks like this:
+
+#+BEGIN_SRC perl
+use feature 'say';
+while(<>)
+{
+    chop;
+    @F = split;
+    shift @F;
+    $_ = join(' ',@F);
+    say;
+}
+#+END_SRC
+
+I also tried omitting the =while(<>) {... say}= with =perl -p= and also omitting
+the =chop= and =split= with =perl -a=. This produced much shorter code, but had
+no measurable effect on the performance.
+
+The python code looks like this:
+
+#+BEGIN_SRC python
+import sys
+
+for l in sys.stdin:
+    fields     = l[:-1].split()
+    fields[:1] = []
+    scut       = ' '.join(fields)
+    print(scut)
+#+END_SRC
+
+The =()= in the =print= were included for python3 and omitted for python2.
+
+The awk program simply looks like this:
+
+#+BEGIN_SRC awk
+{ $1=""; print; }
+#+END_SRC
+
+This applies to both gawk and mawk. I ran this one as a one-liner, not even
+bothering to put it into a source file.
+
+Finally, the =cut= invocation was an ultimate one-liner:
+
+#+BEGIN_EXAMPLE
+$ cut -d ' ' -f 2-
+#+END_EXAMPLE
+
+*** Test invocation
+
+All the tests were executed a few times, with the mean wall-clock time being
+taken. For instance:
+
+#+BEGIN_EXAMPLE
+$ for i in `seq 10`; do < /tmp/data time python2.7 tst.py > /dev/null; done |& awk '{n=NF-1; s+=$n} END{print s/NR}'
+#+END_EXAMPLE
+
+For each application I would take a measurement for the full program, and then
+I'd cut off commands from the end to get a sense of where the time was going.
+
+*** Results
+The raw results look like this (all timings in seconds):
+
+|           | Everything | without print | without join | without shift | without chop, split |
+|-----------+------------+---------------+--------------+---------------+---------------------|
+| perl      |       3.04 |          3.01 |         2.40 |          2.38 |                0.11 |
+| python2.7 |       1.19 |          1.08 |         0.76 |          0.71 |                0.05 |
+| python3.6 |       1.64 |          1.30 |         0.97 |          0.89 |                0.13 |
+| gawk      |       1.00 |          0.09 |         0.08 |          0.08 |                     |
+| mawk      |       0.65 |          0.63 |         0.00 |          0.00 |                     |
+| cut       |       0.55 |               |              |               |                     |
+
+Taking differences, we get this:
+
+|           | overhead | chop, split | shift | join | print |
+|-----------+----------+-------------+-------+------+-------|
+| perl      |     0.11 |        2.27 |  0.02 | 0.61 |  0.03 |
+| python2.7 |     0.05 |        0.66 |  0.05 | 0.32 |  0.11 |
+| python3.6 |     0.13 |        0.76 |  0.08 | 0.33 |  0.34 |
+| gawk      |        0 |           0 |     0 | 0.01 |  0.91 |
+| mawk      |        0 |           0 |     0 | 0.63 |  0.02 |
+| cut       |     0.55 |             |       |      |       |
+
+As expected, the plain =cut= utility from GNU coreutils is fastest, with =mawk=
+being slower, but not terribly so. In a distant 3rd place is =gawk=. These all
+are what I would expect. The following were surprising, however. Python2.7 is
+not too much slower than =gawk=. Python3.6 is /much/ slower than Python2.7. And
+perl is /way/ slower than all the others. It's very possible that perl and
+python3 are doing something overly-complicated that can be turned off with some
+setting, but I don't at this time know what that is.
+
+Looking at the components, it looks like perl has trouble dealing with lists:
+the splitting and joining are dramatically slower for it than for other tools.
+
+So that's it. I guess the only grand conclusion for me is to be wary of perl for
+dealing with large data files. If anybody knows how to speed things up in any of
+these cases, email me.
+
 ** Math. Horizonator?
 ** multi-arch in general
 
