@@ -7847,12 +7847,12 @@ full README from the initial release appears verbatim below.
    CLOSED: [2016-10-08 Sat 16:17]
 
 *** Overview
-I'm currently dealing with large data files composed of white-separated text.
-These are very well supported by various UNIX tools, which makes it an
+I'm currently dealing with large data files composed of whitespace-separated
+text. These are very well supported by various UNIX tools, which makes it an
 attractive way to store data. Many processing tools are available, but I
-discovered that the performance differences of the various tools are larger than
-I had assumed. None of this is news to many people, but I thought it'd be useful
-to run a few experiments to quantify the differences.
+discovered that the performance of these tools varies more widely than I had
+assumed. None of this is news to many people, but I thought it'd be useful to
+run a few experiments to quantify the differences.
 
 I ran a number of trials looking at a particular data file I had lying around.
 This file weighs in at about 40MB. It has roughly 120000 lines with about 100
@@ -7863,10 +7863,8 @@ want to test the most basic possible parsing program:
 2. split each line into fields, chopping off the trailing newline
 3. print out all but the first field
 
-I'm comparing perl, python, gawk and mawk, cut, all installed from packages on
+I'm comparing perl, python, gawk, mawk and cut, all installed from packages on
 my Debian/sid box running on an amd64 arch. The package versions:
-
-Everything is plain ASCII: I have =LANG=C= and =LC_ALL=C=.
 
 | Package name          |          version |
 |-----------------------+------------------|
@@ -7879,6 +7877,9 @@ Everything is plain ASCII: I have =LANG=C= and =LC_ALL=C=.
 
 *** Programs under test
 
+Everything is plain ASCII: I have =LANG=C= and =LC_ALL=C=.
+
+**** Perl
 The perl code looks like this:
 
 #+BEGIN_SRC perl
@@ -7897,6 +7898,7 @@ I also tried omitting the =while(<>) {... say}= with =perl -p= and also omitting
 the =chop= and =split= with =perl -a=. This produced much shorter code, but had
 no measurable effect on the performance.
 
+**** Python
 The python code looks like this:
 
 #+BEGIN_SRC python
@@ -7911,6 +7913,23 @@ for l in sys.stdin:
 
 The =()= in the =print= were included for python3 and omitted for python2.
 
+#+begin_o_blog_alert info update
+Clément Pit-Claudel noted that python3 does more manipulation of text coming in
+from a buffer, and suggested the following flavor of the test, in order to
+bypass some of this overhead:
+
+#+BEGIN_SRC python
+import sys
+
+for l in sys.stdin.buffer:
+    fields     = l[:-1].split()
+    fields[:1] = []
+    scut       = b' '.join(fields)
+    sys.stdout.buffer.write(scut + b'\n')
+#+END_SRC
+#+end_o_blog_alert
+
+**** awk
 The awk program simply looks like this:
 
 #+BEGIN_SRC awk
@@ -7920,6 +7939,7 @@ The awk program simply looks like this:
 This applies to both gawk and mawk. I ran this one as a one-liner, not even
 bothering to put it into a source file.
 
+**** cut
 Finally, the =cut= invocation was an ultimate one-liner:
 
 #+BEGIN_EXAMPLE
@@ -7941,31 +7961,34 @@ I'd cut off commands from the end to get a sense of where the time was going.
 *** Results
 The raw results look like this (all timings in seconds):
 
-|           | Everything | without print | without join | without shift | without chop, split |
-|-----------+------------+---------------+--------------+---------------+---------------------|
-| perl      |       3.04 |          3.01 |         2.40 |          2.38 |                0.11 |
-| python2.7 |       1.19 |          1.08 |         0.76 |          0.71 |                0.05 |
-| python3.6 |       1.64 |          1.30 |         0.97 |          0.89 |                0.13 |
-| gawk      |       1.00 |          0.09 |         0.08 |          0.08 |                     |
-| mawk      |       0.65 |          0.63 |         0.00 |          0.00 |                     |
-| cut       |       0.55 |               |              |               |                     |
+|                     | Everything | without print | without join | without shift | without chop, split |
+|---------------------+------------+---------------+--------------+---------------+---------------------|
+| perl                |       3.04 |          3.01 |         2.40 |          2.38 |                0.11 |
+| python2.7           |       1.19 |          1.08 |         0.76 |          0.71 |                0.05 |
+| python3.6           |       1.64 |          1.30 |         0.97 |          0.89 |                0.13 |
+| python3.6 (buffers) |       1.43 |          1.21 |         0.77 |          0.71 |                0.08 |
+| gawk                |       1.00 |          0.09 |         0.08 |          0.08 |                     |
+| mawk                |       0.65 |          0.63 |         0.00 |          0.00 |                     |
+| cut                 |       0.55 |               |              |               |                     |
 
 Taking differences, we get this:
 
-|           | overhead | chop, split | shift | join | print |
-|-----------+----------+-------------+-------+------+-------|
-| perl      |     0.11 |        2.27 |  0.02 | 0.61 |  0.03 |
-| python2.7 |     0.05 |        0.66 |  0.05 | 0.32 |  0.11 |
-| python3.6 |     0.13 |        0.76 |  0.08 | 0.33 |  0.34 |
-| gawk      |        0 |           0 |     0 | 0.01 |  0.91 |
-| mawk      |        0 |           0 |     0 | 0.63 |  0.02 |
-| cut       |     0.55 |             |       |      |       |
+|                     | overhead | chop, split | shift | join | print |
+|---------------------+----------+-------------+-------+------+-------|
+| perl                |     0.11 |        2.27 |  0.02 | 0.61 |  0.03 |
+| python2.7           |     0.05 |        0.66 |  0.05 | 0.32 |  0.11 |
+| python3.6           |     0.13 |        0.76 |  0.08 | 0.33 |  0.34 |
+| python3.6 (buffers) |     0.08 |        0.63 |  0.06 | 0.44 |  0.22 |
+| gawk                |        0 |           0 |     0 | 0.01 |  0.91 |
+| mawk                |        0 |           0 |     0 | 0.63 |  0.02 |
+| cut                 |     0.55 |             |       |      |       |
 
 As expected, the plain =cut= utility from GNU coreutils is fastest, with =mawk=
 being slower, but not terribly so. In a distant 3rd place is =gawk=. These all
 are what I would expect. The following were surprising, however. Python2.7 is
-not too much slower than =gawk=. Python3.6 is /much/ slower than Python2.7. And
-perl is /way/ slower than all the others. It's very possible that perl and
+not too much slower than =gawk=. Python3.6 is /much/ slower than Python2.7,
+although some of this inefficiency can be bypassed by using special i/o objects.
+And perl is /way/ slower than all the others. It's very possible that perl and
 python3 are doing something overly-complicated that can be turned off with some
 setting, but I don't at this time know what that is.
 
