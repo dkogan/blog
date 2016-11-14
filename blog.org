@@ -7999,7 +7999,7 @@ So that's it. I guess the only grand conclusion for me is to be wary of perl for
 dealing with large data files. If anybody knows how to speed things up in any of
 these cases, email me.
 
-** DONE Using DWARF TO find and save all state in a C library     :tools:dev:
+** DONE Using DWARF to find and save all state in a C library     :tools:dev:
    CLOSED: [2016-11-13 Sun 23:58]
 
 Recently I needed to integrate a particular C library into a larger project I'm
@@ -8213,7 +8213,7 @@ void print_tst2(void)
 }
 #+END_SRC
 
-=mainc=:
+=main.c=:
 #+BEGIN_SRC C
 // ...
 #include "getglobals.h"
