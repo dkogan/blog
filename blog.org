@@ -7999,6 +7999,362 @@ So that's it. I guess the only grand conclusion for me is to be wary of perl for
 dealing with large data files. If anybody knows how to speed things up in any of
 these cases, email me.
 
+** DONE Using DWARF TO find and save all state in a C library     :tools:dev:
+   CLOSED: [2016-11-13 Sun 23:58]
+
+Recently I needed to integrate a particular C library into a larger project I'm
+working on. This larger project has an "undo" feature, which requires that any
+action of the library must be revertable. This library does no I/O, so an undo
+sequence is
+
+1. save the persistent state of the library (all variables in memory)
+2. perform some library action
+3. revert to the previous state by restoring the state saved in 1.
+
+The difficulty of this depends on the implementation details of each specific
+library. The easiest to handle are libraries that store all of their state in a
+context structure that is owned by the caller and that don't perform any dynamic
+memory allocation:
+
+#+BEGIN_SRC C
+// inside library
+struct library_context_t { ... };
+void library_do_thing (struct library_context_t* ctx);
+
+// inside client that invokes the library
+void call_library(struct library_context_t* ctx)
+{
+    struct library_context_t ctx_saved = *ctx;
+
+    library_do_thing(ctx);
+
+    if(need to revert)
+        *ctx = ctx_saved;
+}
+#+END_SRC
+
+The most effortful are libraries that have a lot of internal state they manage
+themselves and/or use dynamic allocation heavily.
+
+My library didn't allocate anything dynamically, but it used internal state
+/heavily/. Things like this were strewn all over:
+
+#+BEGIN_SRC C
+// library.c
+
+static int a;
+int        b;
+extern struct { int w,x,y,z; } s;
+void library_do_thing(void)
+{
+    static int c = 5;
+    static struct { double v[10]; } d;
+
+    a = ....;
+    b = ....;
+}
+#+END_SRC
+
+So we need to deal with lots and lots of internal state. I had access to the
+source, so the thing could be cleaned up to consolidate the hundreds of stateful
+variables into a more manageable (and accessible, unlike the =static= locals for
+instance) number of structures. But this would require deep surgery into the
+sources that would /not/ be accepted upstream.
+
+Fundamentally, the task is to save a set of areas in memory, each area having an
+address and a size. This is mostly known at compile time, and some
+instrumentation can be added in a =save()= function in each source file in the
+library:
+
+#+BEGIN_SRC C
+// library.c
+
+static int a;
+int        b;
+extern struct { int w,x,y,z; } s;
+void library_do_thing(void)
+{
+    static int c = 5;
+    static struct { double v[10]; } d;
+}
+
+void save(int* a_saved, int* b_saved)
+{
+    *a_saved = a;
+    *b_saved = b;
+
+    // cannot access c and d
+}
+#+END_SRC
+
+This lets me save the file-global state, but not the function-local state. And
+I'd need to have one of these in /each/ source file I'm instrumenting. So this
+doesn't fully work. I need to have something that can get the list of addresses
+and sizes at runtime.
+
+The addresses are available from the symbol table, which I can get from the ELF
+file I'm running (or linking with). With =library.c= as above:
+
+#+BEGIN_EXAMPLE
+$ gcc -c -o library.o library.c
+
+$ nm library.o | awk '$2 ~ /^[bcdgsBCDGS]$/'
+0000000000000000 b a
+0000000000000004 C b
+0000000000000000 d c.1766
+0000000000000020 b d.1769
+#+END_EXAMPLE
+
+Here I only look at /data/ and only data that is /writeable/ because the
+read-only data doesn't need to be saved/restored. We can see the global
+variables =a= and =b=, and the static function-local variables =c= and =d=. And
+we can see their addresses. We cannot, however seee the sizes: these are known
+and used by the compiler, which discards them when finished. I need another
+source of data, and I found the perfect one: DWARF debugging information. This
+contains much meta-data about the compiled code, including the location and
+sizes of all the variables. DWARF info isn't necessarily available at runtime,
+but I control the build flags, so I can make sure I have this. Example:
+
+#+BEGIN_EXAMPLE
+$ gcc -c -g -o library.o library.c
+
+$ readelf -wi library.o
+...
+ <1><3c>: Abbrev Number: 3 (DW_TAG_base_type)
+    <3d>   DW_AT_byte_size   : 4
+    <3e>   DW_AT_encoding    : 5        (signed)
+    <3f>   DW_AT_name        : int
+ <1><43>: Abbrev Number: 4 (DW_TAG_variable)
+    <44>   DW_AT_name        : b
+    <46>   DW_AT_decl_file   : 1
+    <47>   DW_AT_decl_line   : 2
+    <48>   DW_AT_type        : <0x3c>
+    <4c>   DW_AT_external    : 1
+    <4c>   DW_AT_location    : 9 byte block: 3 4 0 0 0 0 0 0 0  (DW_OP_addr: 4)
+...
+#+END_EXAMPLE
+
+In this snippet we can see the variable =b= and we can see that it is a 4-byte
+integer at some address within the file.
+
+I wrote a program to automatically parse this information and to generate the
+list of addresses and sizes that I care about. This is available at
+
+https://github.com/dkogan/FindGlobals
+
+The README is copied here:
+
+*** Overview
+This is a proof-of-concept program that is able to find all global state in a
+program by parsing its debug information (which is assumed to be available).
+
+The global state I'm looking for is all persistent data:
+
+- globals variables (static or otherwise)
+- static local variables in functions
+
+I'm only interested in data that can change, so I look /only/ at the writeable
+segment. This program is alpha-quality, but passes some basic tests.
+
+*** Example
+=tst1.c=:
+#+BEGIN_SRC C
+// ....
+struct S1 v1[10];
+
+volatile const char volatile_const_char;
+const volatile char const_volatile_char;
+const char          const_char = 1;
+
+void print_tst1(void)
+{
+    showvar(v1);
+    showvar(volatile_const_char);
+    showvar(const_volatile_char);
+    showvar_readonly(const_char);
+}
+#+END_SRC
+
+=tst2.c=:
+#+BEGIN_SRC C
+// ....
+int v2 = 5;
+
+const char*       const_char_pointer       = NULL;
+const char const* const_char_const_pointer = NULL;
+char const*       char_const_pointer       = NULL;
+
+const        char  const_string_array[]        = "456";
+static const char  static_const_string_array[] = "abc";
+
+struct S0 s0;
+int       x0[0];
+int       x1[30];
+
+
+
+void print_tst2(void)
+{
+    static int    static_int_5[5];
+    static double static_double;
+    double dynamic_d;
+
+    showvar(static_int_5);
+    showvar(static_double);
+    showvar(v2);
+    showvar(const_char_pointer);
+    showvar_readonly(const_char_const_pointer);
+    showvar_readonly(char_const_pointer);
+    showvar_readonly(const_string_array);
+    showvar_readonly(static_const_string_array);
+    showvar(s0);
+    showvar(x0);
+    showvar(x1);
+}
+#+END_SRC
+
+=mainc=:
+#+BEGIN_SRC C
+// ...
+#include "getglobals.h"
+
+int main(int argc, char* argv[])
+{
+    printf("=================== Program sees: ===================\n");
+
+    print_tst1();
+    print_tst2();
+
+    printf("=================== DWARF sees: ===================\n");
+
+    get_addrs((void (*)())&print_tst1, "tst");
+
+    return 0;
+}
+#+END_SRC
+
+Results:
+
+#+BEGIN_EXAMPLE
+$ ./getglobals 2>/dev/null
+
+=================== Program sees: ===================
+v1 at 0x55756bc8e240, size 80
+volatile_const_char at 0x55756bc8e220, size 1
+const_volatile_char at 0x55756bc8e290, size 1
+readonly const_char at 0x55756ba8cc65, size 1
+static_int_5 at 0x55756bc8e040, size 20
+static_double at 0x55756bc8e038, size 8
+v2 at 0x55756bc8e010, size 4
+const_char_pointer at 0x55756bc8e030, size 8
+readonly const_char_pointer_const at 0x55756ba8cbd0, size 8
+readonly char_pointer_const at 0x55756ba8cbc8, size 8
+readonly const_string_array at 0x55756ba8cbc4, size 4
+readonly static_const_string_array at 0x55756ba8cbc0, size 4
+s0 at 0x55756bc8e120, size 100
+x0 at 0x55756bc8e184, size 0
+x1 at 0x55756bc8e1a0, size 120
+=================== DWARF sees: ===================
+v2 at 0x55756bc8e010, size 4
+const_char_pointer at 0x55756bc8e030, size 8
+readonly const_char_pointer_const at 0x55756ba8cbd0, size 8
+readonly char_pointer_const at 0x55756ba8cbc8, size 8
+readonly const_string_array at 0x55756ba8cbc4, size 4
+readonly static_const_string_array at 0x55756ba8cbc0, size 4
+s0 at 0x55756bc8e120, size 100
+x1 at 0x55756bc8e1a0, size 120
+static_int_5 at 0x55756bc8e040, size 20
+static_double at 0x55756bc8e038, size 8
+v1 at 0x55756bc8e240, size 80
+volatile_const_char at 0x55756bc8e220, size 1
+const_volatile_char at 0x55756bc8e290, size 1
+readonly const_char at 0x55756ba8cc65, size 1
+
+
+dima@shorty:$ ./getglobals 2>/dev/null | sort | uniq -c | sort
+
+      1 =================== DWARF sees: ===================
+      1 =================== Program sees: ===================
+      1 x0 at 0x55be5ba3d184, size 0
+      2 const_char_pointer at 0x55be5ba3d030, size 8
+      2 const_volatile_char at 0x55be5ba3d290, size 1
+      2 readonly char_pointer_const at 0x55be5b83bbc8, size 8
+      2 readonly const_char at 0x55be5b83bc65, size 1
+      2 readonly const_char_pointer_const at 0x55be5b83bbd0, size 8
+      2 readonly const_string_array at 0x55be5b83bbc4, size 4
+      2 readonly static_const_string_array at 0x55be5b83bbc0, size 4
+      2 s0 at 0x55be5ba3d120, size 100
+      2 static_double at 0x55be5ba3d038, size 8
+      2 static_int_5 at 0x55be5ba3d040, size 20
+      2 v1 at 0x55be5ba3d240, size 80
+      2 v2 at 0x55be5ba3d010, size 4
+      2 volatile_const_char at 0x55be5ba3d220, size 1
+      2 x1 at 0x55be5ba3d1a0, size 120
+#+END_EXAMPLE
+
+In the example above we see the test program report the locations and addreses
+of its data. Then the instrumentation reports the addresses and data that it
+sees. These should be identical (in theory). We then sort and count duplicate
+lines in the output. If the two sets of reports were identical, we should see
+all lines appear 2 times. We see this with 2 trivial exceptions:
+
+- The lines containing ======= are delimiters
+- =x0= has size 0, so the instrumentation doesn't even bother to report it
+
+*** Notes
+- The example in this tree works with both static linking (=getglobals=) and
+  dynamic linking (=getglobals_viaso=).
+
+- This is alpha quality proof-of-concept software. It's an excellent starting
+  point if you need this functionality, but do thoroughly test it for your use
+  case.
+
+- This was written with C code in mind. I can imagine that C++ can produce
+  persistent state in more ways. Again, test it thoroughly
+
+- The libraries I'm using to parse the DWARF are woefully underdocumented, and
+  I'm probably not doing everything 100% correctly. At the risk of repeating
+  myself: test it thoroughly.
+
+- For ELF objects linked into the executable normally (whether statically or
+  dynamically) this works. If we're doing something funny like loading
+  libraries ourselves with =libdl=, then it /probably/ works too, but I'd test
+  it before assuming.
+
+This effort uncovered a bug in gcc:
+
+https://gcc.gnu.org/bugzilla/show_bug.cgi?id=78100
+
+It turns out that gcc erroneously omits the sizing information if you have an
+array object pre-declared as an =extern= of unknown size (as was done in my
+specific library). So if you have this source:
+
+#+BEGIN_SRC C
+#include <stdio.h>
+
+extern int s[];
+int s[] = { 1,2,3 };
+
+int main(void)
+{
+    printf("%zd\n", sizeof(s));
+    return 0;
+}
+#+END_SRC
+
+then the object produced by gcc <= 6.2 doesn't know that =s= has /3/ integers.
+
+*** Copyright and License
+Copyright 2016 Dima Kogan.
+
+Released under an MIT-style license:
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of
+this software and associated documentation files (the "Software"), to deal in
+the Software without restriction, including without limitation the rights to
+use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
+the Software, and to permit persons to whom the Software is furnished to do so.
+
 ** Math. Horizonator?
 ** multi-arch in general
 
