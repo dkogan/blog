@@ -8355,6 +8355,182 @@ the Software without restriction, including without limitation the rights to
 use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
 the Software, and to permit persons to whom the Software is furnished to do so.
 
+** DONE Detecting missing =DT_NEEDED= tags
+   CLOSED: [2017-02-02 Thu 10:42]
+
+I'm working on a project that contains many libraries (built as shared objects)
+that use functionality from each other. In normal usage (in this project) these
+are loaded dynamically by python. I have no idea how the python loader resolves
+dependencies between these libraries, but if one tries to build an application
+that uses the plain dynamic linker to link the libraries, things become
+difficult. The reason: these libraries have no =DT_NEEDED= tags so the dynamic
+linker has no dependency information.
+
+*** Background
+
+Suppose we have a library =libA.so= that uses functionality from =libB.so= to do
+some of its work. Now suppose you have an application =exe= that calls functions
+in =libA.so=, but /not/ =libB.so=. The person invoking the linker to link =exe=
+knows to build with =-lA= because they know that =exe= uses =libA.so=. However
+this person may not know to link with =-lB=: /their/ program that /they/ wrote
+is =exe=, and they have no idea how the internals of =libA.so= work, nor should
+they care. The solution is to put a =DT_NEEDED= tag into =libA.so= to indicate
+that it needs =libB.so=. With this tag, the linker command to build =exe= only
+needs to specify =-lA=, and the linker will read the =DT_NEEDED= tag, and link
+in =libB.so= automatically.
+
+This tag is created when =libA.so= is linked: /its/ build command needs to
+include =-lB=. These tags can be queried with the =objdump= command. For
+instance:
+
+#+BEGIN_EXAMPLE
+dima@shorty:/tmp$ objdump -p /usr/lib/x86_64-linux-gnu/libopencv_highgui.so.2.4 | grep NEEDED
+
+  NEEDED               libopencv_imgproc.so.2.4
+  NEEDED               libdl.so.2
+  NEEDED               libpthread.so.0
+  NEEDED               librt.so.1
+  NEEDED               libtbb.so.2
+  NEEDED               libatomic.so.1
+  NEEDED               libz.so.1
+  NEEDED               libjpeg.so.62
+  NEEDED               libpng16.so.16
+  NEEDED               libtiff.so.5
+  NEEDED               libImath-2_2.so.12
+  NEEDED               libIlmImf-2_2.so.22
+  NEEDED               libIex-2_2.so.12
+  NEEDED               libHalf.so.12
+  NEEDED               libIlmThread-2_2.so.12
+  NEEDED               libgtk-x11-2.0.so.0
+  NEEDED               libgdk-x11-2.0.so.0
+  NEEDED               libpangocairo-1.0.so.0
+  NEEDED               libatk-1.0.so.0
+  NEEDED               libcairo.so.2
+  NEEDED               libgdk_pixbuf-2.0.so.0
+  NEEDED               libgio-2.0.so.0
+  NEEDED               libpangoft2-1.0.so.0
+  NEEDED               libpango-1.0.so.0
+  NEEDED               libgobject-2.0.so.0
+  NEEDED               libglib-2.0.so.0
+  NEEDED               libfontconfig.so.1
+  NEEDED               libfreetype.so.6
+  NEEDED               libgthread-2.0.so.0
+  NEEDED               libdc1394.so.22
+  NEEDED               libv4l1.so.0
+  NEEDED               libavcodec.so.57
+  NEEDED               libavformat.so.57
+  NEEDED               libavutil.so.55
+  NEEDED               libswscale.so.4
+  NEEDED               libopencv_core.so.2.4
+  NEEDED               libstdc++.so.6
+  NEEDED               libm.so.6
+  NEEDED               libgcc_s.so.1
+  NEEDED               libc.so.6
+#+END_EXAMPLE
+
+So a user building an application that uses =libopencv_highgui.so= doesn't need
+to know to link in all this stuff when building their executable.
+
+*** Solution
+
+So I have a bunch of libraries that have no =DT_NEEDED= tags, and I want to
+change their build invocations to add those tags. But which tags do I need?
+There are many libraries, and it would take a lot of work to look through each
+one and make a list of libraries that it depends on. I wrote this script to do
+that work for me:
+
+=infer_dt_needed.pl=
+
+#+BEGIN_SRC perl
+#!/usr/bin/perl
+
+# Invoke this tool thusly:
+#
+#     nm -o -D *.so | perl infer_dt_needed.pl
+
+
+use strict;
+use warnings;
+
+use feature ':5.10';
+
+my %undef_syms_in_libs;
+my %defining_lib_for_sym;
+my %library_dep;
+
+while(<>)
+{
+    my ($lib,$type,$sym) = /^(.*?):           # symbol name:
+                            (?:[0-9a-fA-F]+)? # possibly an address
+                            \s+
+                            ([a-zA-Z])        # symbol type
+                            \s+
+                            (.*?)             # symbol name
+                            $/x
+      or next;
+
+    $lib =~ s/^lib//;
+    $lib =~ s/\.so.*//;
+
+    # read in each symbol, and make a record of each defined and undefined
+    # function. I look for very specific symbol types here, and this set is
+    # sufficient for my application. Look at the 'nm' manpage for the other
+    # possible symbols that may be necessary for other applications
+    if( length($type) )
+    {
+        if($type eq 'T')
+        {
+            $defining_lib_for_sym{$sym} = $lib;
+        }
+        elsif($type eq 'U')
+        {
+            $undef_syms_in_libs{$lib} //= [];
+            push @{$undef_syms_in_libs{$lib}}, $sym;
+        }
+    }
+}
+
+# I go through each undefined symbol, find the library that provides it, and if
+# found, record the dependency between those libraries
+for my $lib (keys %undef_syms_in_libs)
+{
+    for my $sym ( @{$undef_syms_in_libs{$lib}} )
+    {
+        if ($defining_lib_for_sym{$sym})
+        {
+            $library_dep{$lib} //= {};
+            $library_dep{$lib}{$defining_lib_for_sym{$sym}} = 1;
+        }
+    }
+}
+
+# print out the dependencies
+for my $lib(keys %library_dep)
+{
+    say "lib$lib.so:" . join('', map {" -l$_"} keys %{$library_dep{$lib}} );
+}
+#+END_SRC
+
+To use this tool, read the symbol table from all my shared libraries, and feed
+this list into the tool. The tool finds the connection between libraries that
+use a particular symbol and libraries that provide it. In the trivial example
+above, the invocation and output would look like this:
+
+#+BEGIN_EXAMPLE
+$ nm -o -D libA.so libB.so | perl infer_dt_needed.pl
+
+libA.so: -lB
+#+END_EXAMPLE
+
+The =nm= tool reads the symbol table, and the =-o -D= options are more or less
+required for this usage. The tool only looks at a very specific set of symbols
+(nm types =T= and =U=), which is sufficient for my purposes. Read the =nm=
+manpage and update the script if you need more.
+
+With many libraries and many symbols this sort of automated bookeeping is
+invaluable. The resulting list can be used to update the Makefiles to put the
+appropriate tags in place.
+
 ** Math. Horizonator?
 ** multi-arch in general
 
