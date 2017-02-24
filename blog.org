@@ -8568,6 +8568,7 @@ remembering trivia about these options. Well, I fixed this, so now I can now go
 back to being blissfully ignorant:
 
 https://mail.mozilla.org/pipermail/rr-dev/2017-February/000452.html
+
 https://github.com/mozilla/rr/commit/684045339af9905e4ae432d237ba2cfb98ad0df3
 
 Now, when invoking =rr replay= from Emacs, you simply take the suggested command
