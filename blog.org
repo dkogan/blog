@@ -8531,6 +8531,50 @@ With many libraries and many symbols this sort of automated bookeeping is
 invaluable. The resulting list can be used to update the Makefiles to put the
 appropriate tags in place.
 
+** DONE Interfacing rr to gdb in GNU Emacs                        :tools:dev:
+   CLOSED: [2017-02-24 Fri 00:08]
+
+First of all, for those who haven't tried [[http://www.rr-project.org][=rr=]] yet, stop everything and go check
+it out right now. It's revolutionary. I'll wait.
+
+OK. Back? I generally talk to gdb from inside GNU Emacs. This has two modes:
+
+1. GUD. This is the "old" mode, and you launch it via =M-x gud-gdb=. GUD expects
+   gdb to be running with annotation level 1. This annotation level can be set
+   in several ways:
+
+   - =gdb --fullname=
+   - =gdb -f=
+   - =gdb --annotate 1=
+   - Execute =set annotate 1= within =gdb=
+
+   When you =M-x gud-gdb=, emacs suggests =gdb --fullname=, so by taking the
+   suggestion the user doesn't have to remember any of these.
+
+2. gdb-mi. This is the "new" mode, launched via =M-x gdb=. It also needs a
+   special communications mode, but this one is entered with any of
+
+   - =gdb -i=mi=
+   - =gdb --ui=mi=
+   - =gdb --interpreter=mi=
+
+   As with GUD, =M-x gdb= suggests something: =gdb -i=mi= so once again the user
+   doesn't need to remember any of this.
+
+Now, when I =rr replay=, I'm also talking to gdb, and I need to pass the same
+communication options. But =rr= doesn't support these, so the user needs to do
+something to turn them on, which at the very least means learning and
+remembering trivia about these options. Well, I fixed this, so now I can now go
+back to being blissfully ignorant:
+
+https://mail.mozilla.org/pipermail/rr-dev/2017-February/000452.html
+https://github.com/mozilla/rr/commit/684045339af9905e4ae432d237ba2cfb98ad0df3
+
+Now, when invoking =rr replay= from Emacs, you simply take the suggested command
+(=gdb --fullname= or =gdb -i=mi=), replace =gdb= with =rr replay=, add the log
+we're replaying, and things then work as expected.
+
+
 ** Math. Horizonator?
 ** multi-arch in general
 
