@@ -8575,6 +8575,13 @@ Now, when invoking =rr replay= from Emacs, you simply take the suggested command
 (=gdb --fullname= or =gdb -i=mi=), replace =gdb= with =rr replay=, add the log
 we're replaying, and things then work as expected.
 
+Note that if you're stuck with an older version of =rr= then at least for GUD
+there's a simple workaround:
+
+#+BEGIN_EXAMPLE
+echo set annotate 1 >> ~/.gdbinit
+#+END_EXAMPLE
+
 
 ** Math. Horizonator?
 ** multi-arch in general
