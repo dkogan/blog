@@ -8582,6 +8582,45 @@ there's a simple workaround:
 echo set annotate 1 >> ~/.gdbinit
 #+END_EXAMPLE
 
+** DONE RPM distros and debug-symbol package dependencies           :distros:
+   CLOSED: [2017-03-31 Fri 11:48]
+
+This is a rant.
+
+So I've been using CentOS at work, and a long-standing suspicion that RPM
+distros are built by children is being repeatedly confirmed.
+
+Like other reasonable distributions, CentOS splits debug symbols into a packages
+separate from the binary package itself, so that users don't need to always
+download debug symbols they almost never use. Unlike other reasonable
+distributions, CentOS creates one debug-symbol package per /source/, not per
+/binary/ package. So if you have a source package called =foo= that builds
+binary packages =foo=, =foo-devel= and =foo-tools= then RPM distros generate a
+single =foo-debuginfo= package for all the symbols. This in itself isn't stupid,
+but it raises a question: what should =foo-debuginfo= depend on? After all,
+debug symbols are only useful together with the binary they were generated from.
+
+If you have a 1-1 relationship between binary packages and their debug symbol
+package, then the answer is obvious: =foo-tools-debuginfo= should depend on
+=foo-tools= of the /exact same/ version. But if you have the joint debug
+package, then should it depend on =foo=? =foo-devel=? =foo-tools=? Clearly the
+answer is to depend on =foo= of the same version *or* =foo-devel= of the same
+version *or* =foo-tools= of the same version. But since RPM was built by
+children, it doesn't support this basic boolean specification.
+
+So what do they do? They simply omit the dependency! So a hapless user installs
+=foo= and =foo-debuginfo= and successfully debugs something. Then at some later
+point they update =foo=, which /does not/ pull in a new =foo-debuginfo=. THEN
+they try to debug something, and stuff doesn't work. So they then spend valuable
+time debugging this bullshit and write an annoyed blog post.
+
+In my case this was slightly more complex because the package in question was
+python, and the debuginfo package contains not just the debug symbols, but also
+gdb scripts to get python-level instrumentation. So figuring out where and how
+gdb loads its scripts was the first step. And this is exactly why anal
+dependencies are important: because the world is complicated and by omitting
+something like this you're wasting somebody's time and defeating the whole point
+of having a distro.
 
 ** Math. Horizonator?
 ** multi-arch in general
