@@ -8582,7 +8582,7 @@ there's a simple workaround:
 echo set annotate 1 >> ~/.gdbinit
 #+END_EXAMPLE
 
-** DONE RPM distros and debug-symbol package dependencies           :distros:
+** DONE RPM distros and debug-symbol package dependencies      :distros:rant:
    CLOSED: [2017-03-31 Fri 11:48]
 
 This is a rant.
@@ -8621,6 +8621,76 @@ gdb loads its scripts was the first step. And this is exactly why anal
 dependencies are important: because the world is complicated and by omitting
 something like this you're wasting somebody's time and defeating the whole point
 of having a distro.
+
+** DONE C++ is weird and full of pitfalls                        :tools:rant:
+   CLOSED: [2017-04-18 Tue 16:36]
+
+This is a rant. It's fairly widely known that this language is full of pitfalls
+that waste one's time, and humans are better off using other languages. But I
+keep getting stuck on projects where this isn't well known. So I will vent by
+ranting.
+
+Say we have this simple C++ program:
+
+#+BEGIN_SRC C++
+#include <stdio.h>
+
+class B
+{
+public:
+    virtual void f(void)
+    {
+        printf("Base: B::f\n");
+    }
+};
+
+class C : public B
+{
+public:
+    virtual void f(void)
+    {
+        printf("Child: C::f\n");
+    }
+};
+
+int main(void)
+{
+    C c;
+    B* pb = &c;
+    pb->f();
+    return 0;
+}
+#+END_SRC
+
+This defines a derived class and calls a virtual function through a base
+pointer. As expected, the virtual call finds the right function, and we print
+=Child: C::f=. Now suppose we override the virtual function in a slightly
+different way:
+
+#+BEGIN_SRC C++
+    virtual void f(int x = 5)
+    {
+        printf("Child: C::f\n");
+    }
+#+END_SRC
+
+Here the child =f()= takes a default argument. Since this is a /default/
+argument, one could expect that it looks similar enough to the base =f(void)= to
+be overridden. Except it isn't: we print =Base: B::f=. The same thing happens if
+the base has the default argument.
+
+This is a particularly pernicious failure, since your child =f()= is just
+silently not called, which results in longer-than-they-should-be debugging
+sessions. I get why this limitation exists, but I completely reject that this
+state of affairs is even remotely acceptable. Name overloading should either be
+banned by the language outright, or it should generate errors at even the
+slightest hint of ambiguity. The failure described above is obviously ambiguous
+and error prone, and this is clealy knowable at compile time.
+
+C++ is full of such features that on the surface make writing code easier, but
+that result in code that's impossible to read, and really easy to break.
+
+Let's use better languages, OK?
 
 ** Math. Horizonator?
 ** multi-arch in general
