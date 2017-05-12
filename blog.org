@@ -8692,6 +8692,123 @@ that result in code that's impossible to read, and really easy to break.
 
 Let's use better languages, OK?
 
+** DONE rr in a chroot                                            :tools:dev:
+   CLOSED: [2017-05-12 Fri 13:52]
+
+I use [[http://www.rr-project.org][=rr=]] to magically debug applications in both temporal directions. To do
+this you run the slave application inside =rr=, and then play back the log it
+creates. I /also/ use a different distro on my box (Debian) than what we
+standardized on at work (CentOS). To make this work, I have a CentOS chroot on
+my host box, and most debugging happens inside this chroot. For various
+uninteresting reasons (CentOS isn't very good, essentially) it's a pain in my
+ass to get =rr= running on the CentOS side, while it's trivial on Debian.
+
+So what I want is to use an =rr= running /outside/ the chroot (Debian) to
+instrument an application running /inside/ the chroot (CentOS). This raises the
+question: what is the chroot is for, anyway. The answer: to provide the client
+OS's shared libraries (at least that's close-enough for this topic). So if
+running "inside the chroot" simply means to link with some set of shared
+libraries, I can do that just as well without any chroot, simply by instructing
+the linker appropriately.
+
+An example. Let's say I have a chroot session managed with [[https://wiki.debian.org/Schroot][=schroot=]] called
+=centos_session=. The chroot lives in =/home/dima/centos/=. And I have a script
+to run things inside this session called =centos=:
+
+#+BEGIN_SRC sh
+#!/bin/zsh
+schroot -r -c centos_session -- $*
+#+END_SRC
+
+Now let's say I want to instrument an application called =app=. I ask the linker
+about the full set of shared libraries my application needs:
+
+#+BEGIN_EXAMPLE
+$ centos ldd app
+
+linux-vdso.so.1 =>  (0x00007ffdbaf9d000)
+libjpeg.so.62 => /lib64/libjpeg.so.62 (0x00007f748b974000)
+libz.so.1 => /lib64/libz.so.1 (0x00007f748b75e000)
+libdogleg.so.2 => /lib64/libdogleg.so.2 (0x00007f748b343000)
+liblbfgs.so.1 => /lib64/liblbfgs.so.1 (0x00007f748b13e000)
+libstdc++.so.6 => /lib64/libstdc++.so.6 (0x00007f748a5cb000)
+libm.so.6 => /lib64/libm.so.6 (0x00007f748a2c9000)
+libgomp.so.1 => /lib64/libgomp.so.1 (0x00007f748a0b2000)
+libgcc_s.so.1 => /lib64/libgcc_s.so.1 (0x00007f7489e9b000)
+libpthread.so.0 => /lib64/libpthread.so.0 (0x00007f7489c7f000)
+libc.so.6 => /lib64/libc.so.6 (0x00007f74898bd000)
+libbsd.so.0 => /lib64/libbsd.so.0 (0x00007f74896ad000)
+libdl.so.2 => /lib64/libdl.so.2 (0x00007f74894a9000)
+librt.so.1 => /lib64/librt.so.1 (0x00007f74892a0000)
+libpng15.so.15 => /lib64/libpng15.so.15 (0x00007f7489075000)
+libtiff.so.5 => /lib64/libtiff.so.5 (0x00007f7488e01000)
+libjasper.so.1 => /lib64/libjasper.so.1 (0x00007f7488ba7000)
+/lib64/ld-linux-x86-64.so.2 (0x000055d54ef45000)
+libresolv.so.2 => /lib64/libresolv.so.2 (0x00007f747c6a6000)
+... (many more)
+#+END_EXAMPLE
+
+This is a long list, and all the libraries are /relative to the chroot/. I can
+now try to execute this application /without the chroot/, simply by asking the
+linker to load all the inside-the-chroot libraries that I know the application
+needs. I ignore the things that touch the kernel and the dynamic linker itself
+(=linux-vdso.so.1= and =/lib64/ld-linux-x86-64.so.2=), since I'm going to be
+using the host to link:
+
+#+BEGIN_EXAMPLE
+$ LIBS=`centos ldd app |
+        perl -anE 'if($F[2] =~ m{^/usr|^/lib})
+                   { push @l,"/home/dima/centos7$F[2]"; }
+                   END
+                   { say join(":",@l); }'`
+
+
+$ echo $LIBS
+
+/home/dima/centos/lib64/libjpeg.so.62:/home/dima/centos/lib64/libz.so.1:.....
+
+
+$ LD_PRELOAD=$LIBS ./app
+
+./app: relocation error: /home/dima/centos/lib64/libc.so.6: symbol _dl_starting_up, version GLIBC_PRIVATE not defined in file ld-linux-x86-64.so.2 with link time reference
+#+END_EXAMPLE
+
+OK, well /that/ didn't work. It looks like some core linker component (from
+Debian) didn't like some part of my libc (from CentOS). I don't care enough to
+investigate this deeply. My Debian install is significantly newer than the
+CentOS one, and I'd expect core libraries like libc to be compatible. So I
+extend my little script to use more of the core libraries from the host:
+
+#+BEGIN_EXAMPLE
+$ LIBS=`centos ldd app |
+        perl -anE 'if($F[2] =~ m{^/usr|^/lib} &&
+                      $F[2] !~ m{/libc.so.6|ld-linux|libdl.so|libgcc|libm.so|libpthread.so|libresolv.so|libstdc\+\+|libgfortran})
+                   { push @l,"/home/dima/centos7$F[2]"; }
+                   { say join(":",@l); }'`
+
+
+$ LD_PRELOAD=$LIBS ./app
+
+[ the thing runs! ]
+
+
+$ LD_PRELOAD=$LIBS rr record ./app
+
+[ the thing runs! And I get an rr log! ]
+
+#+END_EXAMPLE
+
+Huzzah! You can see which libraries I pulled from Debian above. I didn't choose
+this list in a particularly principled way, just picked the core language,
+linker stuff that seemed important, and things ended up working. More attention
+to detail may be needed when looking at other distros or running other
+applications. Runtime linking would need more attention too, but the concept is
+clearly sound: you don't /need/ a chroot at all here.
+
+As an aside, if I was using something heavier-weight than a chroot (a VM for
+instance), then I possibly wouldn't have direct access to the file system, and I
+wouldn't be able to do this.
+
 ** Math. Horizonator?
 ** multi-arch in general
 
