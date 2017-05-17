@@ -8784,7 +8784,7 @@ $ LIBS=`centos ldd app |
         perl -anE 'if($F[2] =~ m{^/usr|^/lib} &&
                       $F[2] !~ m{/libc.so.6|ld-linux|libdl.so|libgcc|libm.so|libpthread.so|libresolv.so|libstdc\+\+|libgfortran})
                    { push @l,"/home/dima/centos7$F[2]"; }
-                   { say join(":",@l); }'`
+                   END { say join(":",@l); }'`
 
 
 $ LD_PRELOAD=$LIBS ./app
