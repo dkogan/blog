@@ -8677,7 +8677,7 @@ different way:
 Here the child =f()= takes a default argument. Since this is a /default/
 argument, one could expect that it looks similar enough to the base =f(void)= to
 be overridden. Except it isn't: we print =Base: B::f=. The same thing happens if
-the base has the default argument.
+the base has the default argument. Or if the function is defined as =const=.
 
 This is a particularly pernicious failure, since your child =f()= is just
 silently not called, which results in longer-than-they-should-be debugging
