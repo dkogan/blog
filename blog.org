@@ -8912,7 +8912,7 @@ of these are too complicated for it to handle here.
 
 The gcc bug report:
 
-https://gcc.gnu.org/bugzilla/show_bug.cgi?id=24639
+https://gcc.gnu.org/bugzilla/show_bug.cgi?id=80824
 
 ** Math. Horizonator?
 ** multi-arch in general
