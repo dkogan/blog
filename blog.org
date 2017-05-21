@@ -8809,6 +8809,111 @@ As an aside, if I was using something heavier-weight than a chroot (a VM for
 instance), then I possibly wouldn't have direct access to the file system, and I
 wouldn't be able to do this.
 
+** DONE Another gcc bug: undetected use of unitialized memory     :tools:dev:
+   CLOSED: [2017-05-20 Sat 18:30]
+
+Last week I had to use an hour to debug an intermittent issue in my program that
+ended up being a simple, accidental use of uninitialized memory ([[http://www.rr-project.org][=rr=]] made the
+debugging session much faster; go try it).
+
+Many compilers have basic static analysis features to detect such bugs, and
+throw a warning. =gcc= is such a compiler, and these warnings (turned on with
+=-Wuninitialized=, which is a part of =-Wall=) are incredibly useful. And if
+this worked properly, I wouldn't have had to spend that hour debugging. The
+minimized program looks like this:
+
+#+BEGIN_SRC C
+void f(void);
+
+double g(void)
+{
+    f();
+
+    struct S
+    {
+        double x[2];
+        double y;
+    } s;
+
+    for(int i=0; i<2; i++)
+        s.x[i] = 2.0;
+
+    return s.y;
+}
+#+END_SRC
+
+I have an object of type =struct S=. I initialize some parts of it (=s.x=), but
+not others (=s.y=). Then I return the uninitialized =s.y=. I'm unambiguously
+returning an uninitialized value, but when I build this with gcc 7.1.0, no
+warning is produced:
+
+#+BEGIN_EXAMPLE
+$ gcc-7 -Wall -Wextra -o /dev/null -c tst.c
+
+[ no warning ]
+#+END_EXAMPLE
+
+One could argue that this isn't a bug, but rather a missing feature: maybe gcc
+simply isn't sophisticated enough to analyze this properly. This isn't true,
+however: I can get the warning if I either remove the =f()= call or unroll the
+=for()= loop. With the latter:
+
+#+BEGIN_SRC C
+void f(void);
+
+double g(void)
+{
+    f();
+
+    struct S
+    {
+        double x[2];
+        double y;
+    } s;
+
+
+    s.x[0] = 2.0;
+    s.x[1] = 2.0;
+
+    return s.y;
+}
+#+END_SRC
+
+produces
+
+#+BEGIN_EXAMPLE
+$ gcc-7 -Wall -Wextra -o /dev/null -c tst.c
+
+tst.c: In function 'g':
+tst.c:16:13: warning: 's.y' is used uninitialized in this function [-Wuninitialized]
+     return s.y;
+            ~^~
+#+END_EXAMPLE
+
+Interestingly, a simpler test case was broken similarly in gcc 6, but /works/ in
+gcc 7:
+
+#+BEGIN_SRC C
+void f(void);
+
+double g(void)
+{
+    f();
+
+    double a[6];
+    return a[0];
+}
+#+END_SRC
+
+As before, this produces the warning correctly if the =f()= call is removed.
+Finally, it looks like =clang=, for whatever reason, fails to produce the
+warning in all of these cases. I tried out the pre-release =clang= 5.0, and all
+of these are too complicated for it to handle here.
+
+The gcc bug report:
+
+https://gcc.gnu.org/bugzilla/show_bug.cgi?id=24639
+
 ** Math. Horizonator?
 ** multi-arch in general
 
