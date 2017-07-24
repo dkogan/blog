@@ -8914,6 +8914,214 @@ The gcc bug report:
 
 https://gcc.gnu.org/bugzilla/show_bug.cgi?id=80824
 
+** DONE Interfacing numpy and C: an example                       :tools:dev:
+   CLOSED: [2017-07-23 Sun 17:09]
+
+I need to implement a numerical algorithm. I'd like to write all the
+performance-critical parts in C and the rest in python. This should produce
+something that works, and is maintainable, debuggable, etc, etc, while remaning
+fast.
+
+Connecting numpy to C is not even remotely new or interesting. People have been
+doing this from the start, and there's plenty of documentation. What there isn't
+is a simple skeleton program that provides a working python module written in C,
+that exports some dummy function to take in numpy arguments, do something with
+them, and return something. This should build, and just work. I'd want to use
+this example as a starting point for any real work. Unfortunately, I could not
+find this, so I had to spend hours figuring out how to do the basics here. I
+should not have had to spend this time, so I now share this example program I
+came up with for others to use. Please take this and hack it up. I'm releasing
+it into the public domain, and am giving up all copyright.
+
+This all works with Python 2.7.13 (Python 3 probably needs a few tweaks; patches
+welcome), and numpy 1.12.1 on Debian/stretch. Clearly I'm not an expert here, so
+if something isn't quite right, please tell me.
+
+The python module is called =tst= and exports a single function =tst.foo()=.
+Everything should be mostly self-explanatory.
+
+=tst.c=:
+#+BEGIN_SRC C
+#define NPY_NO_DEPRECATED_API NPY_API_VERSION
+
+#include <Python.h>
+#include <numpy/arrayobject.h>
+
+const char foo_docstring[] =
+    "This function returns the (i,j) element of the matrix\n"
+    "\n"
+    "i,j are given in kwargs; each is assumed to be 0 if omitted.\n"
+    "Matrix must have ndims == 2 and (i,j) must be in-bounds (exception\n"
+    "thrown otherwise). The returned element is converted to a double-\n"
+    "precision float, so the input matrix does not need to have dtype=float\n";
+static PyObject* foo(PyObject* NPY_UNUSED(self),
+                     PyObject* args,
+                     PyObject* kwargs)
+{
+    char* keywords[] = {"arr",
+
+                        // optional kwargs
+                        "i", "j",
+                        NULL};
+
+    PyObject* result = NULL;
+
+    PyArrayObject* arr;
+    unsigned int i = 0, j = 0; // defaults, if arguments not given
+
+    if(!PyArg_ParseTupleAndKeywords( args, kwargs,
+                                     "O&|II",
+                                     keywords,
+                                     PyArray_Converter, &arr,
+                                     &i, &j))
+        return NULL;
+
+    {
+        int        ndim     = PyArray_NDIM(arr);
+        npy_intp*  dims     = PyArray_DIMS(arr);
+        int        typenum  = PyArray_TYPE(arr);
+        if( ndim != 2 )
+        {
+            PyErr_SetString(PyExc_RuntimeError, "I assume that ndims == 2");
+            goto done;
+        }
+        if( i >= dims[0] )
+        {
+            PyErr_Format(PyExc_RuntimeError, "I assume that i < shape[0], but i == %d", i);
+            goto done;
+        }
+        if( j >= dims[1] )
+        {
+            PyErr_Format(PyExc_RuntimeError, "I assume that j < shape[1], but j == %d", j);
+            goto done;
+        }
+
+        if( typenum != NPY_DOUBLE )
+        {
+            PyArrayObject* arr2 =
+                (PyArrayObject*)PyArray_FromArray(arr, PyArray_DescrFromType(NPY_DOUBLE),
+                                                  NPY_ARRAY_ALIGNED);
+            Py_DECREF(arr);
+            arr = arr2;
+        }
+    }
+
+
+    // Useful metadata about this matrix
+    __attribute__((unused)) char*      data0    = PyArray_DATA    (arr);
+    __attribute__((unused)) char*      data1    = PyArray_BYTES   (arr);
+    __attribute__((unused)) npy_intp  *strides  = PyArray_STRIDES (arr);
+    __attribute__((unused)) int        ndim     = PyArray_NDIM    (arr);
+    __attribute__((unused)) npy_intp*  dims     = PyArray_DIMS    (arr);
+    __attribute__((unused)) npy_intp   itemsize = PyArray_ITEMSIZE(arr);
+    __attribute__((unused)) int        typenum  = PyArray_TYPE    (arr);
+
+
+    // Two ways to grab the data out of the matrix:
+    //
+    // 1. Call a function. Clear what this does, but if we need to access a lot
+    // of data in a loop, this has overhead: this function is pre-compiled, so
+    // the overhead will not be inlined
+    double d0 = *(double*)PyArray_GetPtr( arr, (npy_intp[]){i, j} );
+
+    // 2. inline the function ourselves. It's pretty simple
+    double d1 = *(double*)&data0[ i*strides[0] + j*strides[1] ];
+
+    // The two methods should be identical. If not, this example is wrong, and I
+    // barf
+    if( d0 != d1 )
+    {
+        PyErr_Format(PyExc_RuntimeError, "PyArray_GetPtr() inlining didn't work: %f != %f", d0, d1);
+        goto done;
+    }
+
+
+    result = Py_BuildValue( "d", d0 );
+
+ done:
+    Py_DECREF(arr);
+    return result;
+}
+
+PyMODINIT_FUNC inittst(void)
+{
+    static PyMethodDef methods[] =
+        { {"foo", (PyCFunction)foo, METH_VARARGS | METH_KEYWORDS, foo_docstring},
+         {}
+        };
+
+
+    PyImport_AddModule("tst");
+    Py_InitModule3("tst", methods,
+                   "Demo module to show binding numpy to C");
+
+    // Required to avoid mysterious segfaults
+    import_array();
+}
+#+END_SRC
+
+To build this, need this =setup.py=
+
+#+BEGIN_SRC python
+#!/usr/bin/python
+
+from setuptools import setup
+from distutils.core import Extension
+
+setup(name         = 'tst',
+      version      = '0.1',
+      author       = 'Dima Kogan',
+      author_email = 'dima@secretsauce.net',
+      ext_modules  = [Extension('tst',
+                                sources = ['tst.c'])])
+#+END_SRC
+
+A build:
+
+#+BEGIN_EXAMPLE
+dima@shorty:/tmp$ python setup.py build                 
+
+running build
+running build_ext
+building 'tst' extension
+creating build/temp.linux-x86_64-2.7
+x86_64-linux-gnu-gcc -pthread -DNDEBUG -g -fwrapv -O2 -Wall -Wstrict-prototypes -fno-strict-aliasing -Wdate-time -D_FORTIFY_SOURCE=2 -g -fdebug-prefix-map=/build/python2.7-HVkOs2/python2.7-2.7.13=. -fstack-protector-strong -Wformat -Werror=format-security -fPIC -I/usr/include/python2.7 -c tst.c -o build/temp.linux-x86_64-2.7/tst.o
+x86_64-linux-gnu-gcc -pthread -shared -Wl,-O1 -Wl,-Bsymbolic-functions -Wl,-z,relro -fno-strict-aliasing -DNDEBUG -g -fwrapv -O2 -Wall -Wstrict-prototypes -Wdate-time -D_FORTIFY_SOURCE=2 -g -fdebug-prefix-map=/build/python2.7-HVkOs2/python2.7-2.7.13=. -fstack-protector-strong -Wformat -Werror=format-security -Wl,-z,relro -Wdate-time -D_FORTIFY_SOURCE=2 -g -fdebug-prefix-map=/build/python2.7-HVkOs2/python2.7-2.7.13=. -fstack-protector-strong -Wformat -Werror=format-security build/temp.linux-x86_64-2.7/tst.o -o build/lib.linux-x86_64-2.7/tst.so
+#+END_EXAMPLE
+
+This builds the binary module into =/tmp/build/lib.linux-x86_64-2.7=, and you
+can then run it by telling python to find the module there. A =tst.py=:
+
+#+BEGIN_SRC python
+#!/usr/bin/python2
+
+import numpy as np
+import numpysane as nps
+import sys
+
+sys.path[:0] = ('/tmp/build/lib.linux-x86_64-2.7',)
+import tst
+
+x0 = np.arange(12).reshape(3,4)
+x1 = nps.mv(x0, 0,1) # same matrix, with the axis order reversed
+
+print tst.foo(x0, i=1, j=0)
+print tst.foo(x1, i=0, j=1)
+#+END_SRC
+
+We create a matrix, and then an identical one with a flipped axis ordering. We
+then print element =(1,0)= of the first, and element =(0,1)= of the second,
+expecting identical results:
+
+#+BEGIN_EXAMPLE
+dima@shorty:/tmp$ python tst.py
+
+4.0
+4.0
+#+END_EXAMPLE
+
+Oh good. /Now/ I can actually try to get work done.
+
 ** Math. Horizonator?
 ** multi-arch in general
 
