@@ -9120,6 +9120,54 @@ dima@shorty:/tmp$ python tst.py
 4.0
 #+END_EXAMPLE
 
+Great! This works if we're creating a python module that we then want to call
+from a python program. What if our main application is written in C also? We
+then have a C application running some computations that invoke a python
+interpreter, and run some python code, which in turn invokes some C code. This
+is simpler in some ways, since we don't /need/ to build our module into a shared
+object. Add this =main()= to the end of our =tst.c= above:
+
+#+BEGIN_SRC C
+int main(int argc, char **argv)
+{
+    Py_SetProgramName(argv[0]);
+    Py_Initialize();
+
+    inittst();
+
+    PySys_SetArgvEx(argc, argv, 0);
+
+    PyRun_SimpleString("import numpy as np\n");
+    PyRun_SimpleString("import numpysane as nps\n");
+    PyRun_SimpleString("import tst\n");
+
+    PyRun_SimpleString("x0 = np.arange(12).reshape(3,4)\n");
+    PyRun_SimpleString("x1 = nps.mv(x0, 0,1)\n");
+    PyRun_SimpleString("print tst.foo(x0, i=1, j=0)\n");
+    PyRun_SimpleString("print tst.foo(x1, i=0, j=1)\n");
+
+    Py_Exit(0);
+    return 0;
+}
+#+END_SRC
+
+Then build the =tst.c= into an application, linking in python as a library. Note
+that this bypasses =setup.py=:
+
+#+BEGIN_EXAMPLE
+dima@shorty:/tmp$ gcc -o tst -Wall -Wextra `pkg-config --cflags --libs python` tst.c
+#+END_EXAMPLE
+
+Now run the application we just built directly. We are /not/ invoking the python
+interpreter ourselves:
+
+#+BEGIN_EXAMPLE
+dima@shorty:/tmp$ ./tst                                                             
+
+4.0
+4.0
+#+END_EXAMPLE
+
 Oh good. /Now/ I can actually try to get work done.
 
 ** Math. Horizonator?
