@@ -9089,8 +9089,9 @@ x86_64-linux-gnu-gcc -pthread -DNDEBUG -g -fwrapv -O2 -Wall -Wstrict-prototypes 
 x86_64-linux-gnu-gcc -pthread -shared -Wl,-O1 -Wl,-Bsymbolic-functions -Wl,-z,relro -fno-strict-aliasing -DNDEBUG -g -fwrapv -O2 -Wall -Wstrict-prototypes -Wdate-time -D_FORTIFY_SOURCE=2 -g -fdebug-prefix-map=/build/python2.7-HVkOs2/python2.7-2.7.13=. -fstack-protector-strong -Wformat -Werror=format-security -Wl,-z,relro -Wdate-time -D_FORTIFY_SOURCE=2 -g -fdebug-prefix-map=/build/python2.7-HVkOs2/python2.7-2.7.13=. -fstack-protector-strong -Wformat -Werror=format-security build/temp.linux-x86_64-2.7/tst.o -o build/lib.linux-x86_64-2.7/tst.so
 #+END_EXAMPLE
 
-This builds the binary module into =/tmp/build/lib.linux-x86_64-2.7=, and you
-can then run it by telling python to find the module there. A =tst.py=:
+This builds the binary module into =/tmp/build/lib.linux-x86_64-2.7=. While
+testing, we can then run it by telling python to find the module there (after
+testing, =setup.py= can install to a more standard location). A =tst.py=:
 
 #+BEGIN_SRC python
 #!/usr/bin/python2
