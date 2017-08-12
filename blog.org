@@ -9171,7 +9171,7 @@ dima@shorty:/tmp$ ./tst
 
 Oh good. /Now/ I can actually try to get work done.
 
-** DONE A function "profiler"
+** DONE A function "profiler"                                     :tools:dev:
    CLOSED: [2017-08-11 Fri 16:57]
 
 Profiling tools generally answer the question *where's all my time going?*, and
