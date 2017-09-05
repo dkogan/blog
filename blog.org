@@ -4251,6 +4251,10 @@ sub prepareImage
 ** DONE Rendering OpenStreetMap tiles in gnuplot         :tools:data:GIS:dev:
    CLOSED: [2015-08-13 Thu 00:39]
 
+#+begin_o_blog_alert info Follow-up posts
+[[file:{lisp}(ob:link-to-post (ob:get-post-by-title "osmgnuplot update: correct plots over a large geographical area")){/lisp}][osmgnuplot update: correct plots over a large geographical area]]
+#+end_o_blog_alert
+
 I use gnuplot heavily to plot things. I also use OpenStreetMap heavily to map
 other things. Sometimes I want to draw a map using OSM tiles, and to plot
 something on top of it. Gnuplot has the core functionality, but some glue code
@@ -9244,21 +9248,21 @@ it's done-enough for my present purposes.
 
 License: released into the public domain; I'm giving up all copyright.
 
-
-** osmgnuplot                                                     :tools:GIS:
+** DONE osmgnuplot update: correct plots over a large geographical area :tools:GIS:
+   CLOSED: [2017-09-05 Tue 13:33]
 
 [[file:{lisp}(ob:link-to-post (ob:get-post-by-title "Rendering OpenStreetMap tiles in gnuplot")){/lisp}][Previously]] I described [[https://github.com/dkogan/osmgnuplot][=osmgnuplot=]], a tool to plot registered OpenStreetMap
 tiles in gnuplot, which makes it easy to plot georeferenced data. The tool
 worked just fine with a caveat: it would produce bogus plots when looking at a
 large geographical area. This is because the relationship between latitude and
 the row coordinate of the OSM image was assumed to be linear, which is not the
-case in reality (longitude is always linear).
+case in reality (longitude is always linear, however).
 
-Well, I just hit this limitation, and have fixed the tool to lift this
-limitation. The latest version of the tool uses linked gnuplot axes to connect
-the pixel coordinates to latitude/longitude. So the image is plotted against the
-gnuplot x1,y1 axes, which are mapped to the latitude,longitude on the x2,y2
-axes. The conversions are all handled by gnuplot, which is quite nice.
+Well, I just hit this issue in one of my projects, and have fixed the tool to
+lift this limitation. The latest version of the tool uses linked gnuplot axes to
+connect the pixel coordinates to latitude/longitude. So the image is plotted
+against the gnuplot x1,y1 axes, which are mapped to the latitude,longitude on
+the x2,y2 axes. The conversions are all handled by gnuplot, which is quite nice.
 
 One interesting thing is that the expression I was using for the
 latitude-to-pixel conversion contained this subexpression:
@@ -9269,21 +9273,19 @@ latitude-to-pixel conversion contained this subexpression:
 # $f^{-1}(y) = \sin^{-1}\left( \frac{y^2 - 1}{y^2 + 1} \right)$
 [[file:files/osmgnuplot2/forward.png]]
 
-This is all that I needed previously, but now I also need the inverse
-conversion: pixel-to-latitude. Deriving it requires reversing the above
+The code update requires me to compute the inverse conversion
+(pixel-to-latitude), and deriving this, I need to reverse the above
 subexpression. I derived this inverse:
 
-[[file:files/osmgnuplot2/backward.png]]
+[[file:files/osmgnuplot2/reverse.png]]
 
-The proof is left as an exercise to the reader.
+The proof is left as an exercise to the reader. If I had bothered to look it up,
+however, I would have found all the expressions (forward and backward) [[http://wiki.openstreetmap.org/wiki/Slippy_map_tilenames][here]].
 
-In reality, if I bothered to look it up, all the expressions (forward and
-backward) appear [[http://wiki.openstreetmap.org/wiki/Slippy_map_tilenames][here]].
+The script works, and some examples will appear in an upcoming post.
 
-
-mailing list thread:
-
-https://sourceforge.net/p/gnuplot/mailman/gnuplot-beta/thread/877exe9qut.fsf%40scrawny/
+There were some questions that came up in writing this, and the discussion is in
+this [[https://sourceforge.net/p/gnuplot/mailman/gnuplot-beta/thread/877exe9qut.fsf%2540scrawny/][mailing list thread]].
 
 
 
