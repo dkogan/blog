@@ -9245,7 +9245,52 @@ it's done-enough for my present purposes.
 License: released into the public domain; I'm giving up all copyright.
 
 
+** osmgnuplot                                                     :tools:GIS:
 
+[[file:{lisp}(ob:link-to-post (ob:get-post-by-title "Rendering OpenStreetMap tiles in gnuplot")){/lisp}][Previously]] I described [[https://github.com/dkogan/osmgnuplot][=osmgnuplot=]], a tool to plot registered OpenStreetMap
+tiles in gnuplot, which makes it easy to plot georeferenced data. The tool
+worked just fine with a caveat: it would produce bogus plots when looking at a
+large geographical area. This is because the relationship between latitude and
+the row coordinate of the OSM image was assumed to be linear, which is not the
+case in reality (longitude is always linear).
+
+Well, I just hit this limitation, and have fixed the tool to lift this
+limitation. The latest version of the tool uses linked gnuplot axes to connect
+the pixel coordinates to latitude/longitude. So the image is plotted against the
+gnuplot x1,y1 axes, which are mapped to the latitude,longitude on the x2,y2
+axes. The conversions are all handled by gnuplot, which is quite nice.
+
+One interesting thing is that the expression I was using for the
+latitude-to-pixel conversion contained this subexpression:
+
+# o-blog v1 can only export equations as mathjs, but I want a JS-less page. I
+# just rendered the below (C-c C-x C-l) and copied the image manually
+# $f(x)      = \frac{\sin(x)+1}{\cos(x)}$
+# $f^{-1}(y) = \sin^{-1}\left( \frac{y^2 - 1}{y^2 + 1} \right)$
+[[file:files/osmgnuplot2/forward.png]]
+
+This is all that I needed previously, but now I also need the inverse
+conversion: pixel-to-latitude. Deriving it requires reversing the above
+subexpression. I derived this inverse:
+
+[[file:files/osmgnuplot2/backward.png]]
+
+The proof is left as an exercise to the reader.
+
+In reality, if I bothered to look it up, all the expressions (forward and
+backward) appear [[http://wiki.openstreetmap.org/wiki/Slippy_map_tilenames][here]].
+
+
+mailing list thread:
+
+https://sourceforge.net/p/gnuplot/mailman/gnuplot-beta/thread/877exe9qut.fsf%40scrawny/
+
+
+
+
+** more poles of inaccessibility
+
+http://wiki.openstreetmap.org/wiki/Overpass_API/Installation
 ** Math. Horizonator?
 ** multi-arch in general
 
