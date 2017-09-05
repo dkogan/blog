@@ -9285,7 +9285,7 @@ however, I would have found all the expressions (forward and backward) [[http://
 The script works, and some examples will appear in an upcoming post.
 
 There were some questions that came up in writing this, and the discussion is in
-this [[https://sourceforge.net/p/gnuplot/mailman/gnuplot-beta/thread/877exe9qut.fsf%2540scrawny/][mailing list thread]].
+this [[https://sourceforge.net/p/gnuplot/mailman/gnuplot-beta/thread/877exe9qut.fsf%40scrawny/][mailing list thread]].
 
 
 
