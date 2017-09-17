@@ -6601,6 +6601,11 @@ into it a bit, and the answer isn't obvious yet. I'll keep looking, however.
 ** DONE numpysane: a more reasonable numpy               :tools:python:numpy:
    CLOSED: [2016-05-17 Tue 00:16]
 
+#+begin_o_blog_alert info Notice
+Note that the documentation below is the original release, and is out-of-date.
+See the [[https://github.com/dkogan/numpysane][repository]] for up-to-date docs.
+#+end_o_blog_alert
+
 As I mentioned a few times earlier, I'm trying to move from [[http://pdl.perl.org][PDL]] to [[http://www.numpy.org][numpy]] as my
 computational tool of choice. I like PDL, but it was full of warts in several
 areas, and much work would be needed to clean it up. Oddly, numpy is very warty
