@@ -3865,9 +3865,11 @@ stopping here.
    CLOSED: [2015-05-06 Wed 17:04]
 
 
-#+begin_o_blog_alert info Update
+#+begin_o_blog_alert info Updates
 I visited the furthest Pole and placed a register there:
 [[http://sangabrielmnts.myfreeforum.org/about7040.html]]. Do visit and sign in!
+
+Also I ran a [[file:{lisp}(ob:link-to-post (ob:get-post-by-title "Pole of road inaccessibility of the contiguous US")){/lisp}][similar analysis for the contiguous US]]
 #+end_o_blog_alert
 
 So I was out hiking with a friend, and a question came up about where the least
@@ -9293,11 +9295,709 @@ There were some questions that came up in writing this, and the discussion is in
 this [[https://sourceforge.net/p/gnuplot/mailman/gnuplot-beta/thread/877exe9qut.fsf%40scrawny/][mailing list thread]].
 
 
+** Pole of road inaccessibility of the contiguous US        :hiking:data:GIS:
+
+So I want out hiking with a friend, and he was telling me about a 9-day
+backpacking trip he took to reach some back-country cabin, which is said to be
+further away from any driveable road than any other spot in the continental US.
+
+I computed something very similar earlier: [[file:{lisp}(ob:link-to-post%20(ob:get-post-by-title%20"Poles%20of%20Inaccessibility%20in%20the%20San%20Gabriel%20Mountains")){/lisp}][Pole of Inaccessibility for the San
+Gabriel Mountains]]. So I decided to extend the previous work to the whole
+continental US to check if that area really /is/ the road Pole of
+Inaccessibility. Note that for the San Gabriels I was looking at 3 different
+poles:
+
+- relative to all roads and trails
+- relative to all roads
+- relative to just /paved/ roads
+
+Here I'm looking at the middle one. This is an arbitrary choice, and I'm only
+doing that to match my friend's trip. As before, the OpenStreetMap database is
+the source of data, so the results are only as good as that dataset. I've found
+the data to be fairly good, and in any case, that's the only available source of
+data.
+
+I ran the computations, and updated the previous repo:
+[[https://github.com/dkogan/inaccessibility]]. So where is this point? My friend was
+sure that it was either in the SE corner of Yellowstone National Park (where he
+went) or in the Frank Church wilderness in Idaho, or the Bob Marshall wilderness
+in Montana. Want to know which one of these areas contains the pole? Read on.
+
+The only real difference from the previous effort is that this is a much larger
+area, which has two ramifications:
+
+1. Simply applying the previous algorithm to the whole are would require
+   processing a massive data set with an algorithm that's not well suited for
+   it. This would be painful and slow
+
+2. The existing implementation assumes a locally-flat Earth, which is very wrong
+   if looking at the whole continental US.
+
+Both of these concerns can be addressed by running some sort of coarse search
+over the entire area, and then focusing in on the candidates areas using the
+previous local technique. How can we find the candidate areas? I don't know of a
+better way than an exhaustive grid search. The OSM data lives in a database with
+fast spatial queries, so this shouldn't be too terrible. If somebody knows a
+nicer way to query the database to avoid the grid search, please tell me.
+
+I'm looking for a spatial box at least 40-50 miles per side that contains no
+roads, so I semi-arbitrarily set my grid search to look for all lat/lon cells
+0.4 degrees per side (I know these aren't really square in reality, but it's
+good enough for this first pass). The contiguous US spans approximately 25-50
+degrees of N latitude and 66-125 degrees of W latitude, so this search would
+entail on the order of 10000 OSM database queries. I asked on =#osm= and it was
+suggested strongly that making this many database queries is an unreasonable use
+of a public resource and that I'd be banned long before I could finish anyway.
+So I downloaded the North America subset of OSM and set up my own database
+instance that I could query as many times as I wanted.
+
+This proved to be very straightforward. The data can be obtained from multiple
+places. I got it from [[https://download.geofabrik.de/][here]]. Instructions to get the database set up live [[http://wiki.openstreetmap.org/wiki/Overpass_API/Installation][here]],
+and they are simple, and just work. You download data, download software, build
+software, feed the data to the software, and that's it. The North America
+extract weighs in at 13GB and the computer pulled down all these bits while I
+twiddled my thumbs. The import took hours, and I ran it overnight. In the
+morning I had a functional database that supported Overpass queries. I tweaked
+the earlier script to look for roadless cells and to just report the number of
+matching ways:
+
+#+BEGIN_SRC sh
+#!/bin/zsh
+
+# script to get OSM ways from the global database in a lat/lon rectangle.
+# Required usage is
+#   $0 lat lon radius
 
 
-** more poles of inaccessibility
+for i (`seq 3`)
+    {
+        [ -z "${@[$i]}" ] && { echo "need 3 arguments on the commandline: lat,lon,radius"; exit 1  }
+    }
 
-http://wiki.openstreetmap.org/wiki/Overpass_API/Installation
+
+lat0=$(($1 - $3))
+lat1=$(($1 + $3))
+lon0=$(($2 - $3))
+lon1=$(($2 + $3))
+
+OVERPASS="/home/dima/projects/osm_overpass/osm-3s_v0.7.53/"
+
+$OVERPASS/bin/osm3s_query --db-dir=$OVERPASS/db <<EOF
+[out:json];
+
+way["highway"] ["highway" != "footway" ] ["highway" != "path" ]($lat0,$lon0,$lat1,$lon1);
+
+(._;>;);
+
+out count;
+
+EOF
+
+#+END_SRC
+
+I ran this in a loop, driven by =sample.pl=:
+
+#+BEGIN_SRC perl
+#!/usr/bin/perl
+use strict;
+use warnings;
+
+use feature ':5.10';
+use IPC::Run qw(run);
+
+
+my $lat0 = 25.0;
+my $lat1 = 50.0;
+my $lon0 = -125.0;
+my $lon1 = -66.0;
+my $r    = 0.2;
+
+
+my $N_lat = int (($lat1 - $lat0) / (2. * $r) + 0.5);
+my $N_lon = int (($lon1 - $lon0) / (2. * $r) + 0.5);
+
+say "# lat lon Nways";
+
+for my $ilat (0..$N_lat-1)
+{
+    my $lat = $lat0 + $ilat * 2. * $r;
+    for my $ilon (0..$N_lon-1)
+    {
+        my $lon = $lon0 + $ilon * 2. * $r;
+
+        my $in = '';
+        my $out;
+        my $err;
+        run [ './query_center_countonly.sh', $lat, $lon, $r ], \$in, \$out, \$err;
+
+        my ($Nways) = $out =~ /"ways": ([0-9]+)/;
+        say "$lat $lon $Nways";
+    }
+}
+
+#+END_SRC
+
+This took about 30 minutes, and in the end I had a nice list of cell-centers and
+their corresponding road-way counts:
+
+[[file:files/inaccessibility_lower48/samples.dat]]
+
+It looks like this (made with [[file:files/inaccessibility_lower48/big_samplegrid_all.gp][this script]]):
+
+[[file:files/inaccessibility_lower48/big_samplegrid_all.png]]
+
+Neat! Here the way counts are represented by bigger points and brighter colors.
+This plot just exists to look pretty and to tell me that the sampling is
+functional: road density is correlated with population density. OK. The goal of
+this was to find empty cells, so let's do that (made with [[file:files/inaccessibility_lower48/big_samplegrid_onlyempty.gp][this script]]):
+
+[[file:files/inaccessibility_lower48/big_samplegrid_onlyempty.png]]
+
+Neat!!! The oceans have no roads. The Great Lakes also have no roads. There's a
+big roadless chunk on the Mexican side of the Rio Grande, but it looks like
+that's due more to missing data than to the roadless-ness of that area. So I
+focus on the US. Looks like there're exactly two empty cells: one in Wyoming
+(this is the Yellowstone area) and one in Idaho (Frank Church wilderness).
+
+For each of the two candidates I download the actual way data for each of the
+candidate areas to get a sanity check and to get a bound for the area where I
+will compute the voronoi diagram. For the Yellowstone area:
+
+#+BEGIN_EXAMPLE
+$ ./query_rect.sh 43.7 -110.6 44.6 -109.5
+
+$ < query*.json(om[1]) | 
+    awk '/"lat"/ {lat=$2} /"lon"/ {lon=$2} /}/ {print lon,lat}' |
+    sed 's/,//g' |
+    feedgnuplot --domain --xlabel lon --ylabel lat --square
+#+END_EXAMPLE
+
+[[file:files/inaccessibility_lower48/roads_around_yellowstone_point.png]]
+
+As expected, this looks like an empty area surrounded by roads. Let's process it
+further, using the previous tools:
+
+#+BEGIN_EXAMPLE
+$ ../massage_input.pl query*.json(om[1])
+
+$ ../voronoi < $PWD/query*.json(om[1]:s/json/dat/:s/query/points/)
+-1936 -481
+-4993 34239
+-17383 -31726
+32848 -2699
+distance: 34854.600557
+
+# ../massage_input.pl query*.json(om[1]) -1936 -481 -4993 34239 -17383 -31726 32848 -2699
+44.1469937670531,-110.074264145003
+44.4600470404567,-110.112910721116
+43.8666857606725,-110.266830150028
+44.1270516438681,-109.638457792143
+#+END_EXAMPLE
+
+Cool! The furthest-out point is 34.85km from the nearest road. We have the
+coords of this nearest point and of the 3 bounding points that lie on the
+nearest roads (centers of incident voronoi edges). These look like this:
+
+https://caltopo.com/m/T90N
+
+Doing the same thing for the empty cell in the Frank Church wilderness:
+
+
+#+BEGIN_EXAMPLE
+$ ./query_rect.sh 45.1 -115.4 45.7 -114.6
+
+$ < query*.json(om[1]) | 
+    awk '/"lat"/ {lat=$2} /"lon"/ {lon=$2} /}/ {print lon,lat}' |
+    sed 's/,//g' |
+    feedgnuplot --domain --xlabel lon --ylabel lat --square
+#+END_EXAMPLE
+
+[[file:files/inaccessibility_lower48/roads_around_frankchurch_point.png]]
+
+#+BEGIN_EXAMPLE
+
+../massage_input.pl query*.json(om[1])
+
+../voronoi < $PWD/query*.json(om[1]:s/json/dat/:s/query/points/)
+-1799 2013
+5545 25966
+-23440 14637
+-5850 -22711
+distance: 25053.636148
+
+../massage_input.pl query*.json(om[1]) -1799 2013 5545 25966 -23440 14637 -5850 -22711
+45.4188043146378,-115.023049362629
+45.6347011469176,-114.928683730544
+45.5324855876438,-115.300922886895
+45.196820550155,-115.074658128517
+#+END_EXAMPLE
+
+OK. This area isn't as empty, and you can only get 25.05km away from the nearest
+road:
+
+https://caltopo.com/m/H0TM
+
+So we found a point 34.85km from the nearest road. This is the furthest-out
+point in areas where we found an empty grid cell. I picked my grid sampling
+semi-arbitrarily, so now I need to make sure that no circles with a radius
+larger than 34.85km could lie anywhere else. What is the largest-radius circle
+that I could possibly fit into areas without empty cells? The worst case is on
+the Southern edge of my search area (largest distance between adjacent
+even-latitude divisions). In the worst case I'd have a 2x2 block of cells where
+the only road points lie in the four opposite corners of this block; these 4
+cells would be technically non-empty, but you could fit a large circle there:
+
+#+ATTR_HTML: :width 50%
+[[file:files/inaccessibility_lower48/worstcase.svg]]
+
+My cells are 0.4 degrees per side, so the largest circle that fits among
+non-empty cells has radius
+
+#+begin_comment
+$0.4 \sqrt{2} = 0.57 \mathrm{ degrees} = 0.4 \sqrt{2} \frac{\pi}{180} R_\mathrm{earth} = 62901.35 \mathrm{ meters}$
+#+end_comment
+[[file:files/inaccessibility_lower48/0.4sqrt2.png]]
+
+So in the worst case, we can fit a radius 62.9km circle within my non-empty
+cells. This is a bit less than double my radius 34.85km circle that I already
+found. Thus I need to re-run my grid-sampling with a finer grid, and check all
+the empty areas that turns up. Fine.
+
+The worst case was slighly less than a factor of 2 off. I keep my numbers round,
+and resample with cell widths of 0.2 degrees instead of 0.4 degrees. This took
+over 2 hours. Anybody know a better way? The resulting map of empty cells looks
+like this ([[file:files/inaccessibility_lower48/samples_0.1.dat][data]], [[file:files/inaccessibility_lower48/big_samplegrid_onlyempty_0.1.gp][script]]):
+
+[[file:files/inaccessibility_lower48/big_samplegrid_onlyempty_0.1.png]]
+
+We now have a higher-res view, and there're more locations in the continental US
+that could contain the point we seek. I checked each one, and that gives a
+conclusive result. *The winner is still the point in Yellowstone National Park
+computed above: https://caltopo.com/m/T90N with a roadless radius of 34.85km*:
+
+[[file:files/inaccessibility_lower48/yellowstone.png]]
+
+There are several noteworthy runners up. In second place, coming in with a
+roadless radius of 29.0km is the Bob Marshall Wilderness:
+https://caltopo.com/m/FKP3
+
+In third is the point with a roadless radius of 25.05km that we found above in
+the Frank Church Wilderness: https://caltopo.com/m/H0TM.
+
+So the original predictions were spot on. I'd like to do this again but staying
+away from trails also, but that would require even smaller cell sizes, and I
+really don't want to go through this brute-force grid-search process again.
+Ideas?
+
+
+
+#+begin_comment
+
+looking through all the candidates
+
+< query*.json(om[1]) | awk '/"lat"/ {lat=$2} /"lon"/ {lon=$2} /}/ {print lon,lat}' | sed 's/,//g' | feedgnuplot --domain --xlabel lon --ylabel lat --exit && \
+../massage_input.pl query*.json(om[1]) && \
+../voronoi < $PWD/query*.json(om[1]:s/json/dat/:s/query/points/) | \
+sed -n '2,1000p' |\
+xargs -n100 ../massage_input.pl query*.json(om[1]);
+
+cmdand> cmdand cmdand> cmdand cmdand cmdand> cmdand cmdand cmdand pipe> cmdand cmdand cmdand pipe pipe> encoding remark: Please enter your query and terminate it with CTRL+D.
+36.9988443764437,-118.700754455334
+37.1594173222578,-118.564463078861
+36.9725072483412,-118.941194027935
+36.8106973684886,-118.756814451555
+distance: 21560.561652
+dima@scrawny:~/projects/inaccessibility/lower48$ dima@scrawny:~/projects/inaccessibility/lower48$ cx=-118.5; cy=36.5; w=2; h=2; dx=$(( (w+2.) * 0.1 * 1.1)); dy=$(( (h+2.) * 0.1 * 1.1)); ./query_rect.sh $((cy-dy)) $((cx-dx)) $((cy+dy)) $((cx+dx)) && \
+< query*.json(om[1]) | awk '/"lat"/ {lat=$2} /"lon"/ {lon=$2} /}/ {print lon,lat}' | sed 's/,//g' | feedgnuplot --domain --xlabel lon --ylabel lat --exit && \
+../massage_input.pl query*.json(om[1]) && \
+../voronoi < $PWD/query*.json(om[1]:s/json/dat/:s/query/points/) | \
+sed -n '2,1000p' |\
+xargs -n100 ../massage_input.pl query*.json(om[1]);
+
+cmdand> cmdand cmdand> cmdand cmdand cmdand> cmdand cmdand cmdand pipe> cmdand cmdand cmdand pipe pipe> encoding remark: Please enter your query and terminate it with CTRL+D.
+36.6182404576021,-118.480425422385
+36.7717719329123,-118.34101598319
+36.6056228296001,-118.715990033605
+36.4529876848734,-118.595987019603
+distance: 21073.577148
+dima@scrawny:~/projects/inaccessibility/lower48$ dima@scrawny:~/projects/inaccessibility/lower48$ cx=-119.5; cy=38; w=2; h=1; dx=$(( (w+2.) * 0.1 * 1.1)); dy=$(( (h+2.) * 0.1 * 1.1)); ./query_rect.sh $((cy-dy)) $((cx-dx)) $((cy+dy)) $((cx+dx)) && \
+< query*.json(om[1]) | awk '/"lat"/ {lat=$2} /"lon"/ {lon=$2} /}/ {print lon,lat}' | sed 's/,//g' | feedgnuplot --domain --xlabel lon --ylabel lat --exit && \
+../massage_input.pl query*.json(om[1]) && \
+../voronoi < $PWD/query*.json(om[1]:s/json/dat/:s/query/points/) | \
+sed -n '2,1000p' |\
+xargs -n100 ../massage_input.pl query*.json(om[1]);
+
+cmdand> cmdand cmdand> cmdand cmdand cmdand> cmdand cmdand cmdand pipe> cmdand cmdand cmdand pipe pipe> encoding remark: Please enter your query and terminate it with CTRL+D.
+37.6789466773625,-119.323071956094
+37.6882057495995,-119.095773060414
+37.846765617309,-119.403696967493
+37.7276548319986,-119.542115397644
+distance: 20027.013149
+dima@scrawny:~/projects/inaccessibility/lower48$ dima@scrawny:~/projects/inaccessibility/lower48$ 
+dima@scrawny:~/projects/inaccessibility/lower48$ 
+dima@scrawny:~/projects/inaccessibility/lower48$ 
+dima@scrawny:~/projects/inaccessibility/lower48$ cx=-123.6; cy=47.8; w=3; h=1; dx=$(( (w+2.) * 0.1 * 1.1)); dy=$(( (h+2.) * 0.1 * 1.1)); ./query_rect.sh $((cy-dy)) $((cx-dx)) $((cy+dy)) $((cx+dx)) && \
+< query*.json(om[1]) | awk '/"lat"/ {lat=$2} /"lon"/ {lon=$2} /}/ {print lon,lat}' | sed 's/,//g' | feedgnuplot --domain --xlabel lon --ylabel lat --exit && \
+../massage_input.pl query*.json(om[1]) && \
+../voronoi < $PWD/query*.json(om[1]:s/json/dat/:s/query/points/) | \
+sed -n '2,1000p' |\
+xargs -n100 ../massage_input.pl query*.json(om[1]);
+
+cmdand> cmdand cmdand> cmdand cmdand cmdand> cmdand cmdand cmdand pipe> cmdand cmdand cmdand pipe pipe> encoding remark: Please enter your query and terminate it with CTRL+D.
+47.7703142614567,-123.595009006202
+47.9681090031692,-123.582646214583
+47.5763312929941,-123.647977575046
+47.5733405735074,-123.580271537299
+distance: 21984.533538
+dima@scrawny:~/projects/inaccessibility/lower48$ dima@scrawny:~/projects/inaccessibility/lower48$ cx=-121.4; cy=48.8; w=1; h=1; dx=$(( (w+2.) * 0.1 * 1.1)); dy=$(( (h+2.) * 0.1 * 1.1)); ./query_rect.sh $((cy-dy)) $((cx-dx)) $((cy+dy)) $((cx+dx)) && \
+< query*.json(om[1]) | awk '/"lat"/ {lat=$2} /"lon"/ {lon=$2} /}/ {print lon,lat}' | sed 's/,//g' | feedgnuplot --domain --xlabel lon --ylabel lat --exit && \
+../massage_input.pl query*.json(om[1]) && \
+../voronoi < $PWD/query*.json(om[1]:s/json/dat/:s/query/points/) | \
+sed -n '2,1000p' |\
+xargs -n100 ../massage_input.pl query*.json(om[1]);
+
+cmdand> cmdand cmdand> cmdand cmdand cmdand> cmdand cmdand cmdand pipe> cmdand cmdand cmdand pipe pipe> encoding remark: Please enter your query and terminate it with CTRL+D.
+48.8392377461774,-121.351015000326
+49.0010795508578,-121.35446190063
+48.7503947782245,-121.555587670172
+48.6867816228213,-121.271077711711
+distance: 17954.845231
+dima@scrawny:~/projects/inaccessibility/lower48$ dima@scrawny:~/projects/inaccessibility/lower48$ cx=-121.0; cy=48.2; w=1; h=1; dx=$(( (w+2.) * 0.1 * 1.1)); dy=$(( (h+2.) * 0.1 * 1.1)); ./query_rect.sh $((cy-dy)) $((cx-dx)) $((cy+dy)) $((cx+dx)) && \
+< query*.json(om[1]) | awk '/"lat"/ {lat=$2} /"lon"/ {lon=$2} /}/ {print lon,lat}' | sed 's/,//g' | feedgnuplot --domain --xlabel lon --ylabel lat --exit && \
+../massage_input.pl query*.json(om[1]) && \
+../voronoi < $PWD/query*.json(om[1]:s/json/dat/:s/query/points/) | \
+sed -n '2,1000p' |\
+xargs -n100 ../massage_input.pl query*.json(om[1]);
+
+cmdand> cmdand cmdand> cmdand cmdand cmdand> cmdand cmdand cmdand pipe> cmdand cmdand cmdand pipe pipe> encoding remark: Please enter your query and terminate it with CTRL+D.
+48.0994789651052,-121.068057588594
+48.1552383096572,-121.265420699722
+47.9956828969584,-121.21436183271
+48.0802210735043,-120.855980753773
+distance: 15898.095144
+dima@scrawny:~/projects/inaccessibility/lower48$ dima@scrawny:~/projects/inaccessibility/lower48$ cx=-118.8; cy=41.2; w=1; h=1; dx=$(( (w+2.) * 0.1 * 1.1)); dy=$(( (h+2.) * 0.1 * 1.1)); ./query_rect.sh $((cy-dy)) $((cx-dx)) $((cy+dy)) $((cx+dx)) && \
+< query*.json(om[1]) | awk '/"lat"/ {lat=$2} /"lon"/ {lon=$2} /}/ {print lon,lat}' | sed 's/,//g' | feedgnuplot --domain --xlabel lon --ylabel lat --exit && \
+../massage_input.pl query*.json(om[1]) && \
+../voronoi < $PWD/query*.json(om[1]:s/json/dat/:s/query/points/) | \
+sed -n '2,1000p' |\
+xargs -n100 ../massage_input.pl query*.json(om[1]);
+
+cmdand> cmdand cmdand> cmdand cmdand cmdand> cmdand cmdand cmdand pipe> cmdand cmdand cmdand pipe pipe> encoding remark: Please enter your query and terminate it with CTRL+D.
+41.238649342276,-118.772385447942
+41.3479101384552,-118.793782633214
+41.290663189891,-118.901832470416
+41.1749981701495,-118.652742406169
+distance: 12263.689591
+dima@scrawny:~/projects/inaccessibility/lower48$ dima@scrawny:~/projects/inaccessibility/lower48$ cx=-113.5; cy=40.5; w=2; h=2; dx=$(( (w+2.) * 0.1 * 1.1)); dy=$(( (h+2.) * 0.1 * 1.1)); ./query_rect.sh $((cy-dy)) $((cx-dx)) $((cy+dy)) $((cx+dx)) && \
+< query*.json(om[1]) | awk '/"lat"/ {lat=$2} /"lon"/ {lon=$2} /}/ {print lon,lat}' | sed 's/,//g' | feedgnuplot --domain --xlabel lon --ylabel lat --exit && \
+../massage_input.pl query*.json(om[1]) && \
+../voronoi < $PWD/query*.json(om[1]:s/json/dat/:s/query/points/) | \
+sed -n '2,1000p' |\
+xargs -n100 ../massage_input.pl query*.json(om[1]);
+
+cmdand> cmdand cmdand> cmdand cmdand cmdand> cmdand cmdand cmdand pipe> cmdand cmdand cmdand pipe pipe> encoding remark: Please enter your query and terminate it with CTRL+D.
+40.4046219285722,-113.605227499269
+40.5866755920297,-113.485670995751
+40.5163584367163,-113.82914722936
+40.2035465048971,-113.568776058231
+distance: 22633.397077
+dima@scrawny:~/projects/inaccessibility/lower48$ dima@scrawny:~/projects/inaccessibility/lower48$ cx=-112.4; cy=41.0; w=1; h=1; dx=$(( (w+2.) * 0.1 * 1.1)); dy=$(( (h+2.) * 0.1 * 1.1)); ./query_rect.sh $((cy-dy)) $((cx-dx)) $((cy+dy)) $((cx+dx)) && \
+< query*.json(om[1]) | awk '/"lat"/ {lat=$2} /"lon"/ {lon=$2} /}/ {print lon,lat}' | sed 's/,//g' | feedgnuplot --domain --xlabel lon --ylabel lat --exit && \
+../massage_input.pl query*.json(om[1]) && \
+../voronoi < $PWD/query*.json(om[1]:s/json/dat/:s/query/points/) | \
+sed -n '2,1000p' |\
+xargs -n100 ../massage_input.pl query*.json(om[1]);
+
+cmdand> cmdand cmdand> cmdand cmdand cmdand> cmdand cmdand cmdand pipe> cmdand cmdand cmdand pipe pipe> encoding remark: Please enter your query and terminate it with CTRL+D.
+41.0663338090071,-112.619500317054
+41.2228708428885,-112.61373321938
+40.9361195118447,-112.733407936277
+40.9327683970627,-112.511706800174
+distance: 17375.614966
+dima@scrawny:~/projects/inaccessibility/lower48$ dima@scrawny:~/projects/inaccessibility/lower48$ cx=-110.3; cy=40.8; w=2; h=1; dx=$(( (w+2.) * 0.1 * 1.1)); dy=$(( (h+2.) * 0.1 * 1.1)); ./query_rect.sh $((cy-dy)) $((cx-dx)) $((cy+dy)) $((cx+dx)) && \
+< query*.json(om[1]) | awk '/"lat"/ {lat=$2} /"lon"/ {lon=$2} /}/ {print lon,lat}' | sed 's/,//g' | feedgnuplot --domain --xlabel lon --ylabel lat --exit && \
+../massage_input.pl query*.json(om[1]) && \
+../voronoi < $PWD/query*.json(om[1]:s/json/dat/:s/query/points/) | \
+sed -n '2,1000p' |\
+xargs -n100 ../massage_input.pl query*.json(om[1]);
+
+cmdand> cmdand cmdand> cmdand cmdand cmdand> cmdand cmdand cmdand pipe> cmdand cmdand cmdand pipe pipe> encoding remark: Please enter your query and terminate it with CTRL+D.
+40.7175208333879,-110.616174063163
+40.876187671278,-110.679240033613
+40.5524662958417,-110.621495993973
+40.5714457875096,-110.51382887281
+distance: 18405.819366
+dima@scrawny:~/projects/inaccessibility/lower48$ dima@scrawny:~/projects/inaccessibility/lower48$ cx=-108.4; cy=33.2; w=1; h=1; dx=$(( (w+2.) * 0.1 * 1.1)); dy=$(( (h+2.) * 0.1 * 1.1)); ./query_rect.sh $((cy-dy)) $((cx-dx)) $((cy+dy)) $((cx+dx)) && \
+< query*.json(om[1]) | awk '/"lat"/ {lat=$2} /"lon"/ {lon=$2} /}/ {print lon,lat}' | sed 's/,//g' | feedgnuplot --domain --xlabel lon --ylabel lat --exit && \
+../massage_input.pl query*.json(om[1]) && \
+../voronoi < $PWD/query*.json(om[1]:s/json/dat/:s/query/points/) | \
+sed -n '2,1000p' |\
+xargs -n100 ../massage_input.pl query*.json(om[1]);
+
+cmdand> cmdand cmdand> cmdand cmdand cmdand> cmdand cmdand cmdand pipe> cmdand cmdand cmdand pipe pipe> encoding remark: Please enter your query and terminate it with CTRL+D.
+33.2450801461737,-108.463712355248
+33.4117617187981,-108.45648614979
+33.0800090630568,-108.489340507945
+33.2298211975994,-108.265437343379
+distance: 18519.281560
+dima@scrawny:~/projects/inaccessibility/lower48$ dima@scrawny:~/projects/inaccessibility/lower48$ cx=-123.6; cy=49.8; w=3; h=1; dx=$(( (w+2.) * 0.1 * 1.1)); dy=$(( (h+2.) * 0.1 * 1.1)); ./query_rect.sh $((cy-dy)) $((cx-dx)) $((cy+dy)) $((cx+dx)) && \
+< query*.json(om[1]) | awk '/"lat"/ {lat=$2} /"lon"/ {lon=$2} /}/ {print lon,lat}' | sed 's/,//g' | feedgnuplot --domain --xlabel lon --ylabel lat --exit && \
+../massage_input.pl query*.json(om[1]) && \
+../voronoi < $PWD/query*.json(om[1]:s/json/dat/:s/query/points/) | \
+sed -n '2,1000p' |\
+xargs -n100 ../massage_input.pl query*.json(om[1]);
+
+cmdand> cmdand cmdand> cmdand cmdand cmdand> cmdand cmdand cmdand pipe> cmdand cmdand cmdand pipe pipe> encoding remark: Please enter your query and terminate it with CTRL+D.
+50.1208161502195,-123.889684593762
+50.2204678153231,-123.558848113193
+50.2206038955042,-123.558946380024
+49.9560974978007,-124.148259367468
+distance: 26019.783074
+dima@scrawny:~/projects/inaccessibility/lower48$ dima@scrawny:~/projects/inaccessibility/lower48$ cx=-117.0; cy=49.4; w=1; h=1; dx=$(( (w+2.) * 0.1 * 1.1)); dy=$(( (h+2.) * 0.1 * 1.1)); ./query_rect.sh $((cy-dy)) $((cx-dx)) $((cy+dy)) $((cx+dx)) && \
+< query*.json(om[1]) | awk '/"lat"/ {lat=$2} /"lon"/ {lon=$2} /}/ {print lon,lat}' | sed 's/,//g' | feedgnuplot --domain --xlabel lon --ylabel lat --exit && \
+../massage_input.pl query*.json(om[1]) && \
+../voronoi < $PWD/query*.json(om[1]:s/json/dat/:s/query/points/) | \
+sed -n '2,1000p' |\
+xargs -n100 ../massage_input.pl query*.json(om[1]);
+
+cmdand> cmdand cmdand> cmdand cmdand cmdand> cmdand cmdand cmdand pipe> cmdand cmdand cmdand pipe pipe> encoding remark: Please enter your query and terminate it with CTRL+D.
+49.4284824401492,-116.946861799913
+49.4559170833793,-116.765055324768
+49.4460233606974,-117.131461133465
+49.3228385180905,-116.855677826775
+distance: 13488.161149
+dima@scrawny:~/projects/inaccessibility/lower48$ dima@scrawny:~/projects/inaccessibility/lower48$ cx=-114.2; cy=49.2; w=1; h=1; dx=$(( (w+2.) * 0.1 * 1.1)); dy=$(( (h+2.) * 0.1 * 1.1)); ./query_rect.sh $((cy-dy)) $((cx-dx)) $((cy+dy)) $((cx+dx)) && \
+< query*.json(om[1]) | awk '/"lat"/ {lat=$2} /"lon"/ {lon=$2} /}/ {print lon,lat}' | sed 's/,//g' | feedgnuplot --domain --xlabel lon --ylabel lat --exit && \
+../massage_input.pl query*.json(om[1]) && \
+../voronoi < $PWD/query*.json(om[1]:s/json/dat/:s/query/points/) | \
+sed -n '2,1000p' |\
+xargs -n100 ../massage_input.pl query*.json(om[1]);
+
+cmdand> cmdand cmdand> cmdand cmdand cmdand> cmdand cmdand cmdand pipe> cmdand cmdand cmdand pipe pipe> encoding remark: Please enter your query and terminate it with CTRL+D.
+48.8787840370136,-114.105579832535
+49.0200442408965,-114.045040106118
+48.7884231440657,-114.281649611831
+48.7876115092405,-114.280665545801
+distance: 16387.056815
+dima@scrawny:~/projects/inaccessibility/lower48$ dima@scrawny:~/projects/inaccessibility/lower48$ cx=-114.0; cy=48.8; w=1; h=1; dx=$(( (w+2.) * 0.1 * 1.1)); dy=$(( (h+2.) * 0.1 * 1.1)); ./query_rect.sh $((cy-dy)) $((cx-dx)) $((cy+dy)) $((cx+dx)) && \
+< query*.json(om[1]) | awk '/"lat"/ {lat=$2} /"lon"/ {lon=$2} /}/ {print lon,lat}' | sed 's/,//g' | feedgnuplot --domain --xlabel lon --ylabel lat --exit && \
+../massage_input.pl query*.json(om[1]) && \
+../voronoi < $PWD/query*.json(om[1]:s/json/dat/:s/query/points/) | \
+sed -n '2,1000p' |\
+xargs -n100 ../massage_input.pl query*.json(om[1]);
+
+cmdand> cmdand cmdand> cmdand cmdand cmdand> cmdand cmdand cmdand pipe> cmdand cmdand cmdand pipe pipe> encoding remark: Please enter your query and terminate it with CTRL+D.
+48.8694244281339,-113.967351013553
+49.0200990671499,-114.045034267359
+48.8293925229867,-114.20061388391
+48.7551386860996,-113.800446769536
+distance: 17642.589399
+dima@scrawny:~/projects/inaccessibility/lower48$ dima@scrawny:~/projects/inaccessibility/lower48$ cx=-113.2; cy=47.7; w=3; h=4; dx=$(( (w+2.) * 0.1 * 1.1)); dy=$(( (h+2.) * 0.1 * 1.1)); ./query_rect.sh $((cy-dy)) $((cx-dx)) $((cy+dy)) $((cx+dx)) && \
+< query*.json(om[1]) | awk '/"lat"/ {lat=$2} /"lon"/ {lon=$2} /}/ {print lon,lat}' | sed 's/,//g' | feedgnuplot --domain --xlabel lon --ylabel lat --exit && \
+../massage_input.pl query*.json(om[1]) && \
+../voronoi < $PWD/query*.json(om[1]:s/json/dat/:s/query/points/) | \
+sed -n '2,1000p' |\
+xargs -n100 ../massage_input.pl query*.json(om[1]);
+
+cmdand> cmdand cmdand> cmdand cmdand cmdand> cmdand cmdand cmdand pipe> cmdand cmdand cmdand pipe pipe> encoding remark: Please enter your query and terminate it with CTRL+D.
+47.5937940679444,-113.25172813214
+47.8280928033937,-113.423717129583
+47.5045536899974,-113.614707671762
+47.5036846301514,-112.889038614692
+distance: 29032.474210
+dima@scrawny:~/projects/inaccessibility/lower48$ dima@scrawny:~/projects/inaccessibility/lower48$ cx=-114.4; cy=46.4; w=1; h=1; dx=$(( (w+2.) * 0.1 * 1.1)); dy=$(( (h+2.) * 0.1 * 1.1)); ./query_rect.sh $((cy-dy)) $((cx-dx)) $((cy+dy)) $((cx+dx)) && \
+< query*.json(om[1]) | awk '/"lat"/ {lat=$2} /"lon"/ {lon=$2} /}/ {print lon,lat}' | sed 's/,//g' | feedgnuplot --domain --xlabel lon --ylabel lat --exit && \
+../massage_input.pl query*.json(om[1]) && \
+../voronoi < $PWD/query*.json(om[1]:s/json/dat/:s/query/points/) | \
+sed -n '2,1000p' |\
+xargs -n100 ../massage_input.pl query*.json(om[1]);
+
+cmdand> cmdand cmdand> cmdand cmdand cmdand> cmdand cmdand cmdand pipe> cmdand cmdand cmdand pipe pipe> encoding remark: Please enter your query and terminate it with CTRL+D.
+46.1733912204036,-114.728198493812
+46.3206372552874,-114.652622874615
+46.3206821557286,-114.652805385457
+46.1464133734151,-114.505101917434
+distance: 17437.052437
+dima@scrawny:~/projects/inaccessibility/lower48$ dima@scrawny:~/projects/inaccessibility/lower48$ cx=-114.8; cy=46.2; w=1; h=1; dx=$(( (w+2.) * 0.1 * 1.1)); dy=$(( (h+2.) * 0.1 * 1.1)); ./query_rect.sh $((cy-dy)) $((cx-dx)) $((cy+dy)) $((cx+dx)) && \
+< query*.json(om[1]) | awk '/"lat"/ {lat=$2} /"lon"/ {lon=$2} /}/ {print lon,lat}' | sed 's/,//g' | feedgnuplot --domain --xlabel lon --ylabel lat --exit && \
+../massage_input.pl query*.json(om[1]) && \
+../voronoi < $PWD/query*.json(om[1]:s/json/dat/:s/query/points/) | \
+sed -n '2,1000p' |\
+xargs -n100 ../massage_input.pl query*.json(om[1]);
+
+cmdand> cmdand cmdand> cmdand cmdand cmdand> cmdand cmdand cmdand pipe> cmdand cmdand cmdand pipe pipe> encoding remark: Please enter your query and terminate it with CTRL+D.
+46.1702298957518,-115.117848205197
+46.3178537658114,-115.143039125283
+46.1205022971264,-114.915784301709
+46.133623864555,-114.910036946138
+distance: 16507.871483
+dima@scrawny:~/projects/inaccessibility/lower48$ dima@scrawny:~/projects/inaccessibility/lower48$ cx=-114.5; cy=46.0; w=2; h=1; dx=$(( (w+2.) * 0.1 * 1.1)); dy=$(( (h+2.) * 0.1 * 1.1)); ./query_rect.sh $((cy-dy)) $((cx-dx)) $((cy+dy)) $((cx+dx)) && \
+< query*.json(om[1]) | awk '/"lat"/ {lat=$2} /"lon"/ {lon=$2} /}/ {print lon,lat}' | sed 's/,//g' | feedgnuplot --domain --xlabel lon --ylabel lat --exit && \
+../massage_input.pl query*.json(om[1]) && \
+../voronoi < $PWD/query*.json(om[1]:s/json/dat/:s/query/points/) | \
+sed -n '2,1000p' |\
+xargs -n100 ../massage_input.pl query*.json(om[1]);
+
+cmdand> cmdand cmdand> cmdand cmdand cmdand> cmdand cmdand cmdand pipe> cmdand cmdand cmdand pipe pipe> encoding remark: Please enter your query and terminate it with CTRL+D.
+46.3174314643972,-114.916786259501
+46.3225060063103,-114.652968196666
+46.3228226154325,-114.652982093884
+46.1344199557521,-114.910024507801
+distance: 20270.819625
+dima@scrawny:~/projects/inaccessibility/lower48$ dima@scrawny:~/projects/inaccessibility/lower48$ cx=-115.0; cy=45.2; w=3; h=3; dx=$(( (w+2.) * 0.1 * 1.1)); dy=$(( (h+2.) * 0.1 * 1.1)); ./query_rect.sh $((cy-dy)) $((cx-dx)) $((cy+dy)) $((cx+dx)) && \
+< query*.json(om[1]) | awk '/"lat"/ {lat=$2} /"lon"/ {lon=$2} /}/ {print lon,lat}' | sed 's/,//g' | feedgnuplot --domain --xlabel lon --ylabel lat --exit && \
+../massage_input.pl query*.json(om[1]) && \
+../voronoi < $PWD/query*.json(om[1]:s/json/dat/:s/query/points/) | \
+sed -n '2,1000p' |\
+xargs -n100 ../massage_input.pl query*.json(om[1]);
+
+cmdand> cmdand cmdand> cmdand cmdand cmdand> cmdand cmdand cmdand pipe> cmdand cmdand cmdand pipe pipe> encoding remark: Please enter your query and terminate it with CTRL+D.
+45.4192116036171,-115.023049194231
+45.6358720287227,-114.9286851921
+45.5332945797169,-115.300918600635
+45.1964547712571,-115.074696889755
+distance: 25053.397010
+dima@scrawny:~/projects/inaccessibility/lower48$ dima@scrawny:~/projects/inaccessibility/lower48$ cx=-115.0; cy=44.0; w=1; h=1; dx=$(( (w+2.) * 0.1 * 1.1)); dy=$(( (h+2.) * 0.1 * 1.1)); ./query_rect.sh $((cy-dy)) $((cx-dx)) $((cy+dy)) $((cx+dx)) && \
+< query*.json(om[1]) | awk '/"lat"/ {lat=$2} /"lon"/ {lon=$2} /}/ {print lon,lat}' | sed 's/,//g' | feedgnuplot --domain --xlabel lon --ylabel lat --exit && \
+../massage_input.pl query*.json(om[1]) && \
+../voronoi < $PWD/query*.json(om[1]:s/json/dat/:s/query/points/) | \
+sed -n '2,1000p' |\
+xargs -n100 ../massage_input.pl query*.json(om[1]);
+
+cmdand> cmdand cmdand> cmdand cmdand cmdand> cmdand cmdand cmdand pipe> cmdand cmdand cmdand pipe pipe> encoding remark: Please enter your query and terminate it with CTRL+D.
+43.9680901515954,-115.071997992162
+43.9751463951544,-114.881480465558
+43.9920128662981,-115.259930673638
+43.8484054431942,-115.164667726815
+distance: 15266.006173
+dima@scrawny:~/projects/inaccessibility/lower48$ dima@scrawny:~/projects/inaccessibility/lower48$ cx=-110.4; cy=45.4; w=1; h=1; dx=$(( (w+2.) * 0.1 * 1.1)); dy=$(( (h+2.) * 0.1 * 1.1)); ./query_rect.sh $((cy-dy)) $((cx-dx)) $((cy+dy)) $((cx+dx)) && \
+< query*.json(om[1]) | awk '/"lat"/ {lat=$2} /"lon"/ {lon=$2} /}/ {print lon,lat}' | sed 's/,//g' | feedgnuplot --domain --xlabel lon --ylabel lat --exit && \
+../massage_input.pl query*.json(om[1]) && \
+../voronoi < $PWD/query*.json(om[1]:s/json/dat/:s/query/points/) | \
+sed -n '2,1000p' |\
+xargs -n100 ../massage_input.pl query*.json(om[1]);
+
+cmdand> cmdand cmdand> cmdand cmdand cmdand> cmdand cmdand cmdand pipe> cmdand cmdand cmdand pipe pipe> encoding remark: Please enter your query and terminate it with CTRL+D.
+45.0740005653174,-110.362102521955
+45.2049587696652,-110.240362076032
+45.0998300154654,-110.581457951103
+45.0995079698016,-110.581533356803
+distance: 17459.993384
+dima@scrawny:~/projects/inaccessibility/lower48$ dima@scrawny:~/projects/inaccessibility/lower48$ cx=-110.0; cy=44.8; w=1; h=1; dx=$(( (w+2.) * 0.1 * 1.1)); dy=$(( (h+2.) * 0.1 * 1.1)); ./query_rect.sh $((cy-dy)) $((cx-dx)) $((cy+dy)) $((cx+dx)) && \
+< query*.json(om[1]) | awk '/"lat"/ {lat=$2} /"lon"/ {lon=$2} /}/ {print lon,lat}' | sed 's/,//g' | feedgnuplot --domain --xlabel lon --ylabel lat --exit && \
+../massage_input.pl query*.json(om[1]) && \
+../voronoi < $PWD/query*.json(om[1]:s/json/dat/:s/query/points/) | \
+sed -n '2,1000p' |\
+xargs -n100 ../massage_input.pl query*.json(om[1]);
+
+cmdand> cmdand cmdand> cmdand cmdand cmdand> cmdand cmdand cmdand pipe> cmdand cmdand cmdand pipe pipe> encoding remark: Please enter your query and terminate it with CTRL+D.
+44.6832327275974,-110.093346141747
+44.8686480538879,-110.169058429391
+44.5053697331901,-110.196141688958
+44.5129488175268,-109.967122436631
+distance: 21465.427203
+dima@scrawny:~/projects/inaccessibility/lower48$ dima@scrawny:~/projects/inaccessibility/lower48$ cx=-110.0; cy=44.1; w=5; h=2; dx=$(( (w+2.) * 0.1 * 1.1)); dy=$(( (h+2.) * 0.1 * 1.1)); ./query_rect.sh $((cy-dy)) $((cx-dx)) $((cy+dy)) $((cx+dx)) && \
+< query*.json(om[1]) | awk '/"lat"/ {lat=$2} /"lon"/ {lon=$2} /}/ {print lon,lat}' | sed 's/,//g' | feedgnuplot --domain --xlabel lon --ylabel lat --exit && \
+../massage_input.pl query*.json(om[1]) && \
+../voronoi < $PWD/query*.json(om[1]:s/json/dat/:s/query/points/) | \
+sed -n '2,1000p' |\
+xargs -n100 ../massage_input.pl query*.json(om[1]);
+
+cmdand> cmdand cmdand> cmdand cmdand cmdand> cmdand cmdand cmdand pipe> cmdand cmdand cmdand pipe pipe> encoding remark: Please enter your query and terminate it with CTRL+D.
+44.1470290162187,-110.074271308914
+44.4603596504345,-110.112918673011
+43.8665796071024,-110.266838034628
+44.126881488827,-109.638459391943
+distance: 34854.515373
+dima@scrawny:~/projects/inaccessibility/lower48$ dima@scrawny:~/projects/inaccessibility/lower48$ cx=-109.5; cy=43.0; w=4; h=3; dx=$(( (w+2.) * 0.1 * 1.1)); dy=$(( (h+2.) * 0.1 * 1.1)); ./query_rect.sh $((cy-dy)) $((cx-dx)) $((cy+dy)) $((cx+dx)) && \
+< query*.json(om[1]) | awk '/"lat"/ {lat=$2} /"lon"/ {lon=$2} /}/ {print lon,lat}' | sed 's/,//g' | feedgnuplot --domain --xlabel lon --ylabel lat --exit && \
+../massage_input.pl query*.json(om[1]) && \
+../voronoi < $PWD/query*.json(om[1]:s/json/dat/:s/query/points/) | \
+sed -n '2,1000p' |\
+xargs -n100 ../massage_input.pl query*.json(om[1]);
+
+cmdand> cmdand cmdand> cmdand cmdand cmdand> cmdand cmdand cmdand pipe> cmdand cmdand cmdand pipe pipe> encoding remark: Please enter your query and terminate it with CTRL+D.
+43.1846315051443,-109.667823906805
+43.2779525696537,-109.444747605173
+43.3121193867728,-109.857389227919
+43.0089201832395,-109.757011425299
+distance: 20826.446515
+dima@scrawny:~/projects/inaccessibility/lower48$ dima@scrawny:~/projects/inaccessibility/lower48$ cx=-94.6; cy=49.2; w=3; h=3; dx=$(( (w+2.) * 0.1 * 1.1)); dy=$(( (h+2.) * 0.1 * 1.1)); ./query_rect.sh $((cy-dy)) $((cx-dx)) $((cy+dy)) $((cx+dx)) && \
+< query*.json(om[1]) | awk '/"lat"/ {lat=$2} /"lon"/ {lon=$2} /}/ {print lon,lat}' | sed 's/,//g' | feedgnuplot --domain --xlabel lon --ylabel lat --exit && \
+../massage_input.pl query*.json(om[1]) && \
+../voronoi < $PWD/query*.json(om[1]:s/json/dat/:s/query/points/) | \
+sed -n '2,1000p' |\
+xargs -n100 ../massage_input.pl query*.json(om[1]);
+
+cmdand> cmdand cmdand> cmdand cmdand cmdand> cmdand cmdand cmdand pipe> cmdand cmdand cmdand pipe pipe> encoding remark: Please enter your query and terminate it with CTRL+D.
+49.3465618277399,-94.4736233277712
+49.4224493087663,-94.1304744556204
+49.3141735885236,-94.831618463913
+49.1381148181973,-94.3059602692793
+distance: 26192.657600
+dima@scrawny:~/projects/inaccessibility/lower48$ dima@scrawny:~/projects/inaccessibility/lower48$ cx=-83.8; cy=43.8; w=1; h=1; dx=$(( (w+2.) * 0.1 * 1.1)); dy=$(( (h+2.) * 0.1 * 1.1)); ./query_rect.sh $((cy-dy)) $((cx-dx)) $((cy+dy)) $((cx+dx)) && \
+< query*.json(om[1]) | awk '/"lat"/ {lat=$2} /"lon"/ {lon=$2} /}/ {print lon,lat}' | sed 's/,//g' | feedgnuplot --domain --xlabel lon --ylabel lat --exit && \
+../massage_input.pl query*.json(om[1]) && \
+../voronoi < $PWD/query*.json(om[1]:s/json/dat/:s/query/points/) | \
+sed -n '2,1000p' |\
+xargs -n100 ../massage_input.pl query*.json(om[1]);
+
+cmdand> cmdand cmdand> cmdand cmdand cmdand> cmdand cmdand cmdand pipe> cmdand cmdand cmdand pipe pipe> encoding remark: Please enter your query and terminate it with CTRL+D.
+43.8968428801422,-83.4757645197919
+44.0506419736775,-83.5795183849721
+43.7260662295355,-83.4715255699055
+43.7261919781907,-83.4662484881302
+distance: 18990.652217
+dima@scrawny:~/projects/inaccessibility/lower48$ dima@scrawny:~/projects/inaccessibility/lower48$ cx=-80.8; cy=27.0; w=1; h=1; dx=$(( (w+2.) * 0.1 * 1.1)); dy=$(( (h+2.) * 0.1 * 1.1)); ./query_rect.sh $((cy-dy)) $((cx-dx)) $((cy+dy)) $((cx+dx)) && \
+< query*.json(om[1]) | awk '/"lat"/ {lat=$2} /"lon"/ {lon=$2} /}/ {print lon,lat}' | sed 's/,//g' | feedgnuplot --domain --xlabel lon --ylabel lat --exit && \
+../massage_input.pl query*.json(om[1]) && \
+../voronoi < $PWD/query*.json(om[1]:s/json/dat/:s/query/points/) | \
+sed -n '2,1000p' |\
+xargs -n100 ../massage_input.pl query*.json(om[1]);
+
+cmdand> cmdand cmdand> cmdand cmdand cmdand> cmdand cmdand cmdand pipe> cmdand cmdand cmdand pipe pipe> encoding remark: Please enter your query and terminate it with CTRL+D.
+26.9455301812507,-80.8071022577094
+26.9855196174801,-80.6213515937586
+27.0500199485332,-80.958090961487
+26.813112414914,-80.6873139612105
+distance: 18935.831522
+dima@scrawny:~/projects/inaccessibility/lower48$
+dima@scrawny:~/projects/inaccessibility/lower48$ 
+
+
+
+316 34854.515373
+212 29032.474210
+342 26192.657600
+160 26019.783074
+264 25053.397010
+
+108 22633.397077
+56 21984.533538
+14 21560.561652
+303 21465.427203
+27 21073.577148
+329 20826.446515
+251 20270.819625
+40 20027.013149
+355 18990.652217
+368 18935.831522
+147 18519.281560
+134 18405.819366
+69 17954.845231
+199 17642.589399
+290 17459.993384
+225 17437.052437
+121 17375.614966
+238 16507.871483
+186 16387.056815
+82 15898.095144
+277 15266.006173
+173 13488.161149
+95 12263.689591
+
+#+end_comment
+
 ** Math. Horizonator?
 ** multi-arch in general
 
