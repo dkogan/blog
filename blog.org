@@ -9291,22 +9291,21 @@ subexpression. I derived this inverse:
 The proof is left as an exercise to the reader. If I had bothered to look it up,
 however, I would have found all the expressions (forward and backward) [[http://wiki.openstreetmap.org/wiki/Slippy_map_tilenames][here]].
 
-The script works, and some examples will appear in an upcoming post.
+The script works, and some examples will appear in an [[file:{lisp}(ob:link-to-post (ob:get-post-by-title "Pole of road inaccessibility of the contiguous US")){/lisp}][upcoming post]].
 
 There were some questions that came up in writing this, and the discussion is in
 this [[https://sourceforge.net/p/gnuplot/mailman/gnuplot-beta/thread/877exe9qut.fsf%40scrawny/][mailing list thread]].
 
-
-** Pole of road inaccessibility of the contiguous US        :hiking:data:GIS:
+** DONE Pole of road inaccessibility of the contiguous US   :hiking:data:GIS:
+   CLOSED: [2017-09-25 Mon 10:17]
 
 So I want out hiking with a friend, and he was telling me about a 9-day
 backpacking trip he took to reach some back-country cabin, which is said to be
 further away from any driveable road than any other spot in the continental US.
 
-I computed something very similar earlier: [[file:{lisp}(ob:link-to-post%20(ob:get-post-by-title%20"Poles%20of%20Inaccessibility%20in%20the%20San%20Gabriel%20Mountains")){/lisp}][Pole of Inaccessibility for the San
-Gabriel Mountains]]. So I decided to extend the previous work to the whole
-continental US to check if that area really /is/ the road Pole of
-Inaccessibility. Note that for the San Gabriels I was looking at 3 different
+I computed something very similar [[file:{lisp}(ob:link-to-post (ob:get-post-by-title "Poles of Inaccessibility in the San Gabriel Mountains")){/lisp}][earlier]] so I decided to extend the previous
+work to the whole continental US to check if that area really /is/ the road Pole
+of Inaccessibility. Note that for the San Gabriels I was looking at 3 different
 poles:
 
 - relative to all roads and trails
@@ -9439,12 +9438,8 @@ for my $ilat (0..$N_lat-1)
 
 #+END_SRC
 
-This took about 30 minutes, and in the end I had a nice list of cell-centers and
-their corresponding road-way counts:
-
-[[file:files/inaccessibility_lower48/samples.dat]]
-
-It looks like this (made with [[file:files/inaccessibility_lower48/big_samplegrid_all.gp][this script]]):
+This took about 30 minutes, and in the end I had a [[file:files/inaccessibility_lower48/samples.dat][nice list]] of cell-centers and
+their corresponding road-way counts. It looks like this (made with [[file:files/inaccessibility_lower48/big_samplegrid_all.gp][this script]]):
 
 [[file:files/inaccessibility_lower48/big_samplegrid_all.png]]
 
@@ -9549,7 +9544,7 @@ even-latitude divisions). In the worst case I'd have a 2x2 block of cells where
 the only road points lie in the four opposite corners of this block; these 4
 cells would be technically non-empty, but you could fit a large circle there:
 
-#+ATTR_HTML: :width 50%
+#+ATTR_HTML: :width 90%
 [[file:files/inaccessibility_lower48/worstcase.svg]]
 
 My cells are 0.4 degrees per side, so the largest circle that fits among
