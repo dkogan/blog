@@ -8959,6 +8959,7 @@ Everything should be mostly self-explanatory.
 
 #include <Python.h>
 #include <numpy/arrayobject.h>
+#include <signal.h>
 
 const char foo_docstring[] =
     "This function returns the (i,j) element of the matrix\n"
@@ -8978,6 +8979,23 @@ static PyObject* foo(PyObject* NPY_UNUSED(self),
                         NULL};
 
     PyObject* result = NULL;
+
+    // Python is silly. There's some nuance about signal handling where it sets
+    // a SIGINT (ctrl-c) handler to just set a flag, and the python layer then
+    // reads this flag and does the thing. Here I'm running C code, so SIGINT
+    // would set a flag, but not quit, so I can't interrupt the C code as it's
+    // running, which is very surprising to the user. Thus I reset the SIGINT
+    // handler to the default, and put it back to the python-specific version
+    // when I'm done. This ignores a potential custom python sigint handler.
+    // Left as an excercise for the reader
+    struct sigaction sigaction_old;
+    if( 0 != sigaction(SIGINT,
+                       &(struct sigaction){ .sa_handler = SIG_DFL },
+                       &sigaction_old) )
+    {
+        PyErr_SetString(PyExc_RuntimeError, "sigaction() failed");
+        goto done;
+    }
 
     PyArrayObject* arr;
     unsigned int i = 0, j = 0; // defaults, if arguments not given
@@ -9053,6 +9071,10 @@ static PyObject* foo(PyObject* NPY_UNUSED(self),
 
  done:
     Py_DECREF(arr);
+
+    if( 0 != sigaction(SIGINT,
+                       &sigaction_old, NULL ))
+        PyErr_SetString(PyExc_RuntimeError, "sigaction-restore failed");
     return result;
 }
 
