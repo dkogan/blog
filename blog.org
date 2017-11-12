@@ -10017,6 +10017,52 @@ dima@scrawny:~/projects/inaccessibility/lower48$
 
 #+end_comment
 
+** Python extension modules without setuptools or distutils       :tools:dev:
+
+Clearly I spend a lot of my time being annoyed. Usually I can simply ignore the
+chaos, but sometimes I need to step into it. Today was such a day.
+
+At work I work with a number of software projects, mostly written in C. Each one
+lives in a separate repository and builds its own shared library. All of these
+use a standardized build system, so the Makefiles are all simple and uniform.
+For one of these projects I wanted a Python interface in addition to the C
+header. The "normal" way to build a Python extension module is to use
+=setuptools= and/or =distutils=. You're supposed to create a =setup.py= file
+that declares the module, then you invoke this =setup.py= in some way to build
+the module, and then you need to install the module somewhere to actually use
+it. At least I think you're supposed to do those things; these tools are
+massively complicated, and I won't pretend to fully understand them. Which is
+exactly the point: I already have a build system and I know how to build C code,
+and I don't /want/ to learn a new build system for every language I touch.
+
+I want to build my extension module within my build system. This would keep the
+build uniform, and the various things the build system does would remain
+working. There's nothing special about the python sources, and I don't want to
+pretend like there is. Requirements:
+
+- =make= should work. I.e. I should be able to invoke =make= and everything
+  should build
+- normal =make= things should work. I.e. I should be able to invoke =make -j=,
+  and have parallel makes work. I should be able to invoke =make -n=, and get a
+  full list of build commands that would run (this means I can't have =setup.py=
+  in my =Makefile= since =make -n= won't tell me what the =setup.py= would do)
+- normal build system options should work. For instance if my build system has a
+  specific method for turning compiler optimizations on/off, this method should
+  apply normally to the Python extension module
+- Python scripts using the extension module should work either with the module
+  built in-place /or/ installed. This should work without touching =sys.path= or
+  =LD_LIBRARY_PATH= or any such nonsense.
+- Nothing should need to change
+
+
+Today
+I integrated the build of my extension module into my build system, without
+using
+
+
+
+
+
 ** Math. Horizonator?
 ** multi-arch in general
 
