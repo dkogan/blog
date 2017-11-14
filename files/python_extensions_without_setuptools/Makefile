@@ -1,6 +1,7 @@
-LIB_OBJECTS  := c_library.o
-ABI_VERSION  := 0
-TAIL_VERSION := 0
+# This is a demo Makefile. The stuff on top pulls out the build flags from
+# Python and tell Make to use them. The stuff on the bottom is generic build
+# rules, that would come from a common build system.
+
 
 
 # The python libraries (compiled ones and ones written in python all live in
@@ -12,12 +13,11 @@ TAIL_VERSION := 0
 #
 # There's some sillyness in Make I need to work around. First, I produce a
 # python script to query the various build flags, but replacing all whitespace
-# with __whitespace__. The string I get when running this script will have a
-# number of whitespace-separated tokens, each one setting ONE variable
+# with __whitespace__. The string I get when running this script will then have
+# a number of whitespace-separated tokens, each setting ONE variable
 define PYVARS_SCRIPT :=
 import sysconfig
 import re
-
 for v in ("CC","CFLAGS","CCSHARED","INCLUDEPY","BLDSHARED","LDFLAGS"):
     print re.sub("[\t ]+", "__whitespace__", "PY_{}:={}".format(v, sysconfig.get_config_var(v)))
 endef
@@ -29,7 +29,8 @@ $(foreach v,$(PYVARS),$(eval $(subst __whitespace__, ,$v)))
 # The compilation flags are all the stuff python told us about. Some of its
 # flags live inside its CC variable, so I pull those out. I also pull out the
 # optimization flag, since I want THIS build system to control it
-c_library_pywrap.o: CFLAGS += $(filter-out -O%,$(wordlist 2,$(words $(PY_CC)),$(PY_CC)) $(PY_CFLAGS) $(PY_CCSHARED) -I$(PY_INCLUDEPY) --std=gnu99)
+FLAGS_FROM_PYCC := $(wordlist 2,$(words $(PY_CC)),$(PY_CC))
+c_library_pywrap.o: CFLAGS += $(filter-out -O%,$(FLAGS_FROM_PYCC) $(PY_CFLAGS) $(PY_CCSHARED) -I$(PY_INCLUDEPY))
 
 # I add an RPATH to the python extension DSO so that it runs in-tree. The build
 # system should pull it out at install time
@@ -41,10 +42,16 @@ EXTRA_CLEAN += project/*.so
 
 
 
-#############################################################
-#############################################################
-#############################################################
+##########################################################################
+##########################################################################
+##########################################################################
 # vanilla build-system stuff. Your own build system goes here!
+
+LIB_OBJECTS  := c_library.o
+ABI_VERSION  := 0
+TAIL_VERSION := 0
+
+
 
 # if no explicit optimization flags are given, optimize
 define massageopts
@@ -62,6 +69,7 @@ LIB_TARGET_SO_ALL  := $(LIB_TARGET_SO_BARE) $(LIB_TARGET_SO_ABI) $(LIB_TARGET_SO
 
 BIN_TARGETS := $(basename $(BIN_SOURCES))
 
+CFLAGS += -std=gnu99
 
 # all objects built for inclusion in shared libraries get -fPIC. We don't build
 # static libraries, so this is 100% correct
@@ -80,7 +88,6 @@ $(LIB_TARGET_SO_FULL): $(LIB_OBJECTS)
 all: $(LIB_TARGET_SO_ALL)
 .PHONY: all
 .DEFAULT_GOAL := all
-
 
 
 clean:

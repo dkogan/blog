@@ -6,7 +6,7 @@
 static PyObject* f_py(PyObject* self __attribute__((unused)),
                       PyObject* args __attribute__((unused)))
 {
-    printf("in f() python wrapper. About to call C library\n");
+    printf("in f() Python wrapper. About to call C library\n");
     f();
     Py_RETURN_NONE;
 }
