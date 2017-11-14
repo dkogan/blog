@@ -10017,47 +10017,316 @@ dima@scrawny:~/projects/inaccessibility/lower48$
 
 #+end_comment
 
-** Python extension modules without setuptools or distutils       :tools:dev:
+** DONE Python extension modules without setuptools or distutils  :tools:dev:
+   CLOSED: [2017-11-14 Tue 15:22]
 
-Clearly I spend a lot of my time being annoyed. Usually I can simply ignore the
-chaos, but sometimes I need to step into it. Today was such a day.
+I'm a big fan of standardized build systems, and I get really annoyed when
+projects come along and try to reinvent this particular wheel in their
+"ecosystem". Because no "ecosystem" is truly isolated. This is unfortunatly
+ubiquitous, and I spend a lot of my time being annoyed. Usually I can simply
+ignore the chaos, but sometimes I need to step into it. Today was such a day.
 
 At work I work with a number of software projects, mostly written in C. Each one
 lives in a separate repository and builds its own shared library. All of these
-use a standardized build system, so the Makefiles are all simple and uniform.
-For one of these projects I wanted a Python interface in addition to the C
-header. The "normal" way to build a Python extension module is to use
-=setuptools= and/or =distutils=. You're supposed to create a =setup.py= file
-that declares the module, then you invoke this =setup.py= in some way to build
-the module, and then you need to install the module somewhere to actually use
-it. At least I think you're supposed to do those things; these tools are
-massively complicated, and I won't pretend to fully understand them. Which is
-exactly the point: I already have a build system and I know how to build C code,
-and I don't /want/ to learn a new build system for every language I touch.
+use a standardized build system (using GNU Make), so each project-specific
+Makefile is short, simple and uniform. For one of these projects I wanted a
+Python interface in addition to the one provided by the C header. The "normal"
+way to build a Python extension module is to use =setuptools= and/or
+=distutils=. You're supposed to create a =setup.py= file that declares the
+module via some boilerplaty runes, then you invoke this =setup.py= in some way
+to build the module, and then you need to install the module somewhere to
+actually use it. At least I think you're supposed to do those things; these
+tools are massively complicated, and I won't pretend to fully understand them.
+Which is exactly the point: I already have a build system and I know how to
+build C code, and I don't /want/ to learn a new build system for every language
+I touch. This problem has already been solved.
 
-I want to build my extension module within my build system. This would keep the
-build uniform, and the various things the build system does would remain
-working. There's nothing special about the python sources, and I don't want to
-pretend like there is. Requirements:
+Thus what I /really/ want is to build the extension module within my build
+system, instead of using some other infrastructure just for this component. This
+would keep the build uniform, and the various things the build system does would
+remain working. There's nothing special about the python sources, and I don't
+want to pretend like there is. Requirements:
 
 - =make= should work. I.e. I should be able to invoke =make= and everything
   should build
-- normal =make= things should work. I.e. I should be able to invoke =make -j=,
+- Normal =make= things should work. I.e. I should be able to invoke =make -j=,
   and have parallel makes work. I should be able to invoke =make -n=, and get a
-  full list of build commands that would run (this means I can't have =setup.py=
-  in my =Makefile= since =make -n= won't tell me what the =setup.py= would do)
-- normal build system options should work. For instance if my build system has a
+  full list of build commands that would run. And so on.
+- Normal build system options should work. For instance if my build system has a
   specific method for turning compiler optimizations on/off, this method should
-  apply normally to the Python extension module
+  apply as usual to the Python extension module
 - Python scripts using the extension module should work either with the module
   built in-place /or/ installed. This should work without touching =sys.path= or
-  =LD_LIBRARY_PATH= or any such nonsense.
-- Nothing should need to change
+  =LD_LIBRARY_PATH= or any such nonsense
+
+I think these all are /extremely/ reasonable, and I'm trying to clear what
+should be a very low bar.
+
+The most direct way to build the python extension module as a part of the larger
+build system is to make the build system invoke =setup.py=. But then
+
+- =make -n= would be broken since Make was never told what =setup.py= does
+- Dependencies of whatever =setup.py= does would need to manually be
+  communicated to Make, otherwise we could easily rebuild too often or not often
+  enough
+- =make -j= wouldn't work: the parallelization settings wouldn't make it to the
+  =setup.py=, and it would be crippled by the incomplete dependency graph
+- Python scripts using the extension module would need a =sys.path= to find this
+  extension module
+- Build customizations wouldn't work either: =setup.py= does /something/ but it
+  lives in a vacuum, and any Makefile settings would not be respected
+
+Today I integrated the build of my extension module into my build system,
+/without/ using any =setup.py=. This solves /all/ the issues. Since
+fundamentally the only thing the =setup.py= does is to compile and link some C
+code with some specific flags, I just need a way to query those flags, and tell
+my build to use them.
+
+This is most easily described with [[file:files/python_extensions_without_setuptools/python_extensions_without_setuptools.tar.gz][an example]]. Let's say I have some C code I
+want to wrap in my main directory:
+
+=c_library.h=:
+#+BEGIN_SRC C
+void f(void);
+#+END_SRC
+
+and =c_library.c=:
+#+BEGIN_SRC C
+#include <stdio.h>
+#include "c_library.h"
+
+void f(void)
+{
+    printf("in f() written in C\n");
+}
+#+END_SRC
+
+I also have a basic python wrapper of this library called =c_library_pywrap.c=:
+
+#+BEGIN_SRC C
+#include <Python.h>
+#include <stdio.h>
+
+#include "c_library.h"
+
+static PyObject* f_py(PyObject* self __attribute__((unused)),
+                      PyObject* args __attribute__((unused)))
+{
+    printf("in f() Python wrapper. About to call C library\n");
+    f();
+    Py_RETURN_NONE;
+}
 
 
-Today
-I integrated the build of my extension module into my build system, without
-using
+PyMODINIT_FUNC initc_library(void)
+{
+    static PyMethodDef methods[] =
+        { {"f", (PyCFunction)f_py, METH_NOARGS, "Python bindings to f() in c_library\n"},
+          {}
+        };
+
+
+    PyImport_AddModule("c_library");
+    Py_InitModule3("c_library", methods,
+                   "Python bindings to c_library");
+}
+#+END_SRC
+
+This defines a python extension module called =c_library=, and exports a
+function =f= that calls the written-in-C =f()=. This =c_library_pywrap.c= is
+what would normally be built with the =setup.py=. I want my
+importable-from-python modules to end up in a subdirectory called =project/=. So
+=project/__init__.py= exists and for testing I have a separate written-in-python
+module =project/pymodule.py=:
+
+#+BEGIN_SRC python
+import c_library
+
+def g():
+    print "in my written-in-python module g(). Calling c_library.f()"
+    c_library.f()
+#+END_SRC
+
+This module calls our C wrapper. Finally, I also have a test script in the main
+directory called =test.py=:
+#+BEGIN_SRC python
+import project.pymodule
+import project.c_library
+
+project.c_library.f()
+project.pymodule .g()
+#+END_SRC
+
+So all python modules (written in either C or python) should be importable with
+a =import project.whatever=. Inside =project/= a simple =import whatever=
+suffices.
+
+Note that I didn't touch =sys.path=. Since the project subdirectory is called
+=project/= both post-install and in-tree, the importer will find the module in
+either case without any hand-holding. To make that work I build the
+=project.c_library= DSO in-tree into =project/=. Now the main part: the
+=Makefile=:
+#+BEGIN_SRC Makefile
+# This is a demo Makefile. The stuff on top pulls out the build flags from
+# Python and tell Make to use them. The stuff on the bottom is generic build
+# rules, that would come from a common build system.
+
+
+
+# The python libraries (compiled ones and ones written in python all live in
+# project/).
+
+# I build the python extension module without any setuptools or anything.
+# Instead I ask python about the build flags it likes, and build the DSO
+# normally using those flags.
+#
+# There's some sillyness in Make I need to work around. First, I produce a
+# python script to query the various build flags, but replacing all whitespace
+# with __whitespace__. The string I get when running this script will then have
+# a number of whitespace-separated tokens, each setting ONE variable
+define PYVARS_SCRIPT :=
+import sysconfig
+import re
+for v in ("CC","CFLAGS","CCSHARED","INCLUDEPY","BLDSHARED","LDFLAGS"):
+    print re.sub("[\t ]+", "__whitespace__", "PY_{}:={}".format(v, sysconfig.get_config_var(v)))
+endef
+PYVARS := $(shell python -c '$(PYVARS_SCRIPT)')
+
+# I then $(eval) these tokens one at a time, restoring the whitespace
+$(foreach v,$(PYVARS),$(eval $(subst __whitespace__, ,$v)))
+
+# The compilation flags are all the stuff python told us about. Some of its
+# flags live inside its CC variable, so I pull those out. I also pull out the
+# optimization flag, since I want THIS build system to control it
+FLAGS_FROM_PYCC := $(wordlist 2,$(words $(PY_CC)),$(PY_CC))
+c_library_pywrap.o: CFLAGS += $(filter-out -O%,$(FLAGS_FROM_PYCC) $(PY_CFLAGS) $(PY_CCSHARED) -I$(PY_INCLUDEPY))
+
+# I add an RPATH to the python extension DSO so that it runs in-tree. The build
+# system should pull it out at install time
+project/c_library.so: c_library_pywrap.o libc_library.so
+	$(PY_BLDSHARED) $(PY_LDFLAGS) $< -lc_library -o $@ -L$(abspath .) -Wl,-rpath=$(abspath .)
+
+all: project/c_library.so
+EXTRA_CLEAN += project/*.so
+
+
+
+##########################################################################
+##########################################################################
+##########################################################################
+# vanilla build-system stuff. Your own build system goes here!
+
+LIB_OBJECTS  := c_library.o
+ABI_VERSION  := 0
+TAIL_VERSION := 0
+
+
+
+# if no explicit optimization flags are given, optimize
+define massageopts
+$1 $(if $(filter -O%,$1),,-O3)
+endef
+
+%.o:%.c
+	$(CC) $(call massageopts, $(CFLAGS) $(CPPFLAGS)) -c -o $@ $<
+
+LIB_NAME           := libc_library
+LIB_TARGET_SO_BARE := $(LIB_NAME).so
+LIB_TARGET_SO_ABI  := $(LIB_TARGET_SO_BARE).$(ABI_VERSION)
+LIB_TARGET_SO_FULL := $(LIB_TARGET_SO_ABI).$(TAIL_VERSION)
+LIB_TARGET_SO_ALL  := $(LIB_TARGET_SO_BARE) $(LIB_TARGET_SO_ABI) $(LIB_TARGET_SO_FULL)
+
+BIN_TARGETS := $(basename $(BIN_SOURCES))
+
+CFLAGS += -std=gnu99
+
+# all objects built for inclusion in shared libraries get -fPIC. We don't build
+# static libraries, so this is 100% correct
+$(LIB_OBJECTS): CFLAGS += -fPIC
+$(LIB_TARGET_SO_FULL): LDFLAGS += -shared -Wl,--default-symver -fPIC -Wl,-soname,$(notdir $(LIB_TARGET_SO_BARE)).$(ABI_VERSION)
+
+$(LIB_TARGET_SO_BARE) $(LIB_TARGET_SO_ABI): $(LIB_TARGET_SO_FULL)
+	ln -fs $(notdir $(LIB_TARGET_SO_FULL)) $@
+
+# Here instead of specifying $^, I do just the %.o parts and then the
+# others. This is required to make the linker happy to see the dependent
+# objects first and the dependency objects last. Same as for BIN_TARGETS
+$(LIB_TARGET_SO_FULL): $(LIB_OBJECTS)
+	$(CC) $(LDFLAGS) $(filter %.o, $^) $(filter-out %.o, $^) $(LDLIBS) -o $@
+
+all: $(LIB_TARGET_SO_ALL)
+.PHONY: all
+.DEFAULT_GOAL := all
+
+
+clean:
+	rm -rf *.a *.o *.so *.so.* *.d $(EXTRA_CLEAN)
+#+END_SRC
+
+There're two sections here: the part that actually defines how the extension
+module should be built, and then a part with some generic rules that would
+normally come from your own build system. Those are here just as an example. The
+details should be clear from the comments. I should note that I got the
+necessary build flags by poking =setup.py= with =sysdig=. =sysdig= is awesome;
+go check it out.
+
+And that's it. I can build:
+
+#+BEGIN_EXAMPLE
+$ make
+
+cc  -std=gnu99 -pthread -fno-strict-aliasing -DNDEBUG -g -fwrapv -Wall -Wstrict-prototypes -Wdate-time -D_FORTIFY_SOURCE=2 -g -fdebug-prefix-map=/build/python2.7-VlMpWk/python2.7-2.7.14=. -fstack-protector-strong -Wformat -Werror=format-security -fPIC -I/usr/include/python2.7  -O3 -c -o c_library_pywrap.o c_library_pywrap.c
+cc  -std=gnu99 -fPIC  -O3 -c -o c_library.o c_library.c
+cc -shared -Wl,--default-symver -fPIC -Wl,-soname,libc_library.so.0 c_library.o   -o libc_library.so.0.0
+ln -fs libc_library.so.0.0 libc_library.so
+x86_64-linux-gnu-gcc -pthread -shared -Wl,-O1 -Wl,-Bsymbolic-functions -Wl,-z,relro -fno-strict-aliasing -DNDEBUG -g -fwrapv -O2 -Wall -Wstrict-prototypes -Wdate-time -D_FORTIFY_SOURCE=2 -g -fdebug-prefix-map=/build/python2.7-VlMpWk/python2.7-2.7.14=. -fstack-protector-strong -Wformat -Werror=format-security  -Wl,-z,relro c_library_pywrap.o -lc_library -o project/c_library.so -L/home/dima/blog/files/python_extensions_without_setuptools -Wl,-rpath=/home/dima/blog/files/python_extensions_without_setuptools
+ln -fs libc_library.so.0.0 libc_library.so.0
+#+END_EXAMPLE
+
+And I can run the test:
+
+#+BEGIN_EXAMPLE
+$ python test.py 
+
+in f() Python wrapper. About to call C library
+in f() written in C
+in my written-in-python module g(). Calling c_library.f()
+in f() Python wrapper. About to call C library
+in f() written in C
+#+END_EXAMPLE
+
+Furthermore, Make works. The sample =Makefile= has a rule where it optimizes
+with =-O3= unless there's some other optimization flag already given, in which
+case =-O3= is /not/ added. Look:
+
+#+BEGIN_EXAMPLE
+$ rm c_library_pywrap.o
+
+$ make -n c_library_pywrap.o
+cc  -std=gnu99 -pthread -fno-strict-aliasing -DNDEBUG -g -fwrapv -Wall -Wstrict-prototypes -Wdate-time -D_FORTIFY_SOURCE=2 -g -fdebug-prefix-map=/build/python2.7-VlMpWk/python2.7-2.7.14=. -fstack-protector-strong -Wformat -Werror=format-security -fPIC -I/usr/include/python2.7  -O3 -c -o c_library_pywrap.o c_library_pywrap.c
+
+$ CFLAGS=-O0 make -n c_library_pywrap.o
+cc  -O0 -std=gnu99 -pthread -fno-strict-aliasing -DNDEBUG -g -fwrapv -Wall -Wstrict-prototypes -Wdate-time -D_FORTIFY_SOURCE=2 -g -fdebug-prefix-map=/build/python2.7-VlMpWk/python2.7-2.7.14=. -fstack-protector-strong -Wformat -Werror=format-security -fPIC -I/usr/include/python2.7   -c -o c_library_pywrap.o c_library_pywrap.c
+#+END_EXAMPLE
+
+Which is really nice. And =make -n= works. And I can ask a particular target to
+be built, which wouldn't be possible with =setup.py=.
+
+The python extension module is a DSO that calls a function from my C library
+DSO. When running in-tree an =RPATH= is required in order for the former to find
+the latter:
+
+#+BEGIN_EXAMPLE
+$ objdump -p project/c_library.so | grep PATH
+  RUNPATH              /home/dima/blog/files/python_extensions_without_setuptools
+#+END_EXAMPLE
+
+At install time, this should be stripped out (with the =chrpath= tool for
+instance). Build systems generally do this anyway.
+
+And I'm done. I really wish this wasn't a hack. It'd be nice if the Python
+project (and all the others) provided these flags officially, via =pkg-config=
+or something. Someday.
 
 
 
