@@ -10166,7 +10166,7 @@ Note that I didn't touch =sys.path=. Since the project subdirectory is called
 either case without any hand-holding. To make that work I build the
 =project.c_library= DSO in-tree into =project/=. Now the main part: the
 =Makefile=:
-#+BEGIN_SRC Makefile
+#+BEGIN_SRC makefile
 # This is a demo Makefile. The stuff on top pulls out the build flags from
 # Python and tell Make to use them. The stuff on the bottom is generic build
 # rules, that would come from a common build system.
