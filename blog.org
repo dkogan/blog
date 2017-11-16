@@ -10328,6 +10328,7 @@ And I'm done. I really wish this wasn't a hack. It'd be nice if the Python
 project (and all the others) provided these flags officially, via =pkg-config=
 or something. Someday.
 
+License: released into the public domain; I'm giving up all copyright.
 
 
 
