@@ -15,7 +15,7 @@
 # python script to query the various build flags, but replacing all whitespace
 # with __whitespace__. The string I get when running this script will then have
 # a number of whitespace-separated tokens, each setting ONE variable
-define PYVARS_SCRIPT :=
+define PYVARS_SCRIPT
 import sysconfig
 import re
 for v in ("CC","CFLAGS","CCSHARED","INCLUDEPY","BLDSHARED","LDFLAGS"):
