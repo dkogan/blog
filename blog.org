@@ -8015,6 +8015,16 @@ these cases, email me.
 ** DONE Using DWARF to find and save all state in a C library     :tools:dev:
    CLOSED: [2016-11-13 Sun 23:58]
 
+#+begin_o_blog_alert info Update
+Note that this technique finds /each individual stateful variable/ in a library.
+A simpler technique would be to simply copy the whole =.bss= and =.data=
+sections. This is simpler, requires many fewer copies, and does /not/ need
+DWARF. Depending on what one is doing, either method could be better.
+
+See =get_writeable_memory_ranges()= in the [[https://github.com/dkogan/FindGlobals][sources]] for an implementation
+example.
+#+end_o_blog_alert
+
 Recently I needed to integrate a particular C library into a larger project I'm
 working on. This larger project has an "undo" feature, which requires that any
 action of the library must be revertable. This library does no I/O, so an undo
