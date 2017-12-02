@@ -8017,12 +8017,22 @@ these cases, email me.
 
 #+begin_o_blog_alert info Update
 Note that this technique finds /each individual stateful variable/ in a library.
-A simpler technique would be to simply copy the whole =.bss= and =.data=
-sections. This is simpler, requires many fewer copies, and does /not/ need
-DWARF. Depending on what one is doing, either method could be better.
+Thinking about this more, a simpler technique would be to simply copy the whole
+=.bss= and =.data= sections. This is much simpler, requires many fewer copies,
+and does /not/ need DWARF. You end up copying more data since you copy the
+padding bytes also, but this is likely still faster, since you only make 2 large
+transfers. Another potential advantage of doing it this way, is that there might
+be some data somewhere that would not show up in the DWARF: some language
+runtime metadata or god-knows-what internal data in something. In my one
+non-toy-problem test, the DWARF identified about 1600 variables for a grand
+total of about 10MB of data. The =.bss= and =.data= together weigh in at 27MB,
+so the padding is 170% of the data. I haven't benchmarked it, but I'm /sure/
+that copying the sections would be faster. In any case, the DWARF logic still
+has its place, in case we need finer-grained control than just dumping all the
+memory in a DSO.
 
-See =get_writeable_memory_ranges()= in the [[https://github.com/dkogan/FindGlobals][sources]] for an implementation
-example.
+See =get_writeable_memory_ranges()= in the [[https://github.com/dkogan/FindGlobals][sources]] for an example implementation
+of getting the relevant memory ranges..
 #+end_o_blog_alert
 
 Recently I needed to integrate a particular C library into a larger project I'm
