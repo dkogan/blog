@@ -10360,7 +10360,8 @@ License: released into the public domain; I'm giving up all copyright.
 
 
 ** Math. Horizonator?
-** multi-arch in general
+** asciilog
+ads
 
 
 * making dvipng work                                               :noexport:
