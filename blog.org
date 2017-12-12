@@ -491,22 +491,28 @@ function waitfor()
                         # paused right now
         wait $PID;
         seturgent
+        true
     elif [[ $N -ne 0 ]]; then
         echo "Found more than one matching process. Doing nothing";
+        false
     elif [[ -z $1 ]]; then
         echo "No children of the current shell to wait on. Doing nothing";
+        false
     else
         echo "Found no matching processes in this shell. Looking globally.";
         PID=$(pgrep -f $1)
         N=$(echo $PID | wc -w)
         if [[ $N -eq 0 ]]; then
             echo "Found no matching global process either. Giving up.";
+            false
         elif [[ $N -ne 1 ]]; then
             echo "Found more than one global process. Giving up";
+            false
         else
             echo "Found unique process with pid $PID"
             while (ps -p $PID > /dev/null) { sleep 10; }
             seturgent;
+            true
         fi
     fi
 }
