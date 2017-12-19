@@ -8039,6 +8039,9 @@ memory in a DSO.
 
 See =get_writeable_memory_ranges()= in the [[https://github.com/dkogan/FindGlobals][sources]] for an example implementation
 of getting the relevant memory ranges..
+
+Also note, that I found a bug related to the size reporting of multi-dimensional
+array: [[https://sourceware.org/bugzilla/show_bug.cgi?id=22546]]
 #+end_o_blog_alert
 
 Recently I needed to integrate a particular C library into a larger project I'm
@@ -10356,7 +10359,32 @@ or something. Someday.
 
 License: released into the public domain; I'm giving up all copyright.
 
+** DONE Some new free-software bugs                                     :dev:
+   CLOSED: [2017-12-18 Mon 20:16]
 
+I found and fixed bugs in two free-software projects recently: zsh and elfutils.
+Nothing particularly interesting, but I thought I'd make a note here.
+
+*** zsh
+
+Report, patch: http://www.zsh.org/mla/workers/2017/msg01704.html. This one is
+interesting for two reasons:
+
+1. The broken-ness is in a very non-obscure place: qualifying a particular type
+   of glob doesn't work. For instance =dir*/file(Om)= would not actually do the
+   sorting, as requested by the =(Om)=.
+
+2. This bug was there /at least/ since 2001! This is my record, I think
+
+*** elfutils
+
+Report, patch: [[https://sourceware.org/bugzilla/show_bug.cgi?id=22546]]. This one
+is also very non-obscure: =libdw= lies about the size of a variable if the
+variable is a multi-dimensional array.
+
+It is interesting how breakage is /everywhere/ (look: two bugs in common usage
+in common tools) and /nowhere/ (tons of people uses both of these tools everyday
+without hitting these) at the same time.
 
 
 ** Math. Horizonator?
