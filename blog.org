@@ -8496,6 +8496,7 @@ use feature ':5.10';
 my %undef_syms_in_libs;
 my %defining_lib_for_sym;
 my %library_dep;
+my %libraries;
 
 while(<>)
 {
@@ -8508,8 +8509,7 @@ while(<>)
                             $/x
       or next;
 
-    $lib =~ s/^lib//;
-    $lib =~ s/\.so.*//;
+    $libraries{$lib} = 1;
 
     # read in each symbol, and make a record of each defined and undefined
     # function. I look for very specific symbol types here, and this set is
@@ -8544,9 +8544,44 @@ for my $lib (keys %undef_syms_in_libs)
 }
 
 # print out the dependencies
+say "######### All dependencies: #########";
 for my $lib(keys %library_dep)
 {
-    say "lib$lib.so:" . join('', map {" -l$_"} keys %{$library_dep{$lib}} );
+    say "$lib:" . join('', map { ' -l' . s/^lib(.*)\.so.*/\1/r} keys %{$library_dep{$lib}} );
+}
+
+
+# Find the existing DT_NEEDED flags
+my %libraries_have_needed;
+for my $lib (keys %libraries)
+{
+    my %thislib_have_needed;
+
+    my $fd;
+    open $fd, '-|', "objdump -p $lib | awk '\$1 ~ /NEEDED/ { print \$2 }'";
+    while(<$fd>)
+    {
+        chomp;
+        next unless length($_);
+        $thislib_have_needed{$_} = 1;
+    }
+
+    $libraries_have_needed{$lib} = \%thislib_have_needed;
+}
+
+# Compare the existing DT_NEEDED flags with linkages we found by looking at the
+# symbols. We SHOULD have DT_NEEDED flags for everything. If we don't, report it
+say "######### All MISSING dependencies: #########";
+for my $lib(keys %library_dep)
+{
+    # Library $lib depends on the libraries in keys %{$library_dep{$lib}}
+    for my $libdep (keys %{$library_dep{$lib}})
+    {
+        if (not exists $libraries_have_needed{$lib}{$libdep})
+        {
+            say "Missing DT_NEEDED: $lib depends on $libdep";
+        }
+    }
 }
 #+END_SRC
 
@@ -8558,7 +8593,11 @@ above, the invocation and output would look like this:
 #+BEGIN_EXAMPLE
 $ nm -o -D libA.so libB.so | perl infer_dt_needed.pl
 
+######### All dependencies: #########
 libA.so: -lB
+
+######### All MISSING dependencies: #########
+Missing DT_NEEDED: libA.so depends on libB.so
 #+END_EXAMPLE
 
 The =nm= tool reads the symbol table, and the =-o -D= options are more or less
