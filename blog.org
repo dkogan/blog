@@ -8031,11 +8031,8 @@ transfers. Another potential advantage of doing it this way, is that there might
 be some data somewhere that would not show up in the DWARF: some language
 runtime metadata or god-knows-what internal data in something. In my one
 non-toy-problem test, the DWARF identified about 1600 variables for a grand
-total of about 10MB of data. The =.bss= and =.data= together weigh in at 27MB,
-so the padding is 170% of the data. I haven't benchmarked it, but I'm /sure/
-that copying the sections would be faster. In any case, the DWARF logic still
-has its place, in case we need finer-grained control than just dumping all the
-memory in a DSO.
+total of about 27MB. In any case, the DWARF logic still has its place, in case
+we need finer-grained control than just dumping all the memory in a DSO.
 
 See =get_writeable_memory_ranges()= in the [[https://github.com/dkogan/FindGlobals][sources]] for an example implementation
 of getting the relevant memory ranges..
