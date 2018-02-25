@@ -10951,11 +10951,101 @@ Copyright 2017-2018 Dima Kogan (=dima@secretsauce.net=)
 Chris Venter (=chris.venter@gmail.com=) who placed it in the public domain. The
 full text of the license is in that file.
 
+** DONE Vnlog integration with feedgnuplot                       :tools:data:
+   CLOSED: [2018-02-24 Sat 17:24]
+
+This is mostly a continuation of the last post, but it's /so nice/!
+
+As [[http://www.github.com/dkogan/feedgnuplot][=feedgnuplot=]] reads data, it interprets it into separate datasets with IDs
+that can be used to refer to these datasets. For instance you can pass
+=feedgnuplot --autolegend= to create a legend for each dataset, labelling each
+with its ID. Or you can set specific directives for one dataset but not another:
+=feedgnuplot --style position 'with lines' --y2 temperature= would plot the
+=position= data with lines, and the =temperature= data on the second y axis.
+
+Let's say we were plotting a data stream
+
+#+BEGIN_EXAMPLE
+1 1
+2 4
+3 9
+4 16
+5 25
+#+END_EXAMPLE
 
 
+Without =--domain= this data would be interpreted like this:
 
+- without =--dataid=. This stream would be interpreted as two data sets: IDs =0=
+  and =1=. There're 5 points in each one
 
+- /with/ =--dataid=. This stream would be interpreted as 5 different datasets
+  with IDs =1=, =2=, =3=, =4= and =5=. Each of these datasets would contain
+  point point each.
 
+This is a silly example for =--dataid=, obviously. You'd instead have a dataset
+like
+
+#+BEGIN_EXAMPLE
+temperature 34 position 4
+temperature 35 position 5
+temperature 36 position 6
+temperature 37 position 7
+#+END_EXAMPLE
+
+and this would mean two datasets: =temperature= and =position=. This is nicely
+flexible because it can be as sparse as you want: each row doesn't need to have
+one temperature and one position, although in many datasets you would have
+exactly this. Real datasets are often more complex:
+
+#+BEGIN_EXAMPLE
+1 temperature1 34 temperature2 35 position 4
+2 temperature1 35 temperature2 36
+3 temperature1 36 temperature2 33
+4 temperature1 37 temperature2 32 position 7
+#+END_EXAMPLE
+
+Here the first column could be a domain of sort sort, time for instance. And we
+have two different temperature sensors. And we don't always get a position
+report for whatever reason. This works fine, but is verbose, and usually the
+data is never stored in this way; I'd use =awk= to convert the data from its
+original form into this form for plotting. Now that [[http://www.github.com/dkogan/vnlog][=vnlog=]] is a thing,
+=feedgnuplot= has direct support for it, and this works like a 3rd way to get
+dataset IDs: vnlog headers. I'd represent the above like this:
+
+#+BEGIN_EXAMPLE
+# time temperature1 temperature2 position
+1 34 35 4
+2 35 36 -
+3 36 33 -
+4 37 32 7
+#+END_EXAMPLE
+
+This would be the /working/ representation; I'd log directly to this format, and
+work with this data even before plotting it. But I can now plot this directly:
+
+#+BEGIN_EXAMPLE
+$ < data.vnl 
+  feedgnuplot --domain --vnlog --autolegend --with lines 
+              --style position 'with points pt 7' --y2 position
+#+END_EXAMPLE
+
+I think the command above makes it clear what was intended. It looks like this:
+
+#+ATTR_HTML: :width 90%
+[[file:files/feedgnuplot-vnlog/vnl1.svg]]
+
+The input data is now much more concise, I don't need a different format for
+plotting, and the amount of typing has been greatly reduced. /And/ I can do the
+normal vnlog things. What if I want to plot only temperatures:
+
+#+BEGIN_EXAMPLE
+$ < data.vnl 
+  vnl-filter -p time,temp |
+  feedgnuplot --domain --vnlog --autolegend --with lines 
+#+END_EXAMPLE
+
+Nice!
 
 
 ** Math. Horizonator?                                              :noexport:
