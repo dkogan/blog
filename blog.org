@@ -10422,7 +10422,7 @@ It is interesting how breakage is /everywhere/ (look: two bugs in common usage
 in common tools) and /nowhere/ (tons of people uses both of these tools everyday
 without hitting these) at the same time.
 
-** DONE Vnlog!                                                   :tools:data:
+** DONE Vnlog!                                             :tools:data:vnlog:
    CLOSED: [2018-02-18 Sun 11:58]
 
 In the last few jobs I've worked at I ended up writing a tool to store data in a
@@ -10951,7 +10951,7 @@ Copyright 2017-2018 Dima Kogan (=dima@secretsauce.net=)
 Chris Venter (=chris.venter@gmail.com=) who placed it in the public domain. The
 full text of the license is in that file.
 
-** DONE Vnlog integration with feedgnuplot                       :tools:data:
+** DONE Vnlog integration with feedgnuplot                 :tools:data:vnlog:
    CLOSED: [2018-02-24 Sat 17:24]
 
 This is mostly a continuation of the last post, but it's /so nice/!
@@ -11046,6 +11046,347 @@ $ < data.vnl
 #+END_EXAMPLE
 
 Nice!
+
+** More Vnlog examples                                     :tools:data:vnlog:
+
+More demos of [[https://github.com/dkogan/vnlog][=vnlog=]] and [[https://github.com/dkogan/feedgnuplot][=feedgnuplot=]] usage! This is pretty pointless, but
+should be illustrative at least. This is a demo, not documentation; so for usage
+details consult the normal docs.
+
+I ride in a [[http://www.thepassageride.com][weekly night bike ride]] each week where an email precedes each ride,
+very roughly describing the route. The two organizers alternate leading the ride
+each week, and consequently the emails alternate also. I was getting the feeling
+that some of the emails arrive much more punctually than others, and after a
+recent 20-minutes-before-the ride email, I decided this just had to be
+quantified.
+
+The emails all go to a google-group email. They're a wheel-reinventing bunch, so
+downloading the whole archive can't trivially be done with normal tools (NNTP?
+mbox files?). A brief search revealed somebody's home-grown tool to do this:
+
+https://github.com/icy/google-group-crawler.git
+
+The docs look funny, but are actually correct: you really /do/ run the script to
+download stuff and generate another script; and then run /that/ script to
+download the rest of the stuff.
+
+Anyway, I used that tool to grab all the emails that are available. Then I wrote
+a quick/dirty script to parse out the data I care about and dump it all into a
+vnlog:
+
+#+BEGIN_SRC perl
+#!/usr/bin/perl
+use strict;
+use warnings;
+
+use feature ':5.10';
+
+my %daysofweek = ('Mon' => 0,
+                  'Tue' => 1,
+                  'Wed' => 2,
+                  'Thu' => 3,
+                  'Fri' => 4,
+                  'Sat' => 5,
+                  'Sun' => 6);
+my %months = ('Jan' => 1,
+              'Feb' => 2,
+              'Mar' => 3,
+              'Apr' => 4,
+              'May' => 5,
+              'Jun' => 6,
+              'Jul' => 7,
+              'Aug' => 8,
+              'Sep' => 9,
+              'Oct' => 10,
+              'Nov' => 11,
+              'Dec' => 12);
+
+
+say '# path ridenum who whenwedh date wordcount subject';
+
+for my $path (<mbox/m.*>)
+{
+    my ($ridenum,$who,$date,$whenwedh,$subject);
+
+    my $wordcount = 0;
+    my $inbody    = undef;
+
+    open FD, '<', $path;
+    while(<FD>)
+    {
+        if( !$inbody && /^From: *(.*?)\s*$/ )
+        {
+            $who = $1;
+            if(   $who =~ /sean/i)   { $who = 'sean'; }
+            elsif($who =~ /nathan/i) { $who = 'nathan'; }
+            else                     { $who = 'other'; }
+        }
+        if( !$inbody &&
+            /^Subject: \s*
+             (?:=\?UTF-8\?Q\?)?
+             (.*?) \s* $/x )
+        {
+            $subject = $1;
+            ($ridenum) = $subject =~ /^(?: \# | (?:=\?ISO-8859-1\?Q\?=23) )
+                                      ([0-9]+)/x;
+            $subject =~ s/[\s#]//g;
+        }
+        if( !$inbody && /^Date: *(.*?)\s*$/ )
+        {
+            $date = $1;
+
+            my ($zone) = $date =~ / (\(.+\) | -0700 | -0800) /x;
+            if( !defined $zone)
+            {
+                die "No timezone in: '$date'";
+            }
+            if( $zone !~ /PST|PDT|-0700|-0800/)
+            {
+                die "Unexpected timezone: '$zone'";
+            }
+
+            my ($Dayofweek,$D,$M,$Y,$h,$m,$s) = $date =~ /^(...),? +(\d+) +([a-zA-Z]+) +(20\d\d) +(\d\d):(\d\d):(\d\d)/;
+            if( !(defined $Dayofweek && defined $h && defined $m && defined $s) )
+            {
+                die "Unparseable date '$date'";
+            }
+            my $dayofweek = $daysofweek{$Dayofweek} // die "Unparseable day-of-week '$Dayofweek'";
+
+            my $t     = $dayofweek*24 + $h + ($m + $s/60)/60;
+            my $twed0 = 2*24; # start of wed
+            $M = $months{$M} // die "Unknown month '$M'. Line: '$_'";
+            $date = sprintf('%04d%02d%02d', $Y,$M,$D);
+
+            $whenwedh = $t - $twed0;
+        }
+
+        if( !$inbody && /^[\r\n]*$/ )
+        {
+            $inbody = 1;
+        }
+        if( $inbody )
+        {
+            if( /------=_Part/ || /Content-Type:/)
+            {
+                last if $wordcount > 0;
+                $inbody = undef;
+                next;
+            }
+            my @words = /(\w+)/g;
+            $wordcount += @words;
+        }
+    }
+    close FD;
+
+    $who      //= '-';
+    $subject  //= '-';
+    $ridenum  //= '-';
+    $date     //= '-';
+    $whenwedh //= '-';
+
+    say "$path $ridenum $who $whenwedh $date $wordcount $subject";
+}
+#+END_SRC
+
+Now that I have a log on disk, I can do stuff with it. The first few lines of
+the log look like this:
+
+#+BEGIN_EXAMPLE
+dima@scrawny:~/projects/passagemining/google-group-crawler/the-passage-announcements$ < rides.vnl head
+
+# path ridenum who whenwedh date wordcount subject
+mbox/m.-EF1u5bbw5A.SywitKQ3y1sJ 265 sean 1.40722222222222 20140903 190 265-Coasting
+mbox/m.-JdiiTIvyYs.Jgy_rCiwAGAJ 151 sean 18.6441666666667 20120606 199 151-FinalsWeek
+mbox/m.-l6z9-1WC78.SgP3ytLsDAAJ 312 nathan 19.5394444444444 20150812 189 312-SpaceFilling
+mbox/m.-vfVuoUxJ0w.FwpRRWC7EgAJ 367 nathan 18.1766666666667 20160831 164 367-Dislocation
+mbox/m.-YHTEvmbIyU.HHWjbs_xpesJ 110 sean 10.9108333333333 20110810 407 110-SouslesParcs,laPoubelle
+mbox/m.0__GMaUD_O8.Pjupq0AwBAAJ 404 sean 13.5255555555556 20170524 560 404-Bumped
+mbox/m.0CT9ybx3uIU.sdZGwo8rSQUJ 53 sean -23.1402777777778 20100629 223 53WeInventedtheRemix
+mbox/m.0FtQxCkxVHA.AjhGJ7mgAwAJ 413 nathan 20.4155555555556 20170726 178 413-GradientAssent
+mbox/m.0haCNC_N2fY.bJ-93LQSFQAJ 337 nathan 57.3708333333333 20160205 479 337-TheCronutRide
+#+END_EXAMPLE
+
+I can align the columns to make it more human-readable:
+
+#+BEGIN_EXAMPLE
+dima@scrawny:~/projects/passagemining/google-group-crawler/the-passage-announcements$ < rides.vnl head | vnl-align
+
+#             path              ridenum   who       whenwedh        date   wordcount           subject          
+mbox/m.-EF1u5bbw5A.SywitKQ3y1sJ 265     sean     1.40722222222222 20140903 190       265-Coasting               
+mbox/m.-JdiiTIvyYs.Jgy_rCiwAGAJ 151     sean    18.6441666666667  20120606 199       151-FinalsWeek             
+mbox/m.-l6z9-1WC78.SgP3ytLsDAAJ 312     nathan  19.5394444444444  20150812 189       312-SpaceFilling           
+mbox/m.-vfVuoUxJ0w.FwpRRWC7EgAJ 367     nathan  18.1766666666667  20160831 164       367-Dislocation            
+mbox/m.-YHTEvmbIyU.HHWjbs_xpesJ 110     sean    10.9108333333333  20110810 407       110-SouslesParcs,laPoubelle
+mbox/m.0__GMaUD_O8.Pjupq0AwBAAJ 404     sean    13.5255555555556  20170524 560       404-Bumped                 
+mbox/m.0CT9ybx3uIU.sdZGwo8rSQUJ  53     sean   -23.1402777777778  20100629 223       53WeInventedtheRemix       
+mbox/m.0FtQxCkxVHA.AjhGJ7mgAwAJ 413     nathan  20.4155555555556  20170726 178       413-GradientAssent         
+mbox/m.0haCNC_N2fY.bJ-93LQSFQAJ 337     nathan  57.3708333333333  20160205 479       337-TheCronutRide          
+dima@scrawny:~/projects/passagemining/google-group-crawler/the-passage-announcements$ 
+#+END_EXAMPLE
+
+If memory serves, we're at around ride 450 right now. Is that right?
+
+#+BEGIN_EXAMPLE
+$ < rides.vnl vnl-sort -nr -k ridenum | head -n2 | vnl-filter -p ridenum
+
+# ridenum
+452
+#+END_EXAMPLE
+
+Cool. This was longer than it needed to be in order to produce nicer output. If
+I /really/ wanted to save keystrokes, the following is good-enough:
+
+#+BEGIN_EXAMPLE
+$ < rides.vnl vnl-sort -nrk ridenum | head
+
+# path ridenum who whenwedh date wordcount subject
+mbox/m.7TnUbcShAz8.67KgwBGhAAAJ 452 nathan 20.7694444444444 20180502 175 452-CastingtoType
+mbox/m.ej7Oz6sDzgc.bEnN04VEAQAJ 451 sean 0.780833333333334 20180425 258 451-Recovery
+mbox/m.LWfydBtpd_s.35SgEJEqAgAJ 450 nathan 67.9608333333333 20180420 659 450-AnotherGreenWorld
+mbox/m.3mv-Cm0EzkM.oAm3MkNYCAAJ 449 sean 17.5875 20180411 290 449-DoYouHaveRockNRoll?
+mbox/m.AEV4ukSjO5U.IPlUabfEBgAJ 448 nathan 20.6138888888889 20180404 175 448-TheThirdString
+mbox/m.bYTM6kgxtJs.5iHcVQKPBAAJ 447 sean 15.8355555555556 20180328 196 447-PassParticiple
+mbox/m.tHMqRWp9o_Y.FQ8hFvnqCQAJ 446 nathan 20.5213888888889 20180321 139 446-Chiaroscuro
+mbox/m.jr0SBsDBzgk.UHrbCv4VBQAJ 445 sean 15.3280555555556 20180314 111 445-85%
+mbox/m.K2Yg_FRXuAo.SyViTwXXAQAJ 444 nathan 19.6180555555556 20180307 171 444-BackintheLoop
+#+END_EXAMPLE
+
+OK, how far back does the archive go? I do the same thing as before, but sort in
+the opposite order to find the ealiest rides
+
+#+BEGIN_EXAMPLE
+$ < rides.vnl vnl-sort -n -k ridenum | head -n2 | vnl-filter -p ridenum
+
+# ridenum
+#+END_EXAMPLE
+
+Nothing. That's odd. Let me look at the whole records, and at more than just the
+first two lines
+
+#+BEGIN_EXAMPLE
+$ < rides.vnl vnl-sort -n -k ridenum | head | vnl-align
+
+#             path              ridenum   who       whenwedh       date   wordcount                       subject                      
+mbox/m.2gywN9pxMI4.40UBrDjnAwAJ -       nathan  17.6572222222222 20171206  95       Noridetonight;daytimeridethisSaturday!             
+mbox/m.49fZsvZac_U.a0CazPinCAAJ -       sean   -34.495           20170320 463       Extraridethisweekend+Passage400save-the-date       
+mbox/m.5gJd21W24vo.ICDEHrnQJvcJ -       nathan  12.1063888888889 20130619 172       NoPassageRideTonight;GalleryOpeningTomorrowNight   
+mbox/m.7qEbhBWSN1U.Cx6cxYTECgAJ -       nathan  17.7891666666667 20180418 134       Noridetonight;Passage450onSaturday!                
+mbox/m.DVssP4Th__4.jXzzu9clZLQJ -       sean    20.9138888888889 20101222 209       TheWrathofTlaloc                                   
+mbox/m.E6etBSqEQIc.C35-SkBllHoJ -       sean    50.7575          20131220 292       Noridenextweek;seeyounextyear                      
+mbox/m.GyJ16HiK8Ds.z6yNC4W5SeUJ -       sean   -11.5666666666667 20120529 228       NoRideThisWeek!...AIDS/Lifecycle...ThirdAnniversary
+mbox/m.H3QGBvjeTfM.CS-xRn1WDQAJ -       sean    17.0180555555555 20171227 257       Noridetonight;nextride1/6                          
+mbox/m.K2P6D_BGfYU.ve6a_8l6AAAJ -       sean    37.8166666666667 20170223 150       RemainingPassageRouteMapShirtsAvailableforPurchase 
+#+END_EXAMPLE
+
+Aha. A bunch of emails aren't announncing a ride, but are announcing that
+there's /no/ ride. Let's ignore those
+
+#+BEGIN_EXAMPLE
+$ < rides.vnl vnl-filter -p +ridenum | vnl-sort -n -k ridenum | head -n2
+
+# ridenum
+52
+#+END_EXAMPLE
+
+Bam. So we have emails going back to ride 52. Good enough. All right. I'm aiming
+to create a histogram for Sean's email and another for Nathan's email. What
+about emails that came from neither one? In theory there shouldn't be any of
+those, but there could be a parsing error, or who knows what.
+
+#+BEGIN_EXAMPLE
+$ < rides.vnl vnl-filter 'who == "other"'
+
+# path ridenum who whenwedh date wordcount subject
+mbox/m.A-I0_i9-YOs.QRX1P99_uiUJ 65 other 65.1413888888889 20100917 330 65-LosAngelesRidesItself+specialscreening
+mbox/m.pHpzsjH7H68.O7CP_v6bcEoJ 67 other 16.5663888888889 20101006 50 67Sortition,NotSaturation
+#+END_EXAMPLE
+
+OK. Exactly 2 emails out of hundreds. That's not bad, and I'll just ignore
+those. Out of curiosity, what happened? Is this a parsing error?
+
+#+BEGIN_EXAMPLE
+$ grep From: $(< rides.vnl vnl-filter 'who == "other"' --eval '{print path}')
+
+mbox/m.A-I0_i9-YOs.QRX1P99_uiUJ:From: The Passage Announcements <the-passage-...@googlegroups.com>
+mbox/m.pHpzsjH7H68.O7CP_v6bcEoJ:From: The Passage Announcements <the-passage-...@googlegroups.com>
+#+END_EXAMPLE
+
+So on rides 65 and 67 "The Passage Announcements" emailed themselves. Oops.
+Since the ride leaders alternate, I can infer who actually sent these by looking
+at the few rides around this one:
+
+#+BEGIN_EXAMPLE
+$ < rides.vnl vnl-filter 'ridenum > 60 && ridenum < 70' -p ridenum,who | vnl-sort -n -k ridenum
+
+# ridenum who
+61 sean
+62 nathan
+63 sean
+64 nathan
+65 other
+66 nathan
+67 other
+68 nathan
+69 sean
+#+END_EXAMPLE
+
+That's pretty conclusive: clearly these emails came from Sean. I'm still going
+to ignore them, though.
+
+The ride is on Wed evening, and the emails generally come in the day or two
+before then. Does my data set contain any data outside this reasonable range?
+Hopefully very little, just like the "other" author emails.
+
+#+BEGIN_EXAMPLE
+$ < rides.vnl vnl-filter --has ridenum -p whenwedh | feedgnuplot --histo 0 --binwidth 1 --xlabel 'Hour (on Wed)' --ylabel 'Email frequency'
+#+END_EXAMPLE
+
+#+ATTR_HTML: :width 90%
+[[file:files/vnlog-passage/frequency-all.svg]]
+
+The ride starts at 21:00 on Wed, and we see a nice spike immediately before. The
+smaller cluster prior to that is the emails that go out the night before.
+There's a tiny number of stragglers going out the previous day (that I'm simply
+going to ignore). And there're a number of emails going out /after/ Wed. These
+likely announce an occasional weekend ride (that I will also ignore). But let's
+do check. How many are there?
+
+#+BEGIN_EXAMPLE
+$ < rides.vnl vnl-filter --has ridenum 'whenwedh > 22' | wc -l
+
+16
+#+END_EXAMPLE
+
+Looking at these manually, most are indeed weekend rides, with a small number of
+actualy extra-early announcements for Wed. I can parse the email text more
+fancily to pull those out, but that's really not worth my time.
+
+OK. I'm now ready for the main thing.
+
+#+BEGIN_EXAMPLE
+$ < data.vnl | 
+    vnl-filter --has ridenum 'who != "other"' -p who,whenwedh |
+    feedgnuplot --points --dataid --autolegend
+                --histo sean,nathan --binwidth 0.5
+                --style sean   'with boxes fill transparent solid 0.3 border lt -1'
+                --style nathan 'with boxes fill transparent pattern 1 border lt -1'
+                --xmin -12 --xmax 24
+                --xlabel "Time (hour)" --ylabel 'Email frequency'
+                --set 'xtics ("12\n(Tue)" -12,"16\n(Tue)" -8,"20\n(Tue)" -4,"0\n(Wed)" 0,"4\n(Wed)" 4,"8\n(Wed)" 8,"12\n(Wed)" 12,"16\n(Wed)" 16,"21\n(Wed)" 21,"0\n(Thu)" 24)'
+                --set 'arrow from 21, graph 0 to 21, graph 1 nohead lw 3 lc "red"'
+                --title "Passage email timing distribution"
+#+END_EXAMPLE
+
+#+ATTR_HTML: :width 90%
+[[file:files/vnlog-passage/frequency-zoomed.svg]]
+
+Clear most of the plotting command is there to make things look nice. When
+analyzing stuff, you wouldn't put most of that stuff there. Anyway, I can now
+see what I suspected: Nathan is a procrastinator! His emails almost always come
+in on Wed, usually a few hours before the deadline. Sean's are bimodal: one hump
+comes in on Wed afternoon, and another in the extreme early morning on Wed.
+Presumably he sleeps in-between.
+
 
 
 ** Math. Horizonator?                                              :noexport:
