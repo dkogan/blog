@@ -11047,22 +11047,24 @@ $ < data.vnl
 
 Nice!
 
-** More Vnlog examples                                     :tools:data:vnlog:
+** DONE More Vnlog demos                                   :tools:data:vnlog:
+   CLOSED: [2018-05-21 Mon 21:43]
 
 More demos of [[https://github.com/dkogan/vnlog][=vnlog=]] and [[https://github.com/dkogan/feedgnuplot][=feedgnuplot=]] usage! This is pretty pointless, but
-should be illustrative at least. This is a demo, not documentation; so for usage
-details consult the normal docs.
+should be a decent demo of the tools at least. This is a demo, not
+documentation; so for usage details consult the normal docs.
 
-I ride in a [[http://www.thepassageride.com][weekly night bike ride]] each week where an email precedes each ride,
-very roughly describing the route. The two organizers alternate leading the ride
-each week, and consequently the emails alternate also. I was getting the feeling
-that some of the emails arrive much more punctually than others, and after a
-recent 20-minutes-before-the ride email, I decided this just had to be
-quantified.
+Each Wednesday night I join a group [[http://www.thepassageride.com][bike ride]]. This is an organized affair, and
+each week an email precedes the ride, very roughly describing the route. The two
+organizers alternate leading the ride each week, and consequently the emails
+alternate also. I was getting the feeling that some of the announcements show up
+in my mailbxo more punctually than others, and after a recent
+20-minutes-before-the ride email, I decided this just had to be quantified.
 
-The emails all go to a google-group email. They're a wheel-reinventing bunch, so
-downloading the whole archive can't trivially be done with normal tools (NNTP?
-mbox files?). A brief search revealed somebody's home-grown tool to do this:
+The emails all go to a google-group email. The google-groups people are a
+wheel-reinventing bunch, so talking to the archive can't be done with normal
+tools (NNTP? mbox files? No?). A brief search revealed somebody's home-grown
+tool to programmatically grab the archive:
 
 https://github.com/icy/google-group-crawler.git
 
@@ -11071,8 +11073,8 @@ download stuff and generate another script; and then run /that/ script to
 download the rest of the stuff.
 
 Anyway, I used that tool to grab all the emails that are available. Then I wrote
-a quick/dirty script to parse out the data I care about and dump it all into a
-vnlog:
+a quick/dirty script to parse out the data I care about and dump everything into
+a vnlog:
 
 #+BEGIN_SRC perl
 #!/usr/bin/perl
@@ -11188,8 +11190,9 @@ for my $path (<mbox/m.*>)
 }
 #+END_SRC
 
-Now that I have a log on disk, I can do stuff with it. The first few lines of
-the log look like this:
+The script isn't important, and the resulting data is [[file:files/vnlog-passage/rides.vnl][here]]. Now that I have a
+log on disk, I can do stuff with it. The first few lines of the log look like
+this:
 
 #+BEGIN_EXAMPLE
 dima@scrawny:~/projects/passagemining/google-group-crawler/the-passage-announcements$ < rides.vnl head
@@ -11233,8 +11236,8 @@ $ < rides.vnl vnl-sort -nr -k ridenum | head -n2 | vnl-filter -p ridenum
 452
 #+END_EXAMPLE
 
-Cool. This was longer than it needed to be in order to produce nicer output. If
-I /really/ wanted to save keystrokes, the following is good-enough:
+Cool. This command was longer than it needed to be in order to produce nicer
+output. If I was exploring the dataset, I'd save keystrokes and do this instead:
 
 #+BEGIN_EXAMPLE
 $ < rides.vnl vnl-sort -nrk ridenum | head
@@ -11260,7 +11263,7 @@ $ < rides.vnl vnl-sort -n -k ridenum | head -n2 | vnl-filter -p ridenum
 # ridenum
 #+END_EXAMPLE
 
-Nothing. That's odd. Let me look at the whole records, and at more than just the
+Nothing. That's odd. Let me look at whole records, and at more than just the
 first two lines
 
 #+BEGIN_EXAMPLE
@@ -11279,7 +11282,7 @@ mbox/m.K2P6D_BGfYU.ve6a_8l6AAAJ -       sean    37.8166666666667 20170223 150   
 #+END_EXAMPLE
 
 Aha. A bunch of emails aren't announncing a ride, but are announcing that
-there's /no/ ride. Let's ignore those
+there's /no/ ride that week. Let's ignore those
 
 #+BEGIN_EXAMPLE
 $ < rides.vnl vnl-filter -p +ridenum | vnl-sort -n -k ridenum | head -n2
@@ -11289,9 +11292,9 @@ $ < rides.vnl vnl-filter -p +ridenum | vnl-sort -n -k ridenum | head -n2
 #+END_EXAMPLE
 
 Bam. So we have emails going back to ride 52. Good enough. All right. I'm aiming
-to create a histogram for Sean's email and another for Nathan's email. What
-about emails that came from neither one? In theory there shouldn't be any of
-those, but there could be a parsing error, or who knows what.
+to create a time histogram for Sean's emails and another for Nathan's emails.
+What about emails that came from neither one? In theory there shouldn't be any
+of those, but there could be a parsing error, or who knows what.
 
 #+BEGIN_EXAMPLE
 $ < rides.vnl vnl-filter 'who == "other"'
@@ -11348,8 +11351,8 @@ The ride starts at 21:00 on Wed, and we see a nice spike immediately before. The
 smaller cluster prior to that is the emails that go out the night before.
 There's a tiny number of stragglers going out the previous day (that I'm simply
 going to ignore). And there're a number of emails going out /after/ Wed. These
-likely announce an occasional weekend ride (that I will also ignore). But let's
-do check. How many are there?
+likely announce an occasional weekend ride that I will also ignore. But let's do
+check. How many are there?
 
 #+BEGIN_EXAMPLE
 $ < rides.vnl vnl-filter --has ridenum 'whenwedh > 22' | wc -l
@@ -11358,15 +11361,15 @@ $ < rides.vnl vnl-filter --has ridenum 'whenwedh > 22' | wc -l
 #+END_EXAMPLE
 
 Looking at these manually, most are indeed weekend rides, with a small number of
-actualy extra-early announcements for Wed. I can parse the email text more
+actual extra-early announcements for Wed. I can parse the email text more
 fancily to pull those out, but that's really not worth my time.
 
 OK. I'm now ready for the main thing.
 
 #+BEGIN_EXAMPLE
-$ < data.vnl | 
+$ < rides.vnl | 
     vnl-filter --has ridenum 'who != "other"' -p who,whenwedh |
-    feedgnuplot --points --dataid --autolegend
+    feedgnuplot --dataid --autolegend
                 --histo sean,nathan --binwidth 0.5
                 --style sean   'with boxes fill transparent solid 0.3 border lt -1'
                 --style nathan 'with boxes fill transparent pattern 1 border lt -1'
@@ -11380,13 +11383,103 @@ $ < data.vnl |
 #+ATTR_HTML: :width 90%
 [[file:files/vnlog-passage/frequency-zoomed.svg]]
 
-Clear most of the plotting command is there to make things look nice. When
-analyzing stuff, you wouldn't put most of that stuff there. Anyway, I can now
-see what I suspected: Nathan is a procrastinator! His emails almost always come
-in on Wed, usually a few hours before the deadline. Sean's are bimodal: one hump
-comes in on Wed afternoon, and another in the extreme early morning on Wed.
-Presumably he sleeps in-between.
+This looks verbose, but most of the plotting command is there to make things
+look nice. When analyzing stuff, I'd omit most of that. Anyway, I can now see
+what I suspected: Nathan is a procrastinator! His emails almost always come in
+on Wed, usually an hour or two before the deadline. Sean's emails are bimodal:
+one set comes in on Wed afternoon, and another in the extreme early morning on
+Wed. Presumably he sleeps in-between.
 
+We have more data, so we can make more pointless plots. For instance, what does
+the verbosity of the emails look like? Is one sender more verbose than another?
+
+#+BEGIN_EXAMPLE
+$ < rides.vnl vnl-sort -n -k ridenum |
+  vnl-filter 'who != "other"' -p +ridenum,who,wordcount |
+  feedgnuplot --lines --domain --dataid --autolegend
+              --xlabel 'Ride number' --ylabel 'Words per email'
+#+END_EXAMPLE
+
+#+ATTR_HTML: :width 90%
+[[file:files/vnlog-passage/verbosity_unfiltered.svg]]
+
+#+BEGIN_EXAMPLE
+$ < rides.vnl vnl-filter 'who != "other"' --has ridenum -p who,wordcount |
+  feedgnuplot --dataid --autolegend
+              --histo sean,nathan --binwidth 20
+              --style sean   'with boxes fill transparent solid 0.3 border lt -1'
+              --style nathan 'with boxes fill transparent pattern 1 border lt -1'
+              --xlabel "Words per email" --ylabel 'frequency'
+              --title "Passage verbosity distribution"
+#+END_EXAMPLE
+
+#+ATTR_HTML: :width 90%
+[[file:files/vnlog-passage/verbosity_histogram.svg]]
+
+The time series doesn't obviously say anything, but from the histogram, it looks
+like Sean is a bit more verbose, maybe? What's the average?
+
+#+BEGIN_EXAMPLE
+$ < rides.vnl vnl-filter --eval 'ridenum != "-" { if(who == "sean")   { Ns++; Ws+=wordcount; }
+                                                  if(who == "nathan") { Nn++; Wn+=wordcount; } }
+                                 END { print "Mean verbosity sean,nathan: "Ws/Ns, Wn/Nn }'
+
+Mean verbosity sean,nathan: 304.955 250.425
+#+END_EXAMPLE
+
+Indeed. Is the verbosity time-dependent? Is anybody getting more or less verbose
+over the years? The time-series plot above is pretty noisy, so it's not clear.
+Let's filter it to reduce the noise. We're getting into an area that's too
+complicated for these tools, and moving to something more substantial at this
+point would be warranted. But I'll do one more thing with /these/ tools, and
+then stop. I can implement a half-assed filter by time-shifting the verbosity
+series, re-joining the shifted series, and computing the mean. I do this
+separately for the two email authors, and then re-combine the series. I could
+join these two, but simply catting the two data sets together is sufficient here.
+
+#+BEGIN_EXAMPLE
+$ < rides.vnl vnl-sort -n -k ridenum |
+    vnl-filter 'who == "nathan"' --has ridenum |
+    vnl-filter -p ridenum,idx=NR,wordcount > nathanrp0
+
+$ < rides.vnl vnl-sort -n -k ridenum |
+    vnl-filter 'who == "nathan"' --has ridenum |
+    vnl-filter -p ridenum,idx=NR-1,wordcount > nathanrp-1
+
+$ < rides.vnl vnl-sort -n -k ridenum |
+    vnl-filter 'who == "nathan"' --has ridenum |
+    vnl-filter -p ridenum,idx=NR+1,wordcount > nathanrp+1
+
+$ ... same for Sean ...
+
+$ cat <(vnl-join --vnl-suffix2 after --vnl-sort n -j idx
+                 <(vnl-join --vnl-suffix2 before --vnl-sort n -j idx
+                            nathanrp{0,-1})
+                 nathanrp+1 |
+        vnl-filter -p ridenum,who='"nathan"','wordcountfiltered=(wordcount+wordcountbefore+wordcountafter)/3')
+
+      <(vnl-join --vnl-suffix2 after --vnl-sort n -j idx
+                 <(vnl-join --vnl-suffix2 before --vnl-sort n -j idx
+                            seanrp{0,-1})
+                 seanrp+1 |
+        vnl-filter -p ridenum,who='"sean"','wordcountfiltered=(wordcount+wordcountbefore+wordcountafter)/3') |
+  feedgnuplot --lines --domain --dataid --autolegend
+              --xlabel 'Ride number' --ylabel 'Words per email'
+
+#+END_EXAMPLE
+
+#+ATTR_HTML: :width 90%
+[[file:files/vnlog-passage/verbosity_filtered.svg]]
+
+Whew. Clearly this was doable, but that's a one-liner that has clearly gotten
+out of hand, and pushing it further would be unwise. Looking at the data there
+isn't any obvious time dependence. But what you /can/ clearly see is the extra
+verbiage around the round-number rides 100, 200, 300, 350, 400, etc. These were
+often a special weekend ride, with the email containing lots of extra
+instructions and such.
+
+This was all clearly a waste of time, but as a demo of vnlog workflows, this was
+ok.
 
 
 ** Math. Horizonator?                                              :noexport:
