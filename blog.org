@@ -8992,7 +8992,7 @@ The gcc bug report:
 
 https://gcc.gnu.org/bugzilla/show_bug.cgi?id=80824
 
-** DONE Interfacing numpy and C: an example                       :tools:dev:
+** DONE Interfacing numpy and C: an example                 :tools:dev:numpy:
    CLOSED: [2017-07-23 Sun 17:09]
 
 I need to implement a numerical algorithm. I'd like to write all the
