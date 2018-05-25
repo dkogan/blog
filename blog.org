@@ -4484,7 +4484,8 @@ longitude. Both methods say the distance is about 20km, with a disagreement of
 I want to find the least convenient location from the intersection of New
 Hampshire and 3rd street in Los Angeles within 20 miles or so.
 
-All the inconvenience coefficients computed from this data look like this ([[file:files/culdesacs/all_coefficients.gp][source]]):
+All the inconvenience coefficients computed from this data look like this
+([[file:files/culdesacs/all_coefficients.gp][source]], [[file:files/culdesacs/query_34.0690448_-118.292924_20miles.out][data]]):
 
 [[file:files/culdesacs/all_coefficients.png]]
 
