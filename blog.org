@@ -40,11 +40,10 @@
   :TEMPLATE: blog_static_no_title.html
   :END:
 
-You found my blog! In this space I try to write up any noteworthy technical
-projects that I work on. It's useful to have a record, and documenting anything
-makes it better, so hopefully this blog will promote that. The full set of
-entries is in the [[file:{lisp}(ob:path-to-root){/lisp}/archives.html][Archives]]. Various coding projects/experiments are in the
-[[https://www.github.com/dkogan][Github]] repostories. Contact info is at the bottom of the page, in tiny print.
+You found my blog! This is mostly technical; if you want to hear about mountain
+explorations instead, look [[https://www.tapatalk.com/groups/sangabrielmnts/search.php?author=dima&sf=firstpost][here]]. The full set of entries is in the [[file:{lisp}(ob:path-to-root){/lisp}/archives.html][Archives]].
+Various coding projects/experiments are in the [[https://www.github.com/dkogan][Github]] repostories. Contact info
+is at the bottom of the page, in tiny print.
 
 Most recent post: [[file:{lisp}(ob:link-to-post (car ALL-POSTS)){/lisp}][{lisp}(ob:post-title (car ALL-POSTS)){/lisp}]]
 
