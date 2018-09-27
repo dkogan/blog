@@ -11635,9 +11635,8 @@ commandline tools?
 
 Bam!
 
-
 #+BEGIN_EXAMPLE
-$ N=10;
+$ N=5;
   (  echo '# filename';
      seq 0 149                       |
        shuf                          |
