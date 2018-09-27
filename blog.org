@@ -11608,6 +11608,59 @@ by changing the =open("filename")= above to something like =popen("cat
 filename")=. Yuck! Is this really the best we can do? What does this look like
 on one of the BSDs, say?
 
+** DONE A nice oneliner                                    :tools:data:vnlog:
+   CLOSED: [2018-09-26 Wed 17:51]
+
+Pop quiz! Let's say I have a datafile describing some items (images and feature
+points in this example):
+
+#+BEGIN_EXAMPLE
+# filename x y
+000.jpg 79.932824 35.609049
+000.jpg 95.174662 70.876506
+001.jpg 19.655072 52.475315
+002.jpg 19.515351 33.077847
+002.jpg 3.010392 80.198282
+003.jpg 84.183099 57.901647
+003.jpg 93.237358 75.984036
+004.jpg 99.102619 7.260851
+005.jpg 24.738357 80.490116
+005.jpg 53.424477 27.815635
+....
+....
+149.jpg 92.258132 99.284486
+#+END_EXAMPLE
+
+How do I get a random subset of N images, using only the shell and standard
+commandline tools?
+
+Bam!
+
+
+#+BEGIN_EXAMPLE
+$ N=10;
+  (  echo '# filename';
+     seq 0 149                       |
+       shuf                          |
+       head -n $N                    |
+       xargs -n1 printf "%03d.jpg\n" |
+       sort)  |
+  vnl-join -j filename input.vnl -
+
+# filename x y
+017.jpg 41.752204 96.753914
+017.jpg 86.232504 3.936258
+027.jpg 41.839110 89.148368
+027.jpg 82.772742 27.880592
+067.jpg 57.790706 46.153623
+067.jpg 87.804939 15.853087
+076.jpg 41.447477 42.844849
+076.jpg 93.399829 64.552090
+142.jpg 18.045497 35.381083
+142.jpg 83.037867 17.252172
+#+END_EXAMPLE
+
+
 ** Math. Horizonator?                                              :noexport:
 * making dvipng work                                               :noexport:
 - OPTIONS do not work. Need to enable explicitly with
