@@ -11658,6 +11658,43 @@ $ N=5;
 142.jpg 83.037867 17.252172
 #+END_EXAMPLE
 
+** DONE Self-plotting output from feedgnuplot and python-gnuplotlib :tools:data:feedgnuplot:gnuplotlib:
+   CLOSED: [2018-09-29 Sat 11:40]
+
+I just made a small update to [[http://github.com/dkogan/feedgnuplot][=feedgnuplot=]] (version 1.51) and to
+[[http://github.com/dkogan/gnuplotlib][=python-gnuplotlib=]] (version 0.23). Demo:
+
+#+BEGIN_EXAMPLE
+$ seq 5 | feedgnuplot --hardcopy showplot.gp
+
+$ ./showplot.gp
+[plot pops up]
+
+$ cat showplot.gp
+#!/usr/bin/gnuplot
+set grid
+set boxwidth 1
+histbin(x) = 1 * floor(0.5 + x/1)
+plot '-'   notitle  
+1 1
+2 2
+3 3
+4 4
+5 5
+e
+pause mouse close
+#+END_EXAMPLE
+
+I.e. there's now support for a fake =gp= terminal that's not a gnuplot terminal
+at all, but rather a way to produce a self-executable gnuplot script. 99% of
+this was already implemented in =--dump=, but this way to access that
+functionality is much nicer. In fact, the machine running =feedgnuplot= doesn't
+even need to have =gnuplot= installed at all. I needed this because I was making
+complicated plots on a remote box, and X-forwarding was being way too slow. Now
+the remote box creates the self-plotting gnuplot scripts, I scp those, evaluate
+them locally, and then work with interactive visualizations.
+
+The python frontend =gnuplotlib= has received an analogous update.
 
 ** Math. Horizonator?                                              :noexport:
 * making dvipng work                                               :noexport:
