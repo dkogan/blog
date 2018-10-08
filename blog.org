@@ -11701,7 +11701,7 @@ The python frontend =gnuplotlib= has received an analogous update.
 
 I find the python ecosystem deeply frustrating. On some level, they fixed some
 issues in previous languages. But at the same time, they chose to completely
-flaunt long-standing conventions, and have rewritten the world in ways that are
+flout long-standing conventions, and have rewritten the world in ways that are
 different for no good reason. And when you rewrite the world, you always end up
 rewriting only the parts you care about, so your new implementation lacks pieces
 that other people find very important.
