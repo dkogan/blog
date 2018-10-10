@@ -11735,7 +11735,7 @@ done in python, but it should be; they just like being contrarian for no good
 reason.
 
 With those assumptions I can parse the =--help= output, and produce a reasonable
-manpage. Converted to html, it looks like [[file:files/python-manpage-example.html][this]]. Not the most exciting thing in
+manpage. Converted to html, it looks like [[file:files/python-manpages/python-manpage-example.html][this]]. Not the most exciting thing in
 the world, but that's the point.
 
 This could all be cleaned up, and made less brittle. That would be great. In the
@@ -11743,6 +11743,124 @@ meantime, it solves my use case. I'm releasing this into the public domain.
 Please use it and hack it up. If you fix it and give the changes back, I
 wouldn't complain. And if there're better ways to have done this, somebody
 please tell me.
+
+#+begin_o_blog_alert info Update
+
+A few people reached out to me with suggestions of tools they have found and/or
+used for this purpose. A survey:
+
+*** argparse-manpage
+
+This lives [[https://pypi.org/project/argparse-manpage/][here]] and [[https://github.com/praiskup/argparse-manpage][here]]. I actually found this thing in my search, but it
+didn't work at all, and I didn't want to go into the rabbithole of debugging it.
+Well, I debugged it now and know what it needed. Issues
+
+- First off, there're 3 binaries that could be executed:
+  - =argparse-manpage=
+  - =wrap=
+  - =bin/argparse-manpage=
+  It appears that only the first one is meant to be functional. The rest throw
+  errors that require the user to debug this thing
+- To make it more exciting, =bin/argparse-manpage= doesn't work out of the box
+  on Debian-based boxes: it begins with
+  #+BEGIN_EXAMPLE
+  #!/bin/python
+  #+END_EXAMPLE
+  Which isn't something that exists there. Changing this to
+  #+BEGIN_EXAMPLE
+  #!/usr/bin/python
+  #+END_EXAMPLE
+  makes it actually runnable. Once you know that this is the thing that needs
+  running, of course.
+- All right, now that it can run, we need to figure out more of this. The
+  "right" invocation for the example project is this:
+  #+BEGIN_EXAMPLE
+  $ argparse-manpage/bin/argparse-manpage --pyfile python-argparse-generate-manpages-example/frobnicate  --function parse_args > frobnicator.1
+  #+END_EXAMPLE
+  Unsurprisingly it doesn't work
+- argparse-manpage wants a function that returns an =ArgumentParser= object.
+  This went against what the example program did: return the already-parsed
+  options.
+- Once this is done, it still doesn't work. Apparently it attempts to actually
+  run the program, and the program barfs that it wasn't given enough arguments.
+  So for manpage-creation purposes I disable the actual option parsing, and make
+  the program do nothing
+- And it still doesn't work. Apparently the function that parses the arguments
+  doesn't see the =argparse= import when argparse-manpage works with it (even
+  though it works fine when you just run the program). Moving that import into
+  the function makes it work finally. A patch to the test program combining all
+  of the workarounds together:
+
+#+BEGIN_SRC diff
+diff --git a/frobnicate b/frobnicate
+index 89da764..475ac63 100755
+--- a/frobnicate
++++ b/frobnicate
+@@ -16,6 +16,7 @@ import argparse
+ 
+ 
+ def parse_args():
++    import argparse
+     parser = \
+         argparse.ArgumentParser(description = __doc__,
+                                 formatter_class=argparse.RawDescriptionHelpFormatter)
+@@ -29,8 +30,8 @@ def parse_args():
+                         nargs='+',
+                         help='''Inputs to process''')
+ 
+-    return parser.parse_args()
++    return parser
+ 
+ 
+ 
+-args = parse_args()
++#args = parse_args().parse_args()
+#+END_SRC
+
+Now that we actually get output, let's look at it. Converted to html, looks like
+[[file:files/python-manpages/argparse-manpage.html][this]]. Some chunks are missing because I didn't pass them on the commandline
+(author, email, etc). But it also generated information about the arguments
+/only/. I.e. the description in the main docstring is missing even though
+=argparse= was given it, and it's reported with =--help=. And the synopsis
+section contains the short options instead of an example, like it should.
+
+*** help2man
+
+This is in Debian in the =help2man= package. It works out of the box at least.
+Invocation:
+
+#+BEGIN_EXAMPLE
+help2man python-argparse-generate-manpages-example/frobnicate --no-discard-stderr > frobnicator.1
+#+END_EXAMPLE
+
+In html looks like [[file:files/python-manpages/help2man.html][this]]. Better. At least the description made it in. The usage
+message is mistakenly in the =NAME= section, and the =SYNOPSIS= section is
+missing with the synopsis ending up in the =DESCRIPTION= section. The tool was
+not given enough information to do this correctly. It could potentially do
+something POD-like where the user is responsible for actually writing out all
+the sections, and =help2man= would just pick out and reformat the option-parsing
+stuff. This would be very heuristic, and impossible to do "right".
+
+*** Others
+
+There's apparently some way to do this with sphinx. I generally avoid the
+python-specific reimaginings of the world, so I haven't touched those. Besides,
+the "python" part is a detail in this project. The sphinx thing is [[https://sphinx-argparse.readthedocs.io/en/stable/][here]]. And
+apparently you can invoke it like this:
+
+#+BEGIN_EXAMPLE
+python3 -m sphinx -b man ...
+#+END_EXAMPLE
+
+*** Thoughts
+
+Not sure what a better solution to all this would be. Maybe some sort of
+=docstring2man= tool that works like =pod2man= combined with =docopt= instead of
+=argparse=.
+#+end_o_blog_alert
+
+
+
 
 ** Math. Horizonator?                                              :noexport:
 * making dvipng work                                               :noexport:
