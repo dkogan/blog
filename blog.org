@@ -11696,7 +11696,7 @@ them locally, and then work with interactive visualizations.
 
 The python frontend =gnuplotlib= has received an analogous update.
 
-** DONE Generating manpages from python and argparse           :tools:python:
+** DONE Generating manpages from python and argparse  :tools:python:manpages:
    CLOSED: [2018-10-07 Sun 14:42]
 
 I find the python ecosystem deeply frustrating. On some level, they fixed some
@@ -11860,7 +11860,81 @@ Not sure what a better solution to all this would be. Maybe some sort of
 #+end_o_blog_alert
 
 
+** DONE Manpages and READMEs                                 :tools:manpages:
+   CLOSED: [2018-10-23 Tue 21:36]
 
+I guess this is a follow-on from the [[file:{lisp}(ob:link-to-post (ob:get-post-by-title "Generating manpages from python and argparse")){/lisp}][last post]]. I generally want complete
+documentation, and I don't want to document the same thing twice. Thus I want to
+include all my manpages in the README. For projects hosted someplace like [[http://github.com][github]]
+the README serves as the front page of a project, so the README is the
+documentation that will be seen and read the most. I just set this up for yet
+another project, and I may as well talk about it here.
+
+Demo case: [[http://github.com/dkogan/mrgingham][mrgingham]]. This is a semi-released component that's the first in a
+set of calibration/SFM tools. The details aren't important for this post, but
+anybody interested in such things should talk to me.
+
+This project has two user-facing tools that are distributed:
+
+- [[http://github.com/dkogan/mrgingham/blob/master/mrgingham-from-image.cc][=mrgingham=]]: the main tool that ingests images, and spits out chessboard
+  corners it found, as a [[http://github.com/dkogan/vnlog][vnlog]]. This is written in C++, and needs to be built.
+  The documentation lives in a separate [[https://raw.githubusercontent.com/dkogan/mrgingham/master/mrgingham.pod][POD]] file. This POD isn't attached to the
+  =getopt()= option parser; yet.
+
+- [[https://github.com/dkogan/mrgingham/blob/master/mrgingham-observe-pixel-uncertainty][=mrgingham-observe-pixel-uncertainty=]]: a tool to empirically quantify the
+  uncertainty of the output. /This/ is written in python, and I make its manpage
+  as described in the [[file:{lisp}(ob:link-to-post (ob:get-post-by-title "Generating manpages from python and argparse")){/lisp}][last post]]: first I make a POD, then convert the POD to a
+  manpage.
+
+The README exists as a [[https://github.com/dkogan/mrgingham/blob/master/README.template.org][template]], with [[https://github.com/dkogan/mrgingham/blob/master/README.template.org#manpages][designated areas]] for the manpages. And all
+the action is in the [[https://github.com/dkogan/mrgingham/blob/master/Makefile][=Makefile=]]. Relevant section:
+
+#+BEGIN_SRC makefile
+
+DIST_BIN := mrgingham mrgingham-observe-pixel-uncertainty
+
+# I construct the README.org from the template. The only thing I do is to insert
+# the manpages. Note that this is more complicated than it looks:
+#
+# 1. The documentation lives in a POD
+# 2. This documentation is stripped out here with pod2text, and included in the
+#    README. This README is an org-mode file, and the README.template.org
+#    container included the manpage text inside a #+BEGIN_EXAMPLE/#+END_EXAMPLE.
+#    So the manpages are treated as a verbatim, unformatted text blob
+# 3. Further down, the same POD is converted to a manpage via pod2man
+define MAKE_README =
+BEGIN                                                                   \
+{                                                                       \
+  for $$a (@ARGV)                                                       \
+  {                                                                     \
+    $$base = $$a =~ s/\.pod$$//r;                                       \
+    $$c{$$base} = `pod2text $$a | mawk "/REPOSITORY/{exit} {print}"`;   \
+  }                                                                     \
+}                                                                       \
+                                                                        \
+while(<STDIN>)                                                          \
+{                                                                       \
+  print s/xxx-manpage-(.*?)-xxx/$$c{$$1}/gr;                            \
+}
+endef
+
+README.org: README.template.org $(DIST_BIN:%=%.pod)
+        < $(filter README%,$^) perl -e '$(MAKE_README)' $(filter-out README%,$^) > $@
+all: README.org
+
+%.1: %.pod
+        pod2man --center="mrgingham: chessboard corner finder" --name=MRGINGHAM --release="mrgingham $(VERSION)" --section=1 $^ $@
+mrgingham-observe-pixel-uncertainty.pod: %.pod: %
+        ./make-pod.pl $< > $@
+        cat footer.pod >> $@
+EXTRA_CLEAN += *.1 mrgingham-observe-pixel-uncertainty.pod README.org
+
+#+END_SRC
+
+And that's it. I get a [[https://github.com/dkogan/mrgingham/blob/master/README.org][=README.org=]] that contains the manpages, and never goes
+out of date. For github to pick it up I need to commit it to the repo, even
+though it's a generated file. Probably can set up some sort of hook to take care
+of this too, but it's close-enough.
 
 ** Math. Horizonator?                                              :noexport:
 * making dvipng work                                               :noexport:
