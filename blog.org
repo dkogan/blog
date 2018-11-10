@@ -8147,7 +8147,7 @@ $ nm library.o | awk '$2 ~ /^[bcdgsBCDGS]$/'
 Here I only look at /data/ and only data that is /writeable/ because the
 read-only data doesn't need to be saved/restored. We can see the global
 variables =a= and =b=, and the static function-local variables =c= and =d=. And
-we can see their addresses. We cannot, however seee the sizes: these are known
+we can see their addresses. We cannot, however see the sizes: these are known
 and used by the compiler, which discards them when finished. I need another
 source of data, and I found the perfect one: DWARF debugging information. This
 contains much meta-data about the compiled code, including the location and
@@ -11858,7 +11858,6 @@ Not sure what a better solution to all this would be. Maybe some sort of
 =docstring2man= tool that works like =pod2man= combined with =docopt= instead of
 =argparse=.
 #+end_o_blog_alert
-
 
 ** DONE Manpages and READMEs                                 :tools:manpages:
    CLOSED: [2018-10-23 Tue 21:36]
