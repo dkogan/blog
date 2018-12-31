@@ -11935,6 +11935,50 @@ out of date. For github to pick it up I need to commit it to the repo, even
 though it's a generated file. Probably can set up some sort of hook to take care
 of this too, but it's close-enough.
 
+** DONE Keeping C OpenCV applications building                   :dev:opencv:
+   CLOSED: [2018-12-31 Mon 11:44]
+
+The OpenCV people decided to break their C API. Except (at least as of OpenCV
+3.x) they didn't really remove or deprecate the API, they just stopped testing
+it. So when things start to break, you just get errors for no reason. Case in
+point: I have an application that now throws linker error when built without
+optimizations:
+
+#+BEGIN_EXAMPLE
+$ gcc -O0 application.c -lopencv_core ...
+
+/usr/bin/ld: /tmp/cc8R0Ote.o: in function `cvPointFrom32f':
+tst.c:(.text+0x557): undefined reference to `cvRound'
+/usr/bin/ld: tst.c:(.text+0x56d): undefined reference to `cvRound'
+/usr/bin/ld: /tmp/cc8R0Ote.o: in function `cvReadInt':
+tst.c:(.text+0xdb1): undefined reference to `cvRound'
+collect2: error: ld returned 1 exit status
+#+END_EXAMPLE
+
+Great. I'm not actually calling =cvRound()= anywhere, and looking into the
+sources, this breakage was easily avoidable if they actually cared.
+
+A workaround is to define my own =cvRound()=. Something like this works:
+
+#+BEGIN_SRC C
+#include <math.h>
+static inline int cvRound(float value)
+{
+    return (int)roundf(value);
+}
+
+#include <opencv2/calib3d/calib3d_c.h>
+#+END_SRC
+
+This compiles and links with or without optimizations. Defining this before the
+OpenCV =#include= is significant, and you need to link with =-lm= to get the
+implementation of =roundf()=.
+
+This is with OpenCV 3.2, as shipped by Debian. I can imagine later releases
+either un-breaking this, or actually removing the APIs entirely. That would be
+the impetus for me to finally dump this library. Which would be a good thing
+overall, to be honest.
+
 ** Math. Horizonator?                                              :noexport:
 * making dvipng work                                               :noexport:
 - OPTIONS do not work. Need to enable explicitly with
