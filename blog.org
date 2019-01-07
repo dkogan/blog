@@ -11047,7 +11047,7 @@ $ < data.vnl
 
 Nice!
 
-** DONE More Vnlog demos                                   :tools:data:vnlog:
+** DONE More Vnlog demos                             :tools:data:vnlog:vnlog:
    CLOSED: [2018-05-21 Mon 21:43]
 
 More demos of [[https://github.com/dkogan/vnlog][=vnlog=]] and [[https://github.com/dkogan/feedgnuplot][=feedgnuplot=]] usage! This is pretty pointless, but
@@ -11607,7 +11607,7 @@ by changing the =open("filename")= above to something like =popen("cat
 filename")=. Yuck! Is this really the best we can do? What does this look like
 on one of the BSDs, say?
 
-** DONE A nice oneliner                                    :tools:data:vnlog:
+** DONE A nice oneliner                              :tools:data:vnlog:vnlog:
    CLOSED: [2018-09-26 Wed 17:51]
 
 Pop quiz! Let's say I have a datafile describing some items (images and feature
@@ -11658,7 +11658,7 @@ $ N=5;
 142.jpg 83.037867 17.252172
 #+END_EXAMPLE
 
-** DONE Self-plotting output from feedgnuplot and python-gnuplotlib :tools:data:feedgnuplot:gnuplotlib:
+** DONE Self-plotting output from feedgnuplot and python-gnuplotlib :tools:data:feedgnuplot:gnuplotlib:vnlog:
    CLOSED: [2018-09-29 Sat 11:40]
 
 I just made a small update to [[http://github.com/dkogan/feedgnuplot][=feedgnuplot=]] (version 1.51) and to
@@ -12000,18 +12000,19 @@ care about the location each impact site. Some reports actually have a lat/lon
 pair, while others have a range/bearing from some "observing" airport. Many
 reports don't have either, but there isn't a lot I can do about that.
 
-In any case, I just did some typing, and produced this:
+In any case, I just did some typing, and produced the map linked above:
 
 https://caltopo.com/m/N13E
 
-This is a map of all the incidents after 1982 that have a location listed in an
-NTSB report. The locations are represented by a red circle and/or a
-range/bearing area, depending on what the report contains. Each object contains
-a link to the report itself. The data isn't very accurate it looks like, but the
-text of the reports often has more specific information. I have all the data in
-the US, but the above link is just the general area of the San Gabriel
-mountains; the web interface is way too slow to show more. Generating maps for
-other areas is trivial: the code, docs, and full final dataset appear [[https://github.com/dkogan/ntsb-wrecks][here]].
+This shows all the incidents after 1982 that have a location listed in an NTSB
+report. The locations are represented by a red circle and/or a range/bearing
+area, depending on what the report contains. Each object contains a link to the
+report itself. The data isn't very accurate it looks like (sometimes not even
+close to right), but the text of the reports often has more specific
+information. I have all the data in the US, but the above link is just the
+general area of the San Gabriel mountains; the web interface is way too slow to
+show more. Generating maps for other areas is trivial: the code, docs, and full
+final dataset appear [[https://github.com/dkogan/ntsb-wrecks][here]].
 
 And I just learned that in 2016 a Boeing 777 cleared Mt. Wilson by 1000 ft, not
 counting the towers. Some people live dangerously.
