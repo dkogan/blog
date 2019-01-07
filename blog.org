@@ -11979,6 +11979,43 @@ either un-breaking this, or actually removing the APIs entirely. That would be
 the impetus for me to finally dump this library. Which would be a good thing
 overall, to be honest.
 
+** DONE Where are all these crashes coming from?           :hiking:GIS:vnlog:
+   CLOSED: [2019-01-06 Sun 23:56]
+
+Check this out!
+
+[[https://caltopo.com/m/N13E][file:files/wrecks/wrecks.png]]
+
+(click for an interactive-but-very-slow map thing).
+
+So let's say you're walking around in the mountains, and BAM! You run into a
+crashed airplane (pretend this happens all the time). You wonder "what is this?"
+"When did it go down?" "How?" Usually it doesn't happen this way for me (rather
+[[https://www.tapatalk.com/groups/sangabrielmnts/before-removing-hubcap-move-center-screws-t7931.html][like this]]), but in any case this is all useful.
+
+It turns out that most (all?) such incidents are investigated by the NTSB. And
+they then write a report. And then somebody puts all the reports into a database
+and makes them available on the internet. How helpful! For my purposes, I mostly
+care about the location each impact site. Some reports actually have a lat/lon
+pair, while others have a range/bearing from some "observing" airport. Many
+reports don't have either, but there isn't a lot I can do about that.
+
+In any case, I just did some typing, and produced this:
+
+https://caltopo.com/m/N13E
+
+This is a map of all the incidents after 1982 that have a location listed in an
+NTSB report. The locations are represented by a red circle and/or a
+range/bearing area, depending on what the report contains. Each object contains
+a link to the report itself. The data isn't very accurate it looks like, but the
+text of the reports often has more specific information. I have all the data in
+the US, but the above link is just the general area of the San Gabriel
+mountains; the web interface is way too slow to show more. Generating maps for
+other areas is trivial: the code, docs, and full final dataset appear [[https://github.com/dkogan/ntsb-wrecks][here]].
+
+And I just learned that in 2016 a Boeing 777 cleared Mt. Wilson by 1000 ft, not
+counting the towers. Some people live dangerously.
+
 ** Math. Horizonator?                                              :noexport:
 * making dvipng work                                               :noexport:
 - OPTIONS do not work. Need to enable explicitly with
