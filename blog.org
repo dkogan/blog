@@ -11984,9 +11984,9 @@ overall, to be honest.
 
 Check this out!
 
-[[https://caltopo.com/m/N13E][file:files/wrecks/wrecks.png]]
+[[http://ntsb.secretsauce.net/map/][file:files/wrecks/wrecks.png]]
 
-(click for an interactive-but-very-slow map thing).
+(click for an interactive map thing).
 
 So let's say you're walking around in the mountains, and BAM! You run into a
 crashed airplane (pretend this happens all the time). You wonder "what is this?"
@@ -12000,25 +12000,29 @@ care about the location each impact site. Some reports actually have a lat/lon
 pair, while others have a range/bearing from some "observing" airport. Many
 reports don't have either, but there isn't a lot I can do about that.
 
-In any case, I just did some typing, and produced the map linked above:
+In any case, I did some typing, and produced the map linked above:
 
-https://caltopo.com/m/N13E
+http://ntsb.secretsauce.net/map/
 
 This shows all the incidents after 1982 that have a location listed in an NTSB
-report. The locations are represented by a red circle and/or a range/bearing
-area, depending on what the report contains. Each object contains a link to the
-report itself. The data isn't very accurate it looks like (sometimes not even
-close to right), but the text of the reports often has more specific
-information. I have all the data in the US, but the above link is just the
-general area of the San Gabriel mountains; the web interface is way too slow to
-show more. Generating maps for other areas is trivial: the code, docs, and full
-final dataset appear [[https://github.com/dkogan/ntsb-wrecks][here]].
+report. The locations are represented by a red circle (if a report lists a
+latitude/longitude) and/or a range/bearing area (if a report lists a weather
+observation and its relative location to the crash site). Clicking an object
+produces links to the different versions of the NTSB reports. The data isn't
+very accurate it looks like (sometimes not even close to right), but the text of
+the reports often has more specific information. I have all the data in the US,
+and you can use the interactive map in the above link to look at any of it.
 
-And I just learned that in 2016 a Boeing 777 cleared Mt. Wilson by 1000 ft, not
-counting the towers. Some people live dangerously.
+The code, docs, and full final dataset appear [[https://github.com/dkogan/ntsb-wrecks][here]].
+
+And I learned of exciting things looking at this. For instance in 2016 a Boeing
+777 cleared Mt. Wilson by 1000 ft, not counting the towers. And [[http://ntsb.secretsauce.net/map/#12/33.0776/-114.3581][this]] happened.
+
+Huge thanks to Erik Price and Chris McKenzie for help in getting the interactive
+map working.
 
 ** Math. Horizonator?                                              :noexport:
-* making dvipng work                                               :noexport:
+* making dvipng work for equations                                 :noexport:
 - OPTIONS do not work. Need to enable explicitly with
   (setq org-html-with-latex 'dvipng)
 
