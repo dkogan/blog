@@ -10085,6 +10085,12 @@ dima@scrawny:~/projects/inaccessibility/lower48$
 ** DONE Python extension modules without setuptools or distutils  :tools:dev:
    CLOSED: [2017-11-14 Tue 15:22]
 
+#+begin_o_blog_alert info Update
+I recently added python3 support (its build stuff is thankfully almost
+identical), pushed the demo to a [[https://github.com/dkogan/python_extensions_without_setuptools][repo]], and integrated this stuff into [[https://github.com/dkogan/mrbuild][mrbuild]]
+#+end_o_blog_alert
+
+
 I'm a big fan of standardized build systems, and I get really annoyed when
 projects come along and try to reinvent this particular wheel in their
 "ecosystem". Because no "ecosystem" is truly isolated. This is unfortunatly
@@ -10147,7 +10153,7 @@ fundamentally the only thing the =setup.py= does is to compile and link some C
 code with some specific flags, I just need a way to query those flags, and tell
 my build to use them.
 
-This is most easily described with [[file:files/python_extensions_without_setuptools/python_extensions_without_setuptools.tar.gz][an example]]. Let's say I have some C code I
+This is most easily described with [[https://github.com/dkogan/python_extensions_without_setuptools][an example]]. Let's say I have some C code I
 want to wrap in my main directory:
 
 =c_library.h=:
@@ -10183,18 +10189,38 @@ static PyObject* f_py(PyObject* self __attribute__((unused)),
 }
 
 
+static PyMethodDef methods[] =
+    { {"f", (PyCFunction)f_py, METH_NOARGS, "Python bindings to f() in c_library\n"},
+      {}
+    };
+
+#if PY_MAJOR_VERSION == 2
+
 PyMODINIT_FUNC initc_library(void)
 {
-    static PyMethodDef methods[] =
-        { {"f", (PyCFunction)f_py, METH_NOARGS, "Python bindings to f() in c_library\n"},
-          {}
-        };
-
 
     PyImport_AddModule("c_library");
     Py_InitModule3("c_library", methods,
                    "Python bindings to c_library");
 }
+
+#else
+
+static struct PyModuleDef module =
+    {
+     PyModuleDef_HEAD_INIT,
+     "c_library",   /* name of module */
+     "Python bindings to c_library",
+     -1,
+     methods
+    };
+
+PyMODINIT_FUNC PyInit_c_library(void)
+{
+    return PyModule_Create(&module);
+}
+
+#endif
 #+END_SRC
 
 This defines a python extension module called =c_library=, and exports a
@@ -10236,6 +10262,9 @@ either case without any hand-holding. To make that work I build the
 # Python and tell Make to use them. The stuff on the bottom is generic build
 # rules, that would come from a common build system.
 
+ifeq (,$(PYTHONVER))
+  $(error Please set the PYTHONVER env var to "2" or "3" to select your python release)
+endif
 
 
 # The python libraries (compiled ones and ones written in python all live in
@@ -10250,15 +10279,20 @@ either case without any hand-holding. To make that work I build the
 # with __whitespace__. The string I get when running this script will then have
 # a number of whitespace-separated tokens, each setting ONE variable
 define PYVARS_SCRIPT
+from __future__ import print_function
 import sysconfig
 import re
-for v in ("CC","CFLAGS","CCSHARED","INCLUDEPY","BLDSHARED","LDFLAGS"):
-    print re.sub("[\t ]+", "__whitespace__", "PY_{}:={}".format(v, sysconfig.get_config_var(v)))
+conf = sysconfig.get_config_vars()
+for v in ("CC","CFLAGS","CCSHARED","INCLUDEPY","BLDSHARED","LDFLAGS","EXT_SUFFIX"):
+    if v in conf:
+        print(re.sub("[\t ]+", "__whitespace__", "PY_{}:={}".format(v, conf[v])))
 endef
-PYVARS := $(shell python -c '$(PYVARS_SCRIPT)')
+PYVARS := $(shell python$(PYTHONVER) -c '$(PYVARS_SCRIPT)')
 
 # I then $(eval) these tokens one at a time, restoring the whitespace
 $(foreach v,$(PYVARS),$(eval $(subst __whitespace__, ,$v)))
+# this is not set in python2
+PY_EXT_SUFFIX := $(or $(PY_EXT_SUFFIX),.so)
 
 # The compilation flags are all the stuff python told us about. Some of its
 # flags live inside its CC variable, so I pull those out. I also pull out the
@@ -10268,10 +10302,11 @@ c_library_pywrap.o: CFLAGS += $(filter-out -O%,$(FLAGS_FROM_PYCC) $(PY_CFLAGS) $
 
 # I add an RPATH to the python extension DSO so that it runs in-tree. The build
 # system should pull it out at install time
-project/c_library.so: c_library_pywrap.o libc_library.so
+PY_LIBRARY_SO := project/c_library$(PY_EXT_SUFFIX)
+$(PY_LIBRARY_SO): c_library_pywrap.o libc_library.so
 	$(PY_BLDSHARED) $(PY_LDFLAGS) $< -lc_library -o $@ -L$(abspath .) -Wl,-rpath=$(abspath .)
 
-all: project/c_library.so
+all: $(PY_LIBRARY_SO)
 EXTRA_CLEAN += project/*.so
 
 
@@ -10338,7 +10373,7 @@ go check it out.
 And that's it. I can build:
 
 #+BEGIN_EXAMPLE
-$ make
+$ V=2 make
 
 cc  -std=gnu99 -pthread -fno-strict-aliasing -DNDEBUG -g -fwrapv -Wall -Wstrict-prototypes -Wdate-time -D_FORTIFY_SOURCE=2 -g -fdebug-prefix-map=/build/python2.7-VlMpWk/python2.7-2.7.14=. -fstack-protector-strong -Wformat -Werror=format-security -fPIC -I/usr/include/python2.7  -O3 -c -o c_library_pywrap.o c_library_pywrap.c
 cc  -std=gnu99 -fPIC  -O3 -c -o c_library.o c_library.c
