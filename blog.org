@@ -12014,7 +12014,7 @@ either un-breaking this, or actually removing the APIs entirely. That would be
 the impetus for me to finally dump this library. Which would be a good thing
 overall, to be honest.
 
-** DONE Where are all these crashes coming from?           :hiking:GIS:vnlog:
+** DONE Where are all these crashes coming from? 	   :hiking:GIS:vnlog:
    CLOSED: [2019-01-06 Sun 23:56]
 
 Check this out!
@@ -12055,6 +12055,95 @@ And I learned of exciting things looking at this. For instance in 2016 a Boeing
 
 Huge thanks to Erik Price and Chris McKenzie for help in getting the interactive
 map working.
+
+** DONE Are planes crashing any less than they used to?		 :data:vnlog:
+   CLOSED: [2019-09-07 Sat 16:25]
+
+Recently, I've been spending more of my hiking time looking for old
+plane crashes in the mountains. And I've been looking for data that
+helps me do that, for instance the [[file:{lisp}(ob:link-to-post (ob:get-post-by-title "Where are all these crashes coming from?")){/lisp}][last post]]. A question that came up
+in conversation is: "are crashes getting more rare?" And since I now
+have several datasets at my disposal, I can very easily come up with a
+crude answer.
+
+The [[file:{lisp}(ob:link-to-post (ob:get-post-by-title "Where are all these crashes coming from?")){/lisp}][last post]] describes how to map the available NTSB reports
+describing aviation incidents. I was only using the post-1982 reports
+in that project, but here let's /also/ look at the older
+reports. Today I can download both from their site:
+
+#+BEGIN_EXAMPLE
+$ wget https://app.ntsb.gov/avdata/Access/avall.zip
+$ unzip avall.zip    # <------- Post 1982
+
+$ wget https://app.ntsb.gov/avdata/PRE1982.zip
+$ unzip PRE1982.zip  # <------- Pre 1982
+#+END_EXAMPLE
+
+I import the relevant parts of each of these into sqlite:
+
+#+BEGIN_EXAMPLE
+$ ( mdb-schema avall.mdb sqlite -T events;
+    echo "BEGIN;";
+    mdb-export -I sqlite avall.mdb events;
+    echo "COMMIT;";
+  ) | sqlite3 post1982.sqlite
+
+$ ( mdb-schema PRE1982.MDB sqlite -T tblFirstHalf;
+    echo "BEGIN;";
+    mdb-export -I sqlite PRE1982.MDB tblFirstHalf;
+    echo "COMMIT;";
+  ) | sqlite3 pre1982.sqlite
+#+END_EXAMPLE
+
+And then I pull out the incident dates, and make a histogram:
+
+#+BEGIN_EXAMPLE
+$ cat <(sqlite3 pre1982.sqlite 'select DATE_OCCURRENCE from tblFirstHalf') \
+      <(sqlite3 post1982.sqlite 'select ev_date from events') |
+  perl -pe 's{^../../(..) .*}{$1 + (($1<40)? 2000: 1900)}e'   |
+  feedgnuplot --histo 0 --binwidth 1 --xmin 1960 --xlabel Year \
+              --title 'NTSB-reported incident counts by year'
+#+END_EXAMPLE
+
+#+ATTR_HTML: :width 90%
+[[file:files/wrecks/ntsb-histogram-by-year.svg]]
+
+I guess by that metric everything is getting safer. This clearly just
+counts NTSB incidents, and I don't do any filtering by the severity of
+the incident (not all reports describe crashes), but close-enough. The
+NTSB only deals with civilian incidents in the USA, and only after the
+early 1960s, it looks like. Any info about the military?
+
+At one point I went through "Historic Aircraft Wrecks of Los Angeles
+County" by G. Pat Macha, and listed all the described incidents in
+that book. This histogram of that dataset looks like this:
+
+#+ATTR_HTML: :width 90%
+[[file:files/wrecks/macha-la-histogram-by-year.svg]]
+
+Aaand there're a few internet resources that list out significant
+incidents in Southern California. For instance:
+
+- http://www.av.qnet.com/~carcomm/a.htm
+- http://www.av.qnet.com/~carcomm/b.htm
+- http://www.av.qnet.com/~carcomm/c.htm
+
+I visualize /that/ dataset:
+#+BEGIN_EXAMPLE
+$ < [abc].htm perl -nE '/^ \s* 19(\d\d) | \d\d \s*(?:\s|-|\/)\s* \d\d \s*(?:\s|-|\/)\s* (\d\d)[^\d]/x || next; $y = 1900+($1 or $2); say $y unless $y==1910' |
+  feedgnuplot --histo 0 --binwidth 5
+#+END_EXAMPLE
+
+#+ATTR_HTML: :width 90%
+[[file:files/wrecks/carcomm-by-year.svg]]
+
+So what did we learn? I guess overall crashes are becoming more
+rare. And there was a glut of military incidents in the 1940s and
+1950s in Southern California (not surprising given all the military
+bases and aircraft construction facilities here at that time). And
+by one metric there were lots of incidents in the late 1970s/early
+1980s, but they were much more interesting to this "carcomm" person,
+than they were to Pat Macha.
 
 ** Math. Horizonator?                                              :noexport:
 * making dvipng work for equations                                 :noexport:
