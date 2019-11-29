@@ -12145,6 +12145,147 @@ by one metric there were lots of incidents in the late 1970s/early
 1980s, but they were much more interesting to this "carcomm" person,
 than they were to Pat Macha.
 
+** DONE python-gnuplotlib knows about multiplots :data:tools:python:gnuplot:gnuplotlib:
+   CLOSED: [2019-11-28 Thu 19:30]
+*** Synopsis
+
+I just released gnuplotlib 0.32. It can do this:
+
+#+BEGIN_SRC python
+import gnuplotlib as gp
+import numpy      as np
+import numpysane  as nps
+
+th = np.linspace(0, np.pi*2, 30)
+
+gp.plot( th, nps.cat( np.cos(th), np.sin(th)),
+         _xrange = [0,2.*np.pi],
+         _yrange = [-1,1])
+#+END_SRC
+
+#+ATTR_HTML: :width 90%
+[[file:files/gnuplotlib/sinusoids-single-plot.svg]]
+
+
+#+BEGIN_SRC python
+import gnuplotlib as gp
+import numpy      as np
+import numpysane  as nps
+
+th = np.linspace(0, np.pi*2, 30)
+
+gp.plot( (th, np.cos(th), dict(title="cos")),
+         (th, np.sin(th), dict(title="sin")),
+         _xrange = [0,2.*np.pi],
+         _yrange = [-1,1],
+         multiplot='title "multiplot sin,cos" layout 2,1')
+#+END_SRC
+
+#+ATTR_HTML: :width 90%
+[[file:files/gnuplotlib/sinusoids-multi-plot.svg]]
+
+*** Long version
+
+[[https://github.com/dkogan/gnuplotlib/][=gnuplotlib=]] and [[https://github.com/dkogan/numpysane/][=numpysane=]] are becoming mature (i.e. I use them all the time,
+have done that for a while, and they work /very/ well), so I'm going to start
+doing some proselytizing on this front. I want to do a talk in the near future,
+and looking forward to that, I'm going to expand the docs, and I'm implementing
+some long-envisioned-but-never-completed features. The first one of these is now
+complete: multiplot support for =gnuplotlib=.
+
+[[http://gnuplot.sourceforge.net/demo/layout.html][Gnuplot multiplots]] are a way to create more than one plot in a single window (or
+hardcopy). These are a bit of a corner case, and I've been mostly getting by
+without ever using these, but sometimes they're really nice. Use cases:
+
+- Plotting several time series (or anything that shares an axis) on top of one
+  another. You /could/ just put all your stuff on the same plot, but if you have
+  many different datasets, and many different y-axis scales, this becomes messy
+  quickly
+
+- Getting around limitations in gnuplot. I recently discovered that gnuplot
+  doesn't have a direct way to plot several stacked contours in 3D: more than
+  one countour at a time is possible, but they'll all be drawn at the same z
+  coordinate. One way to work around this is to use multiplots to plot each
+  contour as a separate plot, and to tell gnuplot to put each subplot in the
+  same location on the page
+
+Making =gnuplotlib= support this was conceptually simple, but violated some core
+assumptions of the library, so lots of typing was required to add this feature.
+In the end, it came out nicely, and didn't break any of the previous APIs. The
+big update two-fold. First I needed to separate *plot options* into
+
+- *process options*: one per gnuplot process. Applies to the whole big plot.
+  Stuff like =terminal= or =hardcopy= or =wait=
+- *subplot options*: one per subplot. With multiplots we'll have many of these
+  at the same time. These control each plot. Stuff like =xlabel=, =xrange=,
+  =3d=, etc, etc
+
+And then all the data passed to =plot()= needed to be wrappable into yet-another
+outer list. While with a single subplot you'd do this:
+
+#+BEGIN_SRC python
+gp.plot( (x0, y0, curve_options0),
+         (x1, y1, curve_options1),
+         ...,
+         subplot_options, process_options)
+#+END_SRC
+
+In multiplot mode, you'd pass a tuple of subplots instead of a tuple of curves,
+where each suplot is more or less the whole argument set from each individual
+=plot()= command (minus the process options):
+
+#+BEGIN_SRC python
+gp.plot( ( (x0, y0, curve_options0),
+           (x1, y1, curve_options1),
+           ...
+           subplot_options0 ),
+
+         ( (x2, y2, curve_options2),
+           (x3, y3, curve_options3),
+           ...
+           subplot_options1 ),
+         ...,
+         process_options )
+#+END_SRC
+
+The [[https://github.com/dkogan/gnuplotlib/][=gnuplotlib= README]] and the [[https://github.com/dkogan/gnuplotlib/blob/master/demo.py][demo]] have some examples. Here's a stacked
+contour:
+
+#+BEGIN_SRC python
+import gnuplotlib as gp
+import numpy      as np
+
+xx,yy = np.meshgrid(np.linspace(-5,5,100),
+                    np.linspace(-5,5,100))
+zz0 = np.sin(xx) + yy*yy/8.
+zz1 = np.sin(xx) + yy*yy/10.
+zz2 = np.sin(xx) + yy*yy/12.
+
+commonset = ( 'origin 0,0',
+              'size 1,1',
+              'view 60,20,1,1',
+              'xrange [0:100]',
+              'yrange [0:100]',
+              'zrange [0:150]',
+              'contour base' )
+
+gp.plot3d( (zz0, dict(_set = commonset + ('xyplane at 10' ,))),
+           (zz1, dict(_set = commonset + ('xyplane at 80' ,))),
+           (zz2, dict(_set = commonset + ('xyplane at 150',))),
+
+           tuplesize=3,
+           _with = np.array(('lines nosurface',
+                             'labels boxed nosurface')),
+           square=1,
+           multiplot=True)
+#+END_SRC
+
+#+ATTR_HTML: :width 90%
+[[file:files/gnuplotlib/stacked-contours.svg]]
+
+This is pretty new, so if you try it out, and something is unclear or broken,
+please complain.
+
 ** Math. Horizonator?                                              :noexport:
 * making dvipng work for equations                                 :noexport:
 - OPTIONS do not work. Need to enable explicitly with
