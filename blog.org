@@ -12248,8 +12248,8 @@ gp.plot( ( (x0, y0, curve_options0),
          process_options )
 #+END_SRC
 
-The [[https://github.com/dkogan/gnuplotlib/][=gnuplotlib= README]] and the [[https://github.com/dkogan/gnuplotlib/blob/master/demo.py][demo]] have some examples. Here's a stacked
-contour:
+The [[https://github.com/dkogan/gnuplotlib/][=gnuplotlib= README]] and the [[https://github.com/dkogan/gnuplotlib/blob/master/demo.py][demo]] have some examples. Here're some
+stacked contours:
 
 #+BEGIN_SRC python
 import gnuplotlib as gp
