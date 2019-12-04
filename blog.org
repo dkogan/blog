@@ -12286,7 +12286,119 @@ gp.plot3d( (zz0, dict(_set = commonset + ('xyplane at 10' ,))),
 This is pretty new, so if you try it out, and something is unclear or broken,
 please complain.
 
-** Math. Horizonator?                                              :noexport:
+** DONE tee is broken?                                                :tools:
+   CLOSED: [2019-12-03 Tue 22:31]
+
+Just found a highly surprising behavior in a core tool I've used for decades, so
+clearly I'm making a note here. None of these are surprising:
+
+#+BEGIN_EXAMPLE
+$ seq 1000 | wc -l
+
+1000
+
+
+$ seq 1000 | tee /dev/null | wc -l
+
+1000
+
+
+$ seq 1000 | tee >( true ) | wc -l
+
+1000
+
+
+$ seq 1000 > >( true ) | wc -l
+
+1000
+#+END_EXAMPLE
+
+I.e. I can write 1000 lines into =tee=, do stuff in one of the children, and the
+other child get my 1000 lines still. The last one uses [[http://zsh.sourceforge.net/Doc/Release/Redirection.html#Multios][multios in zsh]] for the
+tee. But check out what happens when I bump up the data size:
+
+#+BEGIN_EXAMPLE
+$ seq 100000 | wc -l
+
+100000
+
+
+$ seq 100000 | tee /dev/null | wc -l
+
+100000
+
+
+$ seq 100000 | tee >( true ) | wc -l
+
+14139
+
+
+$ seq 100000 > >( true ) | wc -l
+
+1039
+#+END_EXAMPLE
+
+Whoa. What the hell? When I stumbled on this I had another, unrelated problem
+breaking things in this area, which made for a long debugging session. Here're
+some runs that give a hint of what's going on:
+
+#+BEGIN_EXAMPLE
+$ seq 100000 | tee >( true ) | wc -c
+
+73728
+
+
+$ seq 100000 > >( true ) | wc -c
+
+4092
+
+
+$ seq 100000 | tee >( cat > /dev/null ) | wc -l
+
+100000
+#+END_EXAMPLE
+
+Figure it out?
+
+Answer time! After a =tee=, a single writer parent feeds two reader children. If
+a child exits before reading /all/ the data, then when the parent tries to feed
+that dead child, the parent will get a =SIGPIPE=. And apparently the default
+behavior of =tee= in GNU coreutils (and in the zsh multios redirection) is to
+give up and to stop feeding /all/ the children at that point. So the second
+child (=wc -l= in the examples) ends up with incomplete input. No errors are
+thrown anywhere, and there's no indication at all that any data was truncated.
+Lots of the data is just silently missing.
+
+The GNU coreutils implementation of =tee= has an innocuous-looking option:
+
+#+BEGIN_EXAMPLE
+-p     diagnose errors writing to non pipes
+#+END_EXAMPLE
+
+I read the manpage several times, and it's /still/ not obvious to me that =-p=
+does anything more than change something about diagnostic printing. But it does:
+=tee -p= feeds all the children as much as it can until they're all dead (i.e.
+what everybody was assuming it was doing the whole time):
+
+#+BEGIN_EXAMPLE
+$ seq 100000 | tee -p >( true ) | wc -l
+
+100000
+#+END_EXAMPLE
+
+There's also =pee=, specific tee-to-process utility in the Debian =moreutils=
+package. This utility can be used here, and /it/ does the reasonable thing by
+default:
+
+#+BEGIN_EXAMPLE
+$ seq 100000 | pee true 'wc -l'
+
+100000
+#+END_EXAMPLE
+
+So yeah. I'm not the first person to discover this, but I'm certain this was
+quite surprising to each of us.
+
 * making dvipng work for equations                                 :noexport:
 - OPTIONS do not work. Need to enable explicitly with
   (setq org-html-with-latex 'dvipng)
