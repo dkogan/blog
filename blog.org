@@ -12399,6 +12399,176 @@ $ seq 100000 | pee true 'wc -l'
 So yeah. I'm not the first person to discover this, but I'm certain this was
 quite surprising to each of us.
 
+** DONE C++ probes with perf
+   CLOSED: [2019-12-16 Mon 21:19]
+
+The Linux [[https://perf.wiki.kernel.org/index.php/Main_Page][=perf=]] tool can be used to (among many other things!) instrument
+user-space code. Dynamic probes can be placed in arbitrary locations, but in my
+usage, I almost always place them at function entry and exit points. Since
+=perf= comes from the Linux kernel, it supports C well. But sometimes I need to
+deal with C++, and =perf='s incomplete support is annoying. Today I figured out
+how to make it sorta work, so I'm writing it up here.
+
+For the record, I'm using perf 4.19.37 from linux-base=4.6 on Debian, on amd64.
+
+Let's say I have this not-very-interesting C++ program in =tst.cc=:
+
+#+BEGIN_SRC c++
+#include <stdio.h>
+namespace N
+{
+    void f(int x)
+    {
+        printf("%d\n", x);
+    }
+}
+
+int main(int argc, char* argv[])
+{
+    N::f(argc);
+    return 0;
+}
+#+END_SRC
+
+It just calls the C++ function =N::f()=. I build this:
+
+#+BEGIN_EXAMPLE
+$ g++ -o tst tst.cc
+#+END_EXAMPLE
+
+And I ask =perf= about what functions are instrument-able:
+
+#+BEGIN_EXAMPLE
+$ perf probe -x tst --funcs
+
+N::f
+completed.7326
+data_start
+deregister_tm_clones
+frame_dummy
+main
+printf@plt
+register_tm_clones
+#+END_EXAMPLE
+
+Here =perf= says it can see =N::f= (it demangled the name, even), but if I try
+to add a probe there, it barfs:
+
+#+BEGIN_EXAMPLE
+$ sudo perf probe -x tst --add N::f
+
+Semantic error :There is non-digit char in line number.
+#+END_EXAMPLE
+
+The reason is that =perf='s probe syntax uses the =:= character for line
+numbers, and this conflicts with the C++ scope syntax. =perf= /could/ infer that
+a =::= is not a line number, but nobody has written that yet. I generally avoid
+C++, so I'm going to stop at this post.
+
+So how do we add a probe? Since =perf= can't handle mangled names, we can ask it
+to skip the demangling:
+
+#+BEGIN_EXAMPLE
+$ perf probe -x tst --funcs --no-demangle
+
+completed.7326
+data_start
+deregister_tm_clones
+frame_dummy
+main
+printf@plt
+register_tm_clones
+#+END_EXAMPLE
+
+But now my function is gone! Apparently there's a function filter that by
+default throws out all functions that start with =_=. Let's disabled that
+filter:
+
+#+BEGIN_EXAMPLE
+$ perf probe -x tst --funcs --no-demangle --filter '*'
+
+_DYNAMIC
+_GLOBAL_OFFSET_TABLE_
+_IO_stdin_used
+_ZN1N1fEi
+__FRAME_END__
+__TMC_END__
+__data_start
+__do_global_dtors_aux
+__do_global_dtors_aux_fini_array_entry
+__dso_handle
+__frame_dummy_init_array_entry
+__libc_csu_fini
+__libc_csu_init
+_edata
+_fini
+_init
+_start
+completed.7326
+data_start
+deregister_tm_clones
+frame_dummy
+main
+printf@plt
+register_tm_clones
+#+END_EXAMPLE
+
+Aha. There's my function: =_ZN1N1fEi=. Can I add a probe there?
+
+#+BEGIN_EXAMPLE
+# perf probe -x tst --add _ZN1N1fEi
+
+Failed to find symbol _ZN1N1fEi in /tmp/tst
+  Error: Failed to add events.
+#+END_EXAMPLE
+
+Nope. Apparently I need to explicitly tell it that I'm dealing with unmangled symbols:
+
+
+#+BEGIN_EXAMPLE
+# perf probe -x tst --add _ZN1N1fEi --no-demangle
+
+Added new event:
+  probe_tst:_ZN1N1fEi  (on _ZN1N1fEi in /tmp/tst)
+
+You can now use it in all perf tools, such as:
+
+        perf record -e probe_tst:_ZN1N1fEi -aR sleep 1
+#+END_EXAMPLE
+
+There it goes! Now let's add another probe, at the function exit:
+
+#+BEGIN_EXAMPLE
+# sudo perf probe -x tst --add _ZN1N1fEi_ret=_ZN1N1fEi%return --no-demangle 
+
+Added new event:
+  probe_tst:_ZN1N1fEi_ret__return (on _ZN1N1fEi%return in /tmp/tst)
+
+You can now use it in all perf tools, such as:
+
+        perf record -e probe_tst:_ZN1N1fEi_ret__return -aR sleep 1
+#+END_EXAMPLE
+
+And now I should be able to run the instrumented program, and to see all the
+crossings of my probes:
+
+#+BEGIN_EXAMPLE
+# perf record -eprobe_tst:_ZN1N1fEi{,_ret__return} ./tst                  
+
+1
+[ perf record: Woken up 1 times to write data ]
+[ perf record: Captured and wrote 0.017 MB perf.data (2 samples) ]
+
+
+# perf script
+
+             tst  6216 [001] 834490.086097:             probe_tst:_ZN1N1fEi: (559833acb135)
+             tst  6216 [001] 834490.086196: probe_tst:_ZN1N1fEi_ret__return: (559833acb135 <- 559833acb172)
+#+END_EXAMPLE
+
+Sweet! Again, note that this is =perf= version 4.19.37, and other versions may
+behave differently.
+
 * making dvipng work for equations                                 :noexport:
 - OPTIONS do not work. Need to enable explicitly with
   (setq org-html-with-latex 'dvipng)
