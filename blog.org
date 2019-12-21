@@ -12399,7 +12399,7 @@ $ seq 100000 | pee true 'wc -l'
 So yeah. I'm not the first person to discover this, but I'm certain this was
 quite surprising to each of us.
 
-** DONE C++ probes with perf
+** DONE C++ probes with perf                                          :tools:
    CLOSED: [2019-12-16 Mon 21:19]
 
 The Linux [[https://perf.wiki.kernel.org/index.php/Main_Page][=perf=]] tool can be used to (among many other things!) instrument
@@ -12568,6 +12568,110 @@ crossings of my probes:
 
 Sweet! Again, note that this is =perf= version 4.19.37, and other versions may
 behave differently.
+
+** DONE vnl-uniq                                           :tools:data:vnlog:
+   CLOSED: [2019-12-21 Sat 14:17]
+
+I just added a new tool to the [[https://github.com/dkogan/vnlog][=vnlog toolkit=]]: [[https://github.com/dkogan/vnlog#vnl-uniq][=vnl-uniq=]]. Similar to the
+others, this one is a wrapper for the =uniq= tool in GNU coreutils. It reads
+just enough of the input to get the legend, writes out the (possibly-modified)
+legend, and then calls =exec= to pass control to =uniq= to handle the rest of
+the data stream (i.e. to do all the actual work). The primary use case is to
+make histograms:
+
+#+BEGIN_EXAMPLE
+$ cat objects.vnl
+
+# size  color
+1      blue
+2      yellow
+1      yellow
+5      blue
+3      yellow
+4      orange
+2      orange
+
+
+$ < objects.vnl vnl-filter -p color |
+                vnl-sort -k color   |
+                vnl-uniq -c
+
+# count color
+      2 blue
+      2 orange
+      3 yellow
+#+END_EXAMPLE
+
+I also added a =--vnl-count NAME= to be able to name the =count= column.
+
+As happens each time I wrap one of these tools, I end up reading the
+documentation, and learning about new options. Apparently =uniq= knows how to
+use a subset of the fields when testing for uniqueness: =uniq -f N= skips the
+first =N= columns for the purposes of uniqueness. Naturally, =vnl-uniq= supports
+this, and I added an extension: negative =N= can be passed-in to use /only/ the
+last =-N= columns. So to use just the one last column, pass =-f -1=. This allows
+the above to be invoked a bit more simply:
+
+#+BEGIN_EXAMPLE
+$ < objects.vnl vnl-sort -k color |
+                vnl-uniq -c -f-1
+
+# count size color
+      2 1      blue
+      2 2      orange
+      3 1      yellow
+#+END_EXAMPLE
+
+Note that I didn't need to filter the input to throw out the columns I wasn't
+interested in. And as a side-effect, the output of =vnl-uniq= now has the =size=
+column also: this is the first size in a group of identical colors. Unclear if
+this is useful, but it's what =uniq= does. Speaking of groups, something that
+/is/ useful is =uniq --group=, which adds visual separation to groups of
+identical fields. To report the full dataset, grouped by color:
+
+#+BEGIN_EXAMPLE
+$ < objects.vnl vnl-sort -k color |
+                vnl-uniq --group -f-1
+
+# size color
+1      blue
+5      blue
+
+2      orange
+4      orange
+
+1      yellow
+2      yellow
+3      yellow
+#+END_EXAMPLE
+
+It looks like =uniq= provides no way to combine this with the counts (which
+makes sense, given that =uniq= makes one pass through the data), but this can be
+done by doing a join first. Looks complicated, but it's really not that bad:
+
+#+BEGIN_EXAMPLE
+$ vnl-join -j color <( < objects.vnl vnl-sort -k color )
+                    <( < objects.vnl vnl-filter -p color | vnl-sort -k color | vnl-uniq -c -f-1 ) |
+  vnl-filter -p '!color',color |
+  vnl-align |
+  vnl-uniq --group -f-1
+
+# size count color
+1      2     blue
+5      2     blue
+
+2      2     orange
+4      2     orange
+
+1      3     yellow
+2      3     yellow
+3      3     yellow
+#+END_EXAMPLE
+
+It's awkward that =uniq= works off trailing fields but =join= puts the key field
+at the front, but that's how it is. If I care enough, I may add some sort of
+=vnl-uniq --vnl-field F= to make this nicer, but it's not obviously worth the
+typing.
 
 * making dvipng work for equations                                 :noexport:
 - OPTIONS do not work. Need to enable explicitly with
