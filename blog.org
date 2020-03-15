@@ -12675,6 +12675,7 @@ typing.
 
 ** DONE numpysane and broadcasting in C   :tools:python:data:numpy:numpysane:
    CLOSED: [2020-03-15 Sun 01:08]
+
 Since the beginning, the [[https://github.com/dkogan/numpysane][=numpysane=]] library provided a =broadcast_define()=
 function to decorate existing Python routines to give them [[https://docs.scipy.org/doc/numpy/user/basics.broadcasting.html][broadcasting
 awareness]]. This was very useful, but slow. I just did lots of typing, and now I
@@ -12710,8 +12711,9 @@ ValueError: matmul: Input operand 1 has a mismatch in
 #+END_EXAMPLE
 
 This should work. And if you do this with =numpysane.broadcast_define()= or with
-=numpysane_pywrap=, it /does/ work. I'll look at it to figure out what it's
-doing at some point.
+=numpysane_pywrap=, it /does/ work. I'll look at it later to figure out what it's
+doing.
+
 
 * making dvipng work for equations                                 :noexport:
 - OPTIONS do not work. Need to enable explicitly with
