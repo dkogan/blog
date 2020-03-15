@@ -12673,6 +12673,46 @@ at the front, but that's how it is. If I care enough, I may add some sort of
 =vnl-uniq --vnl-field F= to make this nicer, but it's not obviously worth the
 typing.
 
+** DONE numpysane and broadcasting in C   :tools:python:data:numpy:numpysane:
+   CLOSED: [2020-03-15 Sun 01:08]
+Since the beginning, the [[https://github.com/dkogan/numpysane][=numpysane=]] library provided a =broadcast_define()=
+function to decorate existing Python routines to give them [[https://docs.scipy.org/doc/numpy/user/basics.broadcasting.html][broadcasting
+awareness]]. This was very useful, but slow. I just did lots of typing, and now I
+have a flavor of this in C (the =numpysane_pywrap= module; new in =numpysane=
+0.22). As expected, you get fast C loops! And similar to the rest of this
+library, this is a port of something in [[http://pdl.perl.org][PDL]]: [[http://pdl.perl.org/?docs=PP&title=PDL::PP][=PDL::PP=]].
+
+Full documentation lives here:
+
+https://github.com/dkogan/numpysane/blob/master/README-pywrap.org
+
+After writing this I realized that there was something similar available in
+numpy this whole time:
+https://docs.scipy.org/doc/numpy/reference/c-api.generalized-ufuncs.html
+
+I haven't looked too deeply into this yet, but 2 things are clear:
+
+There's a design difference: the numpy implementation uses function callbacks,
+while I generate C code. Code generation is what =PDL::PP= does, and when I
+thought about it earlier, it seemed like doing this with function pointers would
+be too painful. I guess it's doable, though.
+
+And at least in one case, the gufuncs aren't doing the right broadcasting thing:
+
+#+BEGIN_EXAMPLE
+>>> a = np.arange(5).reshape(5,1)
+>>> b = np.arange(3)
+
+>>> np.matmul(a,b)
+ValueError: matmul: Input operand 1 has a mismatch in
+   its core dimension 0, with gufunc signature
+   (n?,k),(k,m?)->(n?,m?) (size 3 is different from 1)
+#+END_EXAMPLE
+
+This should work. And if you do this with =numpysane.broadcast_define()= or with
+=numpysane_pywrap=, it /does/ work. I'll look at it to figure out what it's
+doing at some point.
+
 * making dvipng work for equations                                 :noexport:
 - OPTIONS do not work. Need to enable explicitly with
   (setq org-html-with-latex 'dvipng)
