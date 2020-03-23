@@ -12714,6 +12714,244 @@ This should work. And if you do this with =numpysane.broadcast_define()= or with
 =numpysane_pywrap=, it /does/ work. I'll look at it later to figure out what it's
 doing.
 
+** DONE org-babel for documentation	  :tools:python:emacs:org:gnuplotlib:
+   CLOSED: [2020-03-22 Sun 17:50]
+
+So I just gave a [[https://github.com/dkogan/talk-numpysane-gnuplotlib/raw/master/numpysane-gnuplotlib.pdf][talk]] at [[https://www.socallinuxexpo.org][SCaLE 18x]] about [[https://github.com/dkogan/numpysane][=numpysane=]] and [[https://github.com/dkogan/gnuplotlib][=gnuplotlib=]], two
+libraries I wrote to make using numpy bearable. With these two, it's actually
+quite nice!
+
+Prior to the talk I overhauled the documentation for both these projects. The
+=gnuplotlib= docs now have a [[https://github.com/dkogan/gnuplotlib/blob/master/guide/guide.org][tutorial/gallery page]], which is interesting-enough
+to write about. Check it out! Mostly it is a sequence of
+
+- Here's a bit of Python code
+- And here's the plot you get if you run that code
+
+Clearly you want the plots in the documentation to correspond to the code, so
+you want something to actually run each code snippet to produce each plot.
+Automatically. I don't want to maintain these manually, and periodically
+discover that the code doesn't make the plot I claim it does or worse: that the
+code barfs. This is vaguely what Jupyter notebooks do, but they're ridiculous,
+so I'm doing something better:
+
+- The documentation page is a plain-text [[https://orgmode.org][org-mode]] file. org is a magical Emacs
+  mode; if you've never heard of it, stop everything and go check it out
+- This org file has a sequence of [[https://orgmode.org/worg/org-contrib/babel/intro.html][org-babel]] snippets. org-babel is a way to
+  include snippets from various languages into org documents. Here I'm using
+  Python, obviously
+- I have org evaluate each snippet to produce the resulting figure, as an .svg
+- I commit this .org file and the .svg plots, and push them to the git repo
+
+That's it. The git repo is hosted by github, which has a rudimentary renderer
+for .org documents. I'm committing the .svg files, so that's enough to get
+rendered documentation that looks nice. Note that the /usual/ workflow is to use
+org to export to html, but here I'm outsourcing that job to github; I just make
+the .svg files, and that's enough.
+
+Look at the link again: [[https://github.com/dkogan/gnuplotlib/blob/master/guide/guide.org][=gnuplotlib= tutorial/gallery]]. This is just a .org file
+committed to the git repo. github is doing its normal org->html thing to display
+this file. This has drawbacks too: github is ignoring the =:noexport:= tag on
+the =init= section at the end of the file, so it's actually showing all the
+emacs lisp goop that makes this work (described below!). It's at the end, so I
+guess this is good-enough.
+
+Those of us that use org-mode would be completely unsurprised to hear that the
+talk is /also/ written as .org document. And the slides that show =gnuplotlib=
+plots use the same org-babel system to render the plots.
+
+It's all oh-so-nice. As with anything as flexible as org-babel, it's easy to get
+into a situation where you're bending it to serve a not-quite-intended purpose.
+But since this all lives in emacs, you can make it do whatever you want with a
+bit of emacs lisp.
+
+I ended up advising a few things (mailing list post [[https://lists.gnu.org/archive/html/emacs-orgmode/2020-03/msg00086.html][here]]). And I stumbled on an
+(arguable) bug in emacs that needed working around (mailing list post [[https://lists.gnu.org/archive/html/emacs-devel/2020-03/msg00314.html][here]]).
+I'll summarize both here.
+
+*** Handling large Local Variables blocks
+
+The advises I ended up with ended up longer than emacs expected, which made
+emacs not evaluate them when loading the buffer. As I discovered (see the
+mailing list post) the loading code looks for the string =Local Variables= in
+the last 3000 bytes of the buffer only, and I exceeded that. Stefan Monnier
+suggested a workaround in [[https://lists.gnu.org/archive/html/emacs-devel/2020-03/msg00320.html][this post]]. Instead of the normal =Local Variables=
+block at the end:
+
+#+begin_src emacs-lisp
+Local Variables:
+eval: (progn ... ...
+             ... ...
+             LONG chunk of emacs-lisp
+      )
+End:
+#+end_src
+
+I do this:
+
+#+begin_src emacs-lisp
+(progn ;;local-config
+   lisp lisp lisp
+   as long as I want
+)
+
+Local Variables:
+eval: (progn (re-search-backward "^(progn ;;local-config") (eval (read (current-buffer))))
+End:
+#+end_src
+
+So emacs sees a small chunk of code that searches backwards through the buffer
+(as far back as needed) for the /real/ lisp to evaluate. As an aside, this blog
+is /also/ an .org document, and the lisp snippets above are org-babel blocks
+that I'm not evaluating. The exporter knows to respect the emacs-lisp syntax
+highlighting, however.
+
+*** Advises
+
+OK, so what was all the stuff I needed to tell org-babel to do specially here?
+
+First off, org needed to be able to communicate to the Python session the name
+of the file to write the plot to. I do this by making the whole plist for this
+org-babel snippet available to python:
+
+#+begin_src emacs-lisp
+;; THIS advice makes all the org-babel parameters available to python in the
+;; _org_babel_params dict. I care about _org_babel_params['_file'] specifically,
+;; but everything is available
+(defun dima-org-babel-python-var-to-python (var)
+  "Convert an elisp value to a python variable.
+  Like the original, but supports (a . b) cells and symbols
+"
+  (if (listp var)
+      (if (listp (cdr var))
+          (concat "[" (mapconcat #'org-babel-python-var-to-python var ", ") "]")
+        (format "\"\"\"%s\"\"\"" var))
+    (if (symbolp var)
+        (format "\"\"\"%s\"\"\"" var)
+      (if (eq var 'hline)
+          org-babel-python-hline-to
+        (format
+         (if (and (stringp var) (string-match "[\n\r]" var)) "\"\"%S\"\"" "%S")
+         (if (stringp var) (substring-no-properties var) var))))))
+(defun dima-alist-to-python-dict (alist)
+  "Generates a string defining a python dict from the given alist"
+  (let ((keyvalue-list
+         (mapcar (lambda (x)
+                   (format "%s = %s, "
+                           (replace-regexp-in-string
+                            "[^a-zA-Z0-9_]" "_"
+                            (symbol-name (car x)))
+                           (dima-org-babel-python-var-to-python (cdr x))))
+                 alist)))
+    (concat
+     "dict( "
+     (apply 'concat keyvalue-list)
+     ")")))
+(defun dima-org-babel-python-pass-all-params (f params)
+  (cons
+   (concat
+    "_org_babel_params = "
+    (dima-alist-to-python-dict params))
+   (funcall f params)))
+(unless
+    (advice-member-p
+     #'dima-org-babel-python-pass-all-params
+     #'org-babel-variable-assignments:python)
+  (advice-add
+   #'org-babel-variable-assignments:python
+   :around #'dima-org-babel-python-pass-all-params))
+#+end_src
+
+So if there's a =:file= plist key, the python code can grab that, and write the
+plot to that filename. But I don't really want to specify an output file for
+every single org-babel snippet. All I really care about is that each plot gets a
+unique filename. So I omit the =:file= key entirely, and use this advice to
+generate one for me:
+
+#+begin_src emacs-lisp
+;; This sets a default :file tag, set to a unique filename. I want each demo to
+;; produce an image, but I don't care what it is called. I omit the :file tag
+;; completely, and this advice takes care of it
+(defun dima-org-babel-python-unique-plot-filename
+    (f &optional arg info params)
+  (funcall f arg info
+           (cons (cons ':file
+                       (format "guide-%d.svg"
+                               (condition-case nil
+                                   (setq dima-unique-plot-number (1+ dima-unique-plot-number))
+                                 (error (setq dima-unique-plot-number 0)))))
+                 params)))
+(unless
+    (advice-member-p
+     #'dima-org-babel-python-unique-plot-filename
+     #'org-babel-execute-src-block)
+  (advice-add
+   #'org-babel-execute-src-block
+   :around #'dima-org-babel-python-unique-plot-filename))
+#+end_src
+
+This uses the =dima-unique-plot-number= integer to keep track of each plot. I
+increment this with each plot. Getting closer. It isn't strictly required, but
+it'd be nice if each plot had the same output filename each time I generated it.
+So I want to reset the plot number to 0 each time:
+
+#+begin_src emacs-lisp
+;; If I'm regenerating ALL the plots, I start counting the plots from 0
+(defun dima-reset-unique-plot-number
+    (&rest args)
+    (setq dima-unique-plot-number 0))
+(unless
+    (advice-member-p
+     #'dima-reset-unique-plot-number
+     #'org-babel-execute-buffer)
+  (advice-add
+   #'org-babel-execute-buffer
+   :after #'dima-reset-unique-plot-number))
+#+end_src
+
+Finally, I want to lie to the user a little bit. The code I'm /actually/
+executing writes each plot to an .svg. But the code I'd like the user to see
+should use the default output: an interactive, graphical window. I do that by
+tweaking the python session to tell the =gnuplotlib= object to write to .svg
+files from org by default, instead of using the graphical terminal:
+
+#+begin_src emacs-lisp
+;; I'm using github to display guide.org, so I'm not using the "normal" org
+;; exporter. I want the demo text to not contain the hardcopy= tags, but clearly
+;; I need the hardcopy tag when generating the plots. I add some python to
+;; override gnuplotlib.plot() to add the hardcopy tag somewhere where the reader
+;; won't see it. But where to put this python override code? If I put it into an
+;; org-babel block, it will be rendered, and the :export tags will be ignored,
+;; since github doesn't respect those (probably). So I put the extra stuff into
+;; an advice. Whew.
+(defun dima-org-babel-python-set-demo-output (f body params)
+  (with-temp-buffer
+    (insert body)
+    (beginning-of-buffer)
+    (when (search-forward "import gnuplotlib as gp" nil t)
+      (end-of-line)
+      (insert
+       "\n"
+       "if not hasattr(gp.gnuplotlib, 'orig_init'):\n"
+       "    gp.gnuplotlib.orig_init = gp.gnuplotlib.__init__\n"
+       "gp.gnuplotlib.__init__ = lambda self, *args, **kwargs: gp.gnuplotlib.orig_init(self, *args, hardcopy=_org_babel_params['_file'] if 'file' in _org_babel_params['_result_params'] else None, **kwargs)\n"))
+    (setq body (buffer-substring-no-properties (point-min) (point-max))))
+  (funcall f body params))
+
+(unless
+    (advice-member-p
+     #'dima-org-babel-python-set-demo-output
+     #'org-babel-execute:python)
+  (advice-add
+   #'org-babel-execute:python
+   :around #'dima-org-babel-python-set-demo-output))
+)
+#+end_src
+
+And that's it. The advises in the talk are slightly different, in uninteresting
+ways. Some of this should be upstreamed to org-babel somehow. Now entirely clear
+which part, but I'll cross that bridge when I get to it.
+
 
 * making dvipng work for equations                                 :noexport:
 - OPTIONS do not work. Need to enable explicitly with
