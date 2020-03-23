@@ -12975,7 +12975,8 @@ eval: (progn
           (setq org-format-latex-options (plist-put (plist-put org-format-latex-options :background "White") :foreground "Black"))
           (auto-fill-mode)
           (load-library "compile")
-          (load-library "o-blog")
+          (with-temp-buffer (find-file "/home/dima/.emacs.d/elpa/o-blog-20130904.1426.backup/o-blog.el") (eval-buffer))
+          (with-temp-buffer (find-file "/home/dima/.emacs.d/elpa/o-blog-20130904.1426.backup/o-blog-i18n.el") (eval-buffer))
           (setq org-html-table-default-attributes
             '(:border "2" :cellspacing "0" :cellpadding "6" :rules "all" :frame "box"))
           ;; don't automatically subscript with _
