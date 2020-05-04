@@ -12952,6 +12952,65 @@ And that's it. The advises in the talk are slightly different, in uninteresting
 ways. Some of this should be upstreamed to org-babel somehow. Now entirely clear
 which part, but I'll cross that bridge when I get to it.
 
+** DONE Redirection and /dev/stderr                                   :shell:
+   CLOSED: [2020-05-04 Mon 14:30]
+
+I just hit some unexpected unix-ism (or maybe Linux-ism?) that I'd like to
+mention here. I found a workaround, but if anybody knows what's actually
+happening and can enlighten me, please send me an email, and I'll update the
+post.
+
+OK, so I have a program that does stuff, and outputs its progress to stderr. And
+I'm invoking this from a shell script that also outputs stuff to stderr. A
+minimized sample:
+
+#+begin_src sh
+echo "Outer print 1111" > /dev/stderr
+perl -E 'say STDERR ("1111 1111 1111 1111 1111 1111 1111 1111\n")'
+
+echo "Outer print 2222" > /dev/stderr
+perl -E 'say STDERR ("2222 2222 2222 2222 2222 2222 2222 2222\n")'
+#+end_src
+
+Let's call this =dothing.sh=. This works just fine. Now let's say I want to log
+the output to a file. Naturally I do this:
+
+#+begin_src sh
+./dothing.sh 2> /tmp/log
+#+end_src
+
+Surprisingly, this does not work:
+
+#+begin_example
+$ bash dothing.sh 2> /tmp/log && cat /tmp/log
+Outer print 2222
+2222 2222 2222 2222 2222 2222 2222 2222
+
+$ bash dothing.sh 2> /tmp/log && xxd /tmp/log
+0000000: 4f75 7465 7220 7072 696e 7420 3232 3232  Outer print 2222
+0000010: 0a00 0000 0000 0000 0000 0000 0000 0000  ................
+0000020: 0000 0000 0000 0000 0032 3232 3220 3232  .........2222 22
+0000030: 3232 2032 3232 3220 3232 3232 2032 3232  22 2222 2222 222
+0000040: 3220 3232 3232 2032 3232 3220 3232 3232  2 2222 2222 2222
+0000050: 0a0a                                     ..
+#+end_example
+
+The =1111= prints are gone, and we now have a block of binary 0 bytes in there
+for some reason. I had been assuming that writes to stderr block until they're
+finished. So I can, without thinking about it, mix writing to fd 2 and opening,
+and then writing to =/dev/stderr=. Apparently the /right/ way to do this is to
+write to fd 2 in the script directly, instead of opening =/dev/stderr=:
+
+#+begin_src sh
+echo "Outer print 1111" >&2
+perl -E 'say STDERR ("1111 1111 1111 1111 1111 1111 1111 1111\n")'
+
+echo "Outer print 2222" >&2
+perl -E 'say STDERR ("2222 2222 2222 2222 2222 2222 2222 2222\n")'
+#+end_src
+
+Why?
+
 
 * making dvipng work for equations                                 :noexport:
 - OPTIONS do not work. Need to enable explicitly with
