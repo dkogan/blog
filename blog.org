@@ -13011,6 +13011,24 @@ perl -E 'say STDERR ("2222 2222 2222 2222 2222 2222 2222 2222\n")'
 
 Why?
 
+#+begin_o_blog_alert info Update
+So I poked at it for a bit more, and it turns out that the obvious
+scapegoat (buffering) is actually not the issue. The problem is this:
+
+#+BEGIN_EXAMPLE
+$ ls -l /dev/stderr(:A)
+-rw-r--r-- 1 dima dima 36 May  4 17:02 /tmp/log
+#+END_EXAMPLE
+
+=:A= is the zsh syntax for recursive link-following. =/dev/stderr= is
+thus ultimately a link to =/tmp/log=. So the file on disk =/tmp/log= is
+being opened for writing and written-to /twice/ at the same time
+
+- once in the outer =2>/tmp/log= redirection
+- /again/ in the inner =>/dev/stderr= redirection
+
+Now we know. Thanks to Larry Doolittle for pointers.
+#+end_o_blog_alert
 
 * making dvipng work for equations                                 :noexport:
 - OPTIONS do not work. Need to enable explicitly with
