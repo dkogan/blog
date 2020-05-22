@@ -3851,7 +3851,7 @@ this ([[file:files/la_hills/profiles_relative.gp][source]]):
 Once again, Fargo is steeper than Baxter. The steepest section of Fargo is very
 similar to Eldred, but Fargo retains is steepness longer than Eldred does.
 
-One could try to split hairs about whether Fargo or Baxter are steeper, but
+One could try to split hairs about whether Fargo or Eldred are steeper, but
 based on this data, they're even for all purposes.
 
 Clearly this all is only valid if the source data is valid. It looks mostly
