@@ -13030,6 +13030,21 @@ being opened for writing and written-to /twice/ at the same time
 Now we know. Thanks to Larry Doolittle for pointers.
 #+end_o_blog_alert
 
+** DONE vnlog now functional on *BSD and OSX			:tools:vnlog:
+   CLOSED: [2020-06-02 Tue 18:20]
+
+So somebody finally bugged me about supporting [[http://www.github.com/dkogan/vnlog][vnlog]] tools on OSX. I
+was pretty sure that between all the redirection, process
+communication, and file descriptor management /something/ was
+Linux-specific, but apparently not: everything just works. There were
+a few uninteresting issues with tool paths, core tool and linker flags
+and so on, but it was all really minor. I have a report that the test
+suite passes on OSX, and I verified it on FreeBSD.
+
+I made a new 1.28 release tag, but it exists mostly for the benefit of
+any OSX or *BSD people who'd want to make a package for their
+system. Progress!
+
 * making dvipng work for equations                                 :noexport:
 - OPTIONS do not work. Need to enable explicitly with
   (setq org-html-with-latex 'dvipng)
