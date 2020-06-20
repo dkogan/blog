@@ -13045,6 +13045,346 @@ I made a new 1.28 release tag, but it exists mostly for the benefit of
 any OSX or *BSD people who'd want to make a package for their
 system. Progress!
 
+** DONE OpenCV C API transition. A rant. 			 :dev:opencv:
+   CLOSED: [2020-06-20 Sat 00:42]
+
+I just went through a debugging exercise that was so ridiculous, I just had to
+write it up. Some of this probably should go into a bug report instead of a
+rant, but I'm tired. And clearly I don't care anymore.
+
+OK, so I'm doing computer vision work. OpenCV has been providing basic functions
+in this area, so I have been using them for a while. Just for really, really
+basic stuff, like [[https://docs.opencv.org/2.4/modules/calib3d/doc/camera_calibration_and_3d_reconstruction.html#projectpoints][projection]]. The C API was kinda weird, and their error
+handling is a bit ridiculous (if you give it arguments it doesn't like, it
+asserts!), but it has been working fine for a while.
+
+At some point (around OpenCV 3.0) somebody over there decided that they didn't
+like their C API, and that this was now a C++ library. Except the docs still
+documented the C API, and the website said it supported C, and the code wasn't
+actually removed. They just kinda stopped testing it and thinking about it. So
+it would mostly continue to work, except some poor saps would see weird
+failures; like [[https://github.com/opencv/opencv/issues/6221][this]] and [[https://github.com/opencv/opencv/issues/8438][this]], for instance. OpenCV 3.2 was the last version
+where it was mostly possible to keep using the old C code, [[file:{lisp}(ob:link-to-post (ob:get-post-by-title "Keeping C OpenCV applications building")){/lisp}][even when compiling
+without optimizations]]. So I was doing that for years.
+
+So now, in 2020, Debian is finally shipping a version of OpenCV that
+definitively does not work with the old code, so I had to do /something/. Over
+time I stopped using everything about OpenCV, except a few =cvProjectPoints2()=
+calls. So I decided to just write a small C++ shim to call the new version of
+that function, expose that with =extern "C"= to the rest of my world, and I'd be
+done. And normally I /would/ be, but this is OpenCV we're talking about. I wrote
+the shim, and it didn't work. The code built and ran, but the results were
+wrong. After some pointless debugging, I boiled the problem down to this test
+program:
+
+#+begin_src C++
+#include <opencv2/calib3d.hpp>
+#include <stdio.h>
+
+int main(void)
+{
+    double fx = 1000.0;
+    double fy = 1000.0;
+    double cx = 1000.0;
+    double cy = 1000.0;
+    double _camera_matrix[] =
+        { fx,  0, cx,
+          0,  fy, cy,
+          0,   0,  1 };
+    cv::Mat camera_matrix(3,3, CV_64FC1, _camera_matrix);
+
+    double pp[3] = {1., 2., 10.};
+    double qq[2] = {444, 555};
+
+    int N=1;
+    cv::Mat object_points(N,3, CV_64FC1, pp);
+    cv::Mat image_points (N,2, CV_64FC1, qq);
+
+    // rvec,tvec
+    double _zero3[3] = {};
+    cv::Mat zero3(1,3,CV_64FC1, _zero3);
+
+    cv::projectPoints( object_points,
+                       zero3,zero3,
+                       camera_matrix,
+                       cv::noArray(),
+                       image_points,
+                       cv::noArray(), 0.0);
+
+    fprintf(stderr, "manually-projected no-distortion: %f %f\n",
+            pp[0]/pp[2] * fx + cx,
+            pp[1]/pp[2] * fy + cy);
+    fprintf(stderr, "opencv says: %f %f\n", qq[0], qq[1]);
+
+    return 0;
+}
+#+end_src
+
+This is as trivial as it gets. I project one point through a pinhole camera, and
+print out the right answer (that I can easily compute, since this is trivial),
+and what OpenCV reports:
+
+#+begin_example
+$ g++ -I/usr/include/opencv4 -o tst tst.cc -lopencv_calib3d -lopencv_core && ./tst
+
+manually-projected no-distortion: 1100.000000 1200.000000
+opencv says: 444.000000 555.000000
+#+end_example
+
+Well that's no good. The answer is wrong, but it looks like it didn't even write
+anything into the output array. Since this is supposed to be a thin shim to C
+code, I want this thing to be filling in C arrays, which is what I'm doing here:
+
+#+begin_src c++
+    double qq[2] = {444, 555};
+    int N=1;
+    cv::Mat image_points (N,2, CV_64FC1, qq);
+#+end_src
+
+This is how the C API has worked forever, and their C++ API works the same way,
+I thought. Nothing barfed, not at build time, or run time. Fine. So I went to
+figure this out. In the true spirit of C++, the [[https://docs.opencv.org/4.2.0/d9/d0c/group__calib3d.html#ga1019495a2c8d1743ed5cc23fa0daff8c][new API]] is inscrutable. I'm
+passing in =cv::Mat=, but the API wants =cv::InputArray= for some arguments and
+=cv::OutputArray= for others. Clearly =cv::Mat= can be coerced into either of
+those types (and that's what you're supposed to do), but the details are not
+meant to be understood. You can read the snazzy C++-style documentation.
+Clicking on "=OutputArray=" in the doxygen gets you [[https://docs.opencv.org/4.2.0/dc/d84/group__core__basic.html#gaad17fda1d0f0d1ee069aebb1df2913c0][here]]. Then I guess you're
+supposed to click on "=_OutputArray=", and you get [[https://docs.opencv.org/4.2.0/d2/d9e/classcv_1_1__OutputArray.html][here]]. Understand what's going
+on now? Me neither.
+
+Stepping through the code revealed the problem. =cv::projectPoints()= looks like
+this:
+
+#+begin_src c++
+void cv::projectPoints( InputArray _opoints,
+                        InputArray _rvec,
+                        InputArray _tvec,
+                        InputArray _cameraMatrix,
+                        InputArray _distCoeffs,
+                        OutputArray _ipoints,
+                        OutputArray _jacobian,
+                        double aspectRatio )
+{
+    ....
+    _ipoints.create(npoints, 1, CV_MAKETYPE(depth, 2), -1, true);
+    ....
+#+end_src
+
+I.e. they're allocating a new data buffer for the output, and giving it back to
+me via the =OutputArray= object. This object already had a buffer, and that's
+where I was expecting the output to go. Instead it went to the brand-new buffer
+I didn't want. Issues:
+
+- The =OutputArray= object knows it already has a buffer, and they /could/ just
+  use it instead of allocating a new one
+- If for some reason my buffer smells bad, they /could/ complain to tell me
+  they're ignoring it to save me the trouble of debugging, and then bitching
+  about it on the internet
+- /I/ think dynamic memory allocation smells bad
+- Doing it this way means the new function isn't a drop-in replacement for the
+  old function
+
+Well that's just super. I can call the C++ function, copy the data into the
+place it's supposed to go to, and then deallocate the extra buffer. Or I can
+pull out the meat of the function I want into my project, and then I can drop
+the OpenCV dependency entirely. /Clearly/ that's the way to go.
+
+So I go poking back into their code to grab what I need, and here's what I see:
+
+#+begin_src C++
+static void cvProjectPoints2Internal( const CvMat* objectPoints,
+                  const CvMat* r_vec,
+                  const CvMat* t_vec,
+                  const CvMat* A,
+                  const CvMat* distCoeffs,
+                  CvMat* imagePoints, CvMat* dpdr CV_DEFAULT(NULL),
+                  CvMat* dpdt CV_DEFAULT(NULL), CvMat* dpdf CV_DEFAULT(NULL),
+                  CvMat* dpdc CV_DEFAULT(NULL), CvMat* dpdk CV_DEFAULT(NULL),
+                  CvMat* dpdo CV_DEFAULT(NULL),
+                  double aspectRatio CV_DEFAULT(0) )
+{
+...
+}
+#+end_src
+
+Looks familiar? It should. Because *this is the original C-API function they
+replaced*. So in their quest to move to C++, they left the original code intact,
+/C API and everything/, un-exposed it so you couldn't call it anymore, and made
+a new, shitty C++ wrapper for people to call instead. =CvMat= is still there. I
+have no words.
+
+Yes, this is a massive library, and maybe other parts of it indeed did make some
+sort of non-token transition, but /this/ thing is ridiculous. In the end, here's
+the function I ended up with (licensed as OpenCV; see the comment)
+
+#+begin_src C
+
+// The implementation of project_opencv is based on opencv. The sources have
+// been heavily modified, but the opencv logic remains. This function is a
+// cut-down cvProjectPoints2Internal() to keep only the functionality I want and
+// to use my interfaces. Putting this here allows me to drop the C dependency on
+// opencv. Which is a good thing, since opencv dropped their C API
+//
+// from opencv-4.2.0+dfsg/modules/calib3d/src/calibration.cpp
+//
+// Copyright (C) 2000-2008, Intel Corporation, all rights reserved.
+// Copyright (C) 2009, Willow Garage Inc., all rights reserved.
+// Third party copyrights are property of their respective owners.
+//
+// Redistribution and use in source and binary forms, with or without modification,
+// are permitted provided that the following conditions are met:
+//
+//   * Redistribution's of source code must retain the above copyright notice,
+//     this list of conditions and the following disclaimer.
+//
+//   * Redistribution's in binary form must reproduce the above copyright notice,
+//     this list of conditions and the following disclaimer in the documentation
+//     and/or other materials provided with the distribution.
+//
+//   * The name of the copyright holders may not be used to endorse or promote products
+//     derived from this software without specific prior written permission.
+//
+// This software is provided by the copyright holders and contributors "as is" and
+// any express or implied warranties, including, but not limited to, the implied
+// warranties of merchantability and fitness for a particular purpose are disclaimed.
+// In no event shall the Intel Corporation or contributors be liable for any direct,
+// indirect, incidental, special, exemplary, or consequential damages
+// (including, but not limited to, procurement of substitute goods or services;
+// loss of use, data, or profits; or business interruption) however caused
+// and on any theory of liability, whether in contract, strict liability,
+// or tort (including negligence or otherwise) arising in any way out of
+typedef union
+{
+    struct
+    {
+        double x,y;
+    };
+    double xy[2];
+} point2_t;
+typedef union
+{
+    struct
+    {
+        double x,y,z;
+    };
+    double xyz[3];
+} point3_t;
+void project_opencv( // outputs
+                     point2_t* q,
+                     point3_t* dq_dp,               // may be NULL
+                     double* dq_dintrinsics_nocore, // may be NULL
+
+                     // inputs
+                     const point3_t* p,
+                     int N,
+                     const double* intrinsics,
+                     int Nintrinsics)
+{
+    const double fx = intrinsics[0];
+    const double fy = intrinsics[1];
+    const double cx = intrinsics[2];
+    const double cy = intrinsics[3];
+
+    double k[12] = {};
+    for(int i=0; i<Nintrinsics-4; i++)
+        k[i] = intrinsics[i+4];
+
+    for( int i = 0; i < N; i++ )
+    {
+        double z_recip = 1./p[i].z;
+        double x = p[i].x * z_recip;
+        double y = p[i].y * z_recip;
+
+        double r2      = x*x + y*y;
+        double r4      = r2*r2;
+        double r6      = r4*r2;
+        double a1      = 2*x*y;
+        double a2      = r2 + 2*x*x;
+        double a3      = r2 + 2*y*y;
+        double cdist   = 1 + k[0]*r2 + k[1]*r4 + k[4]*r6;
+        double icdist2 = 1./(1 + k[5]*r2 + k[6]*r4 + k[7]*r6);
+        double xd      = x*cdist*icdist2 + k[2]*a1 + k[3]*a2 + k[8]*r2+k[9]*r4;
+        double yd      = y*cdist*icdist2 + k[2]*a3 + k[3]*a1 + k[10]*r2+k[11]*r4;
+
+        q[i].x = xd*fx + cx;
+        q[i].y = yd*fy + cy;
+
+
+        if( dq_dp )
+        {
+            double dx_dp[] = { z_recip, 0,       -x*z_recip };
+            double dy_dp[] = { 0,       z_recip, -y*z_recip };
+            for( int j = 0; j < 3; j++ )
+            {
+                double dr2_dp = 2*x*dx_dp[j] + 2*y*dy_dp[j];
+                double dcdist_dp = k[0]*dr2_dp + 2*k[1]*r2*dr2_dp + 3*k[4]*r4*dr2_dp;
+                double dicdist2_dp = -icdist2*icdist2*(k[5]*dr2_dp + 2*k[6]*r2*dr2_dp + 3*k[7]*r4*dr2_dp);
+                double da1_dp = 2*(x*dy_dp[j] + y*dx_dp[j]);
+                double dmx_dp = (dx_dp[j]*cdist*icdist2 + x*dcdist_dp*icdist2 + x*cdist*dicdist2_dp +
+                                k[2]*da1_dp + k[3]*(dr2_dp + 4*x*dx_dp[j]) + k[8]*dr2_dp + 2*r2*k[9]*dr2_dp);
+                double dmy_dp = (dy_dp[j]*cdist*icdist2 + y*dcdist_dp*icdist2 + y*cdist*dicdist2_dp +
+                                k[2]*(dr2_dp + 4*y*dy_dp[j]) + k[3]*da1_dp + k[10]*dr2_dp + 2*r2*k[11]*dr2_dp);
+                dq_dp[i*2 + 0].xyz[j] = fx*dmx_dp;
+                dq_dp[i*2 + 1].xyz[j] = fy*dmy_dp;
+            }
+        }
+        if( dq_dintrinsics_nocore )
+        {
+            dq_dintrinsics_nocore[(Nintrinsics-4)*(2*i + 0) + 0] = fx*x*icdist2*r2;
+            dq_dintrinsics_nocore[(Nintrinsics-4)*(2*i + 1) + 0] = fy*(y*icdist2*r2);
+
+            dq_dintrinsics_nocore[(Nintrinsics-4)*(2*i + 0) + 1] = fx*x*icdist2*r4;
+            dq_dintrinsics_nocore[(Nintrinsics-4)*(2*i + 1) + 1] = fy*y*icdist2*r4;
+
+            if( Nintrinsics-4 > 2 )
+            {
+                dq_dintrinsics_nocore[(Nintrinsics-4)*(2*i + 0) + 2] = fx*a1;
+                dq_dintrinsics_nocore[(Nintrinsics-4)*(2*i + 1) + 2] = fy*a3;
+                dq_dintrinsics_nocore[(Nintrinsics-4)*(2*i + 0) + 3] = fx*a2;
+                dq_dintrinsics_nocore[(Nintrinsics-4)*(2*i + 1) + 3] = fy*a1;
+                if( Nintrinsics-4 > 4 )
+                {
+                    dq_dintrinsics_nocore[(Nintrinsics-4)*(2*i + 0) + 4] = fx*x*icdist2*r6;
+                    dq_dintrinsics_nocore[(Nintrinsics-4)*(2*i + 1) + 4] = fy*y*icdist2*r6;
+
+                    if( Nintrinsics-4 > 5 )
+                    {
+                        dq_dintrinsics_nocore[(Nintrinsics-4)*(2*i + 0) + 5] = fx*x*cdist*(-icdist2)*icdist2*r2;
+                        dq_dintrinsics_nocore[(Nintrinsics-4)*(2*i + 1) + 5] = fy*y*cdist*(-icdist2)*icdist2*r2;
+                        dq_dintrinsics_nocore[(Nintrinsics-4)*(2*i + 0) + 6] = fx*x*cdist*(-icdist2)*icdist2*r4;
+                        dq_dintrinsics_nocore[(Nintrinsics-4)*(2*i + 1) + 6] = fy*y*cdist*(-icdist2)*icdist2*r4;
+                        dq_dintrinsics_nocore[(Nintrinsics-4)*(2*i + 0) + 7] = fx*x*cdist*(-icdist2)*icdist2*r6;
+                        dq_dintrinsics_nocore[(Nintrinsics-4)*(2*i + 1) + 7] = fy*y*cdist*(-icdist2)*icdist2*r6;
+                        if( Nintrinsics-4 > 8 )
+                        {
+                            dq_dintrinsics_nocore[(Nintrinsics-4)*(2*i + 0) + 8] = fx*r2; //s1
+                            dq_dintrinsics_nocore[(Nintrinsics-4)*(2*i + 1) + 8] = fy*0; //s1
+                            dq_dintrinsics_nocore[(Nintrinsics-4)*(2*i + 0) + 9] = fx*r4; //s2
+                            dq_dintrinsics_nocore[(Nintrinsics-4)*(2*i + 1) + 9] = fy*0; //s2
+                            dq_dintrinsics_nocore[(Nintrinsics-4)*(2*i + 0) + 10] = fx*0;//s3
+                            dq_dintrinsics_nocore[(Nintrinsics-4)*(2*i + 1) + 10] = fy*r2; //s3
+                            dq_dintrinsics_nocore[(Nintrinsics-4)*(2*i + 0) + 11] = fx*0;//s4
+                            dq_dintrinsics_nocore[(Nintrinsics-4)*(2*i + 1) + 11] = fy*r4; //s4
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+#+end_src
+
+This does only the stuff I need: projection /only/ (no geometric
+transformation), and gradients in respect to the point coordinates and
+distortions only. Gradients in respect to fxy and cxy are trivial, and I don't
+bother reporting them.
+
+So now I don't compile or link against OpenCV, my code builds and runs on
+Debian/sid and (surprisingly) it runs much faster than before. Apparently there
+was a lot of pointless overhead happening.
+
+Alright. Rant over.
+
 * making dvipng work for equations                                 :noexport:
 - OPTIONS do not work. Need to enable explicitly with
   (setq org-html-with-latex 'dvipng)
