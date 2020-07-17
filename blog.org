@@ -13385,6 +13385,47 @@ was a lot of pointless overhead happening.
 
 Alright. Rant over.
 
+** DONE Visualizing a broken internet connection :tools:data:vnlog:feedgnuplot:
+   CLOSED: [2020-07-16 Thu 23:47]
+
+We've all seen our ISPs crap out periodically. Things feel slow, we then go ping
+some server, and see lost packets or slow response times. When bitching to the
+ISP it's useful to have evidence so you can clearly explain exactly how they are
+fucking up. This happened to me again last week, so I wrote a quick oneliner to
+do the visualization. Here it is:
+
+#+begin_src sh
+( echo '# i dt'; ping 8.8.8.8 | perl -ne 'BEGIN { $|=1} next if /PING/; s/.*seq=([0-9]+).*time=([0-9]+).*/\1 \2/ && print') | tee /tmp/ping.vnl | vnl-filter --stream -p i,dt,di='diff(i)' | vnl-filter --stream --has di | feedgnuplot  --domain --stream --with 'linespoints pt 7 palette' --tuplesizeall 3 --ymin 0 --set 'cbrange [1:]' --xlabel "ping index" --ylabel "Response time (ms)" --title "ping 8.8.8.8 response times. Consecutive indices shown as colors"
+#+end_src
+
+You run that, and you get a realtime-updating plot of ping times and missed
+packets. The one-liner also logs the data to a file, so the saved data can be
+re-visualized. Showing what happens on my currently-working internet connection:
+
+#+begin_src sh
+< /tmp/ping.vnl vnl-filter -p i,dt,di='diff(i)' | vnl-filter --has di | feedgnuplot  --domain --with 'linespoints pt 7 palette' --tuplesizeall 3 --ymin 0 --set 'cbrange [1:]' --xlabel "ping index" --ylabel "Response time (ms)" --title "ping 8.8.8.8 response times. Consecutive indices shown as colors" --hardcopy /tmp/isp-good.svg
+#+end_src
+
+#+ATTR_HTML: :width 90%
+[[file:files/isp/good.svg]]
+
+On a broken network it looks like this (I edited the log to show the kind of
+broken-ness I was seeing earlier):
+
+#+ATTR_HTML: :width 90%
+[[file:files/isp/bad.svg]]
+
+The x axis is the ping index. The y axis is the response time. Misses responses
+are shows as gaps in the points and also as colors, for legibility.
+
+As usual, this uses the [[https://github.com/dkogan/vnlog][vnlog]] and [[https://github.com/dkogan/feedgnuplot][feedgnuplot]] tools, so
+
+#+begin_src sh
+sudo apt install feedgnuplot vnlog
+#+end_src
+
+if you want to try this
+
 * making dvipng work for equations                                 :noexport:
 - OPTIONS do not work. Need to enable explicitly with
   (setq org-html-with-latex 'dvipng)
