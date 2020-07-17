@@ -13426,6 +13426,49 @@ sudo apt install feedgnuplot vnlog
 
 if you want to try this
 
+** Converting images while extracting a tarball                       :tools:
+
+Last week at the lab I received a data dump: a gzip-compressed tarball with lots
+of images in it. The images are all uncompressed =.pgm=, with the whole tarball
+weighing in at ~ 1TB. I tried to extract it, and after chugging all day, it ran
+out of disk space. Added more disk, tried again: out of space again. Just
+getting a listing of the archive contents (=tar tvfz=) took something like 8
+hours.
+
+Clearly this is unreasonable. I made an executive decision to use =.jpg= files
+instead: I'd take the small image quality hit for the massive gains in storage
+efficiency. But the tarball has =.pgm= and just extracting the thing is
+challenging. So I'm now extracting the archive, and converting all the =.pgm=
+images to =.jpg= /as soon as they hit disk/. How? Glad you asked!
+
+I'm running two parallel terminal sessions (I'm using =screen=, but you can do
+whatever you like).
+
+*** Session 1
+
+#+begin_src sh
+< archive.tar.gz unpigz -p20 | tar xv
+#+end_src
+
+Here I'm just extracting the archive to disk normally. Using =unpigz= instead of
+plain, old =tar= to get parallelization.
+
+*** Session 2
+
+#+begin_src sh
+inotifywait -r PATH -e close_write -m | mawk -Winteractive '/pgm$/ { print $1$3 }' | parallel -v -j10 'convert {} -quality 96 {.}.jpg && rm {}'
+#+end_src
+
+This is the secret sauce. I'm using =inotifywait= to tell me when any file is
+closed for writing in a subdirectory of =PATH=. Then I =mawk= it to only tell me
+when =.pgm= files are done being written, then I =convert= them to =.jpg=, and
+delete the =.pgm= when that's done. I'm using [[https://www.gnu.org/software/parallel/][GNU Parallel]] to parallelize the
+image conversion. Otherwise the image conversion doesn't keep up.
+
+This is going to take at least all day, but I'm reasonably confident that it
+will actually finish successfully, and I can then actually do stuff with the
+data.
+
 * making dvipng work for equations                                 :noexport:
 - OPTIONS do not work. Need to enable explicitly with
   (setq org-html-with-latex 'dvipng)
