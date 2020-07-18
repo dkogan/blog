@@ -13426,7 +13426,8 @@ sudo apt install feedgnuplot vnlog
 
 if you want to try this
 
-** Converting images while extracting a tarball                       :tools:
+** DONE Converting images while extracting a tarball		      :tools:
+   CLOSED: [2020-07-18 Sat 05:31]
 
 Last week at the lab I received a data dump: a gzip-compressed tarball with lots
 of images in it. The images are all uncompressed =.pgm=, with the whole tarball
