@@ -13470,6 +13470,71 @@ This is going to take at least all day, but I'm reasonably confident that it
 will actually finish successfully, and I can then actually do stuff with the
 data.
 
+** DONE Finding long runs of "notable" data in a log		:tools:vnlog:
+   CLOSED: [2020-07-23 Thu 14:19]
+
+Here's yet another instance where the data processing I needed done
+could be acomplished entirely in the shell, with [[http://github.com/dkogan/vnlog][vnlog]] tools.
+
+I have some time-series data in a text table. Via some join and filter
+operations, I have boiled down this table to a sequence of time
+indices where something interesting happened. For instance let's say
+it looks like this:
+
+=t.vnl=
+#+BEGIN_EXAMPLE
+# time
+1976
+1977
+1978
+1979
+1980
+1986
+1987
+1988
+1989
+2011
+2012
+2013
+2014
+2015
+4679
+4680
+4681
+4682
+4683
+4684
+4685
+4686
+4687
+7281
+7282
+7283
+7291
+7292
+7293
+#+END_EXAMPLE
+
+I'd like to find the longest contiguous chunk of time where the
+interesting thing kept happening. How? Like this!
+
+#+BEGIN_EXAMPLE
+$ < t.vnl vnl-filter -p 'time,d=diff(time)' |
+          vnl-uniq -c -f -1 |
+          vnl-filter 'd==1' -p 'count=count+1,time=time-1' |
+          vnl-sort -nrk count |
+          vnl-align
+# count time
+9       4679
+5       2011
+5       1976
+4       1986
+3       7291
+3       7281
+#+END_EXAMPLE
+
+Bam! So the longest run was 9-frames-long, starting at time = 4679.
+
 * making dvipng work for equations                                 :noexport:
 - OPTIONS do not work. Need to enable explicitly with
   (setq org-html-with-latex 'dvipng)
