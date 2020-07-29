@@ -13535,6 +13535,64 @@ $ < t.vnl vnl-filter -p 'time,d=diff(time)' |
 
 Bam! So the longest run was 9-frames-long, starting at time = 4679.
 
+** DONE An awk corner case?                                       :tools:awk:
+   CLOSED: [2020-07-29 Wed 15:45]
+
+So even after years and years of experience, core tools still find ways to
+surprise me. Today I tried to do some timestamp comparisons with =mawk=
+(=vnl-filter=, to be more precise), and ran into a detail of the language that
+made it not work. Not a bug, I guess, since both =mawk= and =gawk= are affected.
+I'll claim "language design flaw", however.
+
+Let's say I'm processing data with unix timestamps in it (seconds since the
+epoch). =gawk= and recent versions of =mawk= have =strftime()= for that:
+
+#+begin_example
+$ date
+Wed Jul 29 15:31:13 PDT 2020
+
+$ date +"%s"
+1596061880
+
+$ date +"%s" | mawk '{print strftime("%H",$1)}'
+15
+#+end_example
+
+And let's say I want to do something conditional on them. I want only data after
+9:00 each day:
+
+#+begin_example
+$ date +"%s" | mawk 'strftime("%H",$1) >= 9 {print "Yep. After 9:00"}'
+#+end_example
+
+That's right. No output. But it is 15:31 now, and I confirmed above that
+=strftime()= reports the right time, so it should know that it's after 9:00, but
+it doesn't. What gives?
+
+As we know, awk (and perl after it) treat numbers and strings containing numbers
+similarly: =5+5= and ="5"+5= both work the same, which is really convenient.
+This can only work if it can be inferred from context whether we want a number
+or a string; it knows that addition takes two numbers, so it knows to convert
+="5"= into a number in the example above.
+
+But what if an operator is ambiguous? Then it picks a meaning based on some
+internal logic that I don't want to be familiar with. And /apparently/ awk
+implements string comparisons with the same =<= and =>= operators, as numerical
+comparisons, creating the ambiguity I hit today. =strftime= returns strings, and
+you get silent, incorrect behavior that then demands debugging. How to fix? By
+telling awk to treat the output of =strftime()= as a number:
+
+#+begin_example
+$ date +"%s" | mawk '0+strftime("%H",$1) >= 9 {print "Yep. After 9:00"}'
+
+Yep. After 9:00
+#+end_example
+
+With the benefit of hindsight, they really should not have reused any operators
+for both number and string operations. Then these ambiguities wouldn't occur,
+and people wouldn't be grumbling into their blogs decades after these decisions
+were made.
+
 * making dvipng work for equations                                 :noexport:
 - OPTIONS do not work. Need to enable explicitly with
   (setq org-html-with-latex 'dvipng)
