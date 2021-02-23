@@ -13593,6 +13593,141 @@ for both number and string operations. Then these ambiguities wouldn't occur,
 and people wouldn't be grumbling into their blogs decades after these decisions
 were made.
 
+** DONE =feedgnuplot=: labelled bar charts and a guide
+   CLOSED: [2021-02-22 Mon 18:12]
+
+I just released =feedgnuplot= 1.57, which includes two new pieces that I've long
+thought about adding:
+
+- Labelled bar charts
+- A [[https://github.com/dkogan/feedgnuplot/blob/master/guide/guide.org][guide]] page to serve as a tutorial and a gallery, similar to the [[https://github.com/dkogan/gnuplotlib/blob/master/guide/guide.org][=gnuplotlib=
+  guide]]
+
+*** Labelled bar charts
+I've thought about adding these for a while, but had no specific need for them.
+Finally, somebody asked for it, and I wrote the code. Now that I can, I will
+probably use these all the time. The new capability can override the usual
+numerical tic labels on the x axis, and instead use text from a column in the
+data stream.
+
+The most obvious use case is labelled bar graphs:
+
+#+begin_src sh
+echo "# label value
+      aaa     2
+      bbb     3
+      ccc     5
+      ddd     2" | \
+feedgnuplot --vnl \
+            --xticlabels \
+            --with 'boxes fill solid border lt -1' \
+            --ymin 0 --unset grid
+#+end_src
+
+#+ATTR_HTML: :width 90%
+[[file:files/feedgnuplot/xticlabels-basic.svg.svg]]
+
+But the usage is completely generic. All =--xticlabels= does, is to accept a
+data column as labels for the x-axis tics. Everything else that's supported by
+=feedgnuplot= and =gnuplot= works as before. For instance, I can give a domain,
+and use a style that takes =y= values /and/ a color:
+
+#+begin_src sh
+echo "# x label y color
+        5 aaa   2 1
+        6 bbb   3 2
+       10 ccc   5 4
+       11 ddd   2 1" | \
+feedgnuplot --vnl --domain \
+            --xticlabels \
+            --tuplesizeall 3 \
+            --with 'points pt 7 ps 2 palette' \
+            --xmin 4 --xmax 12 \
+            --ymin 0 --ymax 6 \
+            --unset grid
+#+end_src
+
+#+ATTR_HTML: :width 90%
+[[file:files/feedgnuplot/xticlabels-points-palette.svg]]
+
+And we can use =gnuplot='s support for clustered histograms:
+
+#+begin_src sh
+echo "# x label a b
+        5 aaa   2 1
+        6 bbb   3 2
+       10 ccc   5 4
+       11 ddd   2 1" | \
+vnl-filter -p label,a,b | \
+feedgnuplot --vnl \
+            --xticlabels \
+            --set 'style data histogram' \
+            --set 'style histogram cluster gap 2' \
+            --set 'style fill solid border lt -1' \
+            --autolegend \
+            --ymin 0 --unset grid
+#+end_src
+
+#+ATTR_HTML: :width 90%
+[[file:files/feedgnuplot/xticlabels-clustered.svg]]
+
+Or we can stack the bars on top of one another:
+
+#+begin_src sh
+echo "# x label a b
+        5 aaa   2 1
+        6 bbb   3 2
+       10 ccc   5 4
+       11 ddd   2 1" | \
+vnl-filter -p label,a,b | \
+feedgnuplot --vnl \
+            --xticlabels \
+            --set 'style data histogram' \
+            --set 'style histogram rowstacked' \
+            --set 'boxwidth 0.8' \
+            --set 'style fill solid border lt -1' \
+            --autolegend \
+            --ymin 0 --unset grid
+#+end_src
+
+#+ATTR_HTML: :width 90%
+[[file:files/feedgnuplot/xticlabels-stacked.svg]]
+
+This is =gnuplot='s "row stacking". It also supports "column stacking", which
+effectively transposes the data, and it's not obvious to me that makes sense in
+the context of =feedgnuplot=. Similarly, it can label =y= and/or =z= axes; I
+can't think of a specific use case, so I don't have a realistic usage in mind,
+and I don't support that yet. If anybody can think of a use case, email me.
+
+Notes and limitations:
+
+- Since with =--domain= you can pass in both an =x= value /and/ a tic label, it
+  is possible to give it conflicting tic labels for the same =x= value.
+  =gnuplot= itself has this problem too, and it just takes the last label it has
+  for a given =x=. This is probably good-enough.
+
+- =feedgnuplot= uses whitespace-separated columns with no escape mechanism, so
+  the field labels cannot have whitespace in it. Fixing this is probably not
+  worth the effort.
+
+- These tic labels do not count towards the =tuplesize=
+
+- I really need to add a similar feature to [[https://github.com/dkogan/gnuplotlib][=gnuplotlib=]]. This will happen when
+  I need it or when somebody asks for it, whichever comes first.
+
+*** A =feedgnuplot= [[https://github.com/dkogan/feedgnuplot/blob/master/guide/guide.org][guide]]
+This fills in a sorely needed missing part of the documentation: the main
+=feedgnuplot= website now has a [[https://github.com/dkogan/feedgnuplot/blob/master/guide/guide.org][page]] containing examples and corresponding
+/graphical/ output. This serves as a tutorial and a gallery demonstrating some
+usages. It's somewhat incomplete, since it can't show streaming plots, or
+real-world interfacing with stuff that produces data: some of those usages
+remain the the [[https://github.com/dkogan/feedgnuplot#recipes][=README=]]. It's a million times better than what I had before
+though, which was nothing.
+
+Internally this is done just like the [[https://github.com/dkogan/gnuplotlib/blob/master/guide/guide.org][=gnuplotlib= guide]]: the thing is an
+[[https://orgmode.org/][org-mode]] document with org-babel snippets that are evaluated by emacs to make
+the images. There's some [[https://github.com/dkogan/feedgnuplot/blob/master/guide/.dir-locals.el][fancy emacs lisp]] to tie it all together. Works great!
+
 * making dvipng work for equations                                 :noexport:
 - OPTIONS do not work. Need to enable explicitly with
   (setq org-html-with-latex 'dvipng)
