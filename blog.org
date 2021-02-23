@@ -13593,10 +13593,10 @@ for both number and string operations. Then these ambiguities wouldn't occur,
 and people wouldn't be grumbling into their blogs decades after these decisions
 were made.
 
-** DONE =feedgnuplot=: labelled bar charts and a guide
+** DONE feedgnuplot: labelled bar charts and a guide :tools:feedgnuplot:data:
    CLOSED: [2021-02-22 Mon 18:12]
 
-I just released =feedgnuplot= 1.57, which includes two new pieces that I've long
+I just released [[https://www.github.com/dkogan/feedgnuplot][=feedgnuplot=]] 1.57, which includes two new pieces that I've long
 thought about adding:
 
 - Labelled bar charts
@@ -13625,7 +13625,7 @@ feedgnuplot --vnl \
 #+end_src
 
 #+ATTR_HTML: :width 90%
-[[file:files/feedgnuplot/xticlabels-basic.svg.svg]]
+[[file:files/feedgnuplot/xticlabels-basic.svg]]
 
 But the usage is completely generic. All =--xticlabels= does, is to accept a
 data column as labels for the x-axis tics. Everything else that's supported by
@@ -13715,7 +13715,7 @@ Notes and limitations:
 - I really need to add a similar feature to [[https://github.com/dkogan/gnuplotlib][=gnuplotlib=]]. This will happen when
   I need it or when somebody asks for it, whichever comes first.
 
-*** A =feedgnuplot= [[https://github.com/dkogan/feedgnuplot/blob/master/guide/guide.org][guide]]
+*** A feedgnuplot [[https://github.com/dkogan/feedgnuplot/blob/master/guide/guide.org][guide]]
 This fills in a sorely needed missing part of the documentation: the main
 =feedgnuplot= website now has a [[https://github.com/dkogan/feedgnuplot/blob/master/guide/guide.org][page]] containing examples and corresponding
 /graphical/ output. This serves as a tutorial and a gallery demonstrating some
