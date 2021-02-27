@@ -13728,6 +13728,25 @@ Internally this is done just like the [[https://github.com/dkogan/gnuplotlib/blo
 [[https://orgmode.org/][org-mode]] document with org-babel snippets that are evaluated by emacs to make
 the images. There's some [[https://github.com/dkogan/feedgnuplot/blob/master/guide/.dir-locals.el][fancy emacs lisp]] to tie it all together. Works great!
 
+** DONE horizonator: terrain renderer based on SRTM DEMs :tools:data:GIS:openstreetmap:
+   CLOSED: [2021-02-27 Sat 12:14]
+
+Check this out:
+
+[[file:https://github.com/dkogan/horizonator/raw/master/example-interactive.png]]
+
+I just resurrected and cleaned up an old tool I had lying around. It's now nice
+and usable by others. This tool loads terrain data, and renders it from the
+ground, simulating what a human or a camera would see. This is useful for
+armchair exploring or for identifying peaks. This was relatively novel when I
+wrote it >10 years ago, but there are a number of similar tools in existence
+now. /This/ implementation is still useful in that it's freely licensed and
+contains APIs, so fancier processing can be performed on its output.
+
+Sources and (barely-complete-enough) documentation live here:
+
+https://github.com/dkogan/horizonator
+
 * making dvipng work for equations                                 :noexport:
 - OPTIONS do not work. Need to enable explicitly with
   (setq org-html-with-latex 'dvipng)
