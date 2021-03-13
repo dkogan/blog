@@ -3579,7 +3579,7 @@ will likewise improve as I use this.
 Copyright 2015, Dima Kogan. Distributed under the terms of GNU LGPL, like
 =gnuplot.py=
 
-** DONE Bike headlight circuitry                                    :data:EE:
+** DONE Bike headlight circuitry                      :data:electronics:bike:
    CLOSED: [2015-02-20 Fri 20:57]
 
 #+begin_o_blog_alert info Follow-up posts
@@ -3682,7 +3682,7 @@ My particular rechargable plan won't produce great results. I guess I can lower
 the resistance by installing something in parallel. Maybe I will, but I will
 complain the whole time.
 
-** DONE Bike headlight circuit continued                                 :EE:
+** DONE Bike headlight circuit continued                        :electronics:
    CLOSED: [2015-03-14 Sat 02:34]
 
 #+begin_o_blog_alert info Follow-up posts
@@ -4153,7 +4153,7 @@ fully-formed opinion of python from a perl perspective (meh). And one of numpy
 from a PDL perspective (also meh). But at least they're now "standard" for some
 meaning of that word, so we'll see.
 
-** DONE Validating a CRC computation on an AVR                       :dev:EE:
+** DONE Validating a CRC computation on an AVR              :dev:electronics:
    CLOSED: [2015-08-01 Sat 16:38]
 
 Recently I implemented a self-reprogramming feature for an AVR XMEGA-E5 cpu.
@@ -4271,7 +4271,7 @@ code, and it lives in a new repository: https://github.com/dkogan/osmgnuplot
 The repository contains the documentation and usage examples. The [[file:{lisp}(ob:link-to-post (ob:get-post-by-title "Least convenient location in Los Angeles (from Koreatown)")){/lisp}][next post]] uses
 this extensively to visualize mapping data.
 
-** DONE Least convenient location in Los Angeles (from Koreatown) :biking:data:GIS:
+** DONE Least convenient location in Los Angeles (from Koreatown) :bike:data:GIS:
    CLOSED: [2015-08-16 Sun 00:10]
 
 Talking to a friend, a question came up about finding the point in LA's road
@@ -5245,7 +5245,7 @@ default on Ubuntu, and it's not obvious if it's a net positive or not). Any
 kernel update could break something, and more testing would be required, but
 that was probably assumed from the start anyway. OK. Done.
 
-** DONE Bike headlight circuit. Again                                    :EE:
+** DONE Bike headlight circuit. Again                           :electronics:
    CLOSED: [2015-09-18 Fri 22:14]
 
 [[file:{lisp}(ob:link-to-post (ob:get-post-by-title "Bike headlight circuit continued")){/lisp}][The last time]] I dealt with this stupid headlight, I made things work with some
