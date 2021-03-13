@@ -13846,12 +13846,12 @@ difference is to blame?
 I took apart the tail light. The circuitry is encased in hot glue. Scraping that
 off, we can see the action:
 
-#+ATTR_HTML: :width 90%
+#+ATTR_HTML: :width 50%
 [[file:files/dynamo-taillight-supernova/before.jpg]]
 
 The circuit looks like this:
 
-#+ATTR_HTML: :width 90%
+#+ATTR_HTML: :width 50%
 [[file:files/dynamo-taillight-supernova/e3.svg]]
 
 More or less, this is as expected. The circuit was designed to receive 6V, so
@@ -13882,7 +13882,7 @@ parts, I don't have any nice surface-mount resistors with anywhere near the
 right resistance. But I do have through-hole ones at 470 ohms. Close-enough. I
 did some soldering gymnastics:
 
-#+ATTR_HTML: :width 90%
+#+ATTR_HTML: :width 50%
 [[file:files/dynamo-taillight-supernova/after.jpg]]
 
 And I'm done. Haven't done any night rides outside yet with this setup, but in
