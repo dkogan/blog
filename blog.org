@@ -13890,6 +13890,89 @@ theory this should be bright-enough. /And/ since the resistors are just burning
 off the excess voltage, and I'm giving it less voltage to burn off, I'm being
 more efficient than I would have been with 6V and the stock resistors.
 
+** DONE mrcal 2.0: triangulation and stereo			      :tools:
+   CLOSED: [2021-11-08 Mon 22:40]
+
+[[http://mrcal.secretsauce.net][mrcal]] is my big toolkit for geometric computer vision: making models (camera
+calibration) and using models (mapping, ranging, etc).
+
+Since the release of [[http://mrcal.secretsauce.net][mrcal]] 1.0 back in February I've been busy using the tools
+in the field, fixing things and improving things. Today I'm happy to finally be
+able to announce the release of [[http://mrcal.secretsauce.net][mrcal]] 2.0.
+
+A big part of this release is maintenance and cleanup that resulted from me
+heavily using the tools over the course of this past year, and improving
+whatever was bugging me. The most notable result of that effort, is that splined
+models are no longer "experimental". They work well and they're awesome. Go try
+them.
+
+And there're a number of new features, most notably nice dense stereo support
+and nice sparse triangulation support (with uncertainty propagation!) These are
+awesome. Go try them.
+
+As before, the [[http://mrcal.secretsauce.net/tour.html][tour of mrcal]] provides a good overview of the capabilities of the
+toolkit, and is a good place to start reading the documentation. Reading these
+docs would be very illuminating for anybody that calibrates cameras, even for
+those that have no intent to actually use the [[http://mrcal.secretsauce.net][mrcal]] tools.
+
+Let me know if you try it out!
+
+The most list of most notable improvements, from the [[http://mrcal.secretsauce.net/news-2.0.html][release notes]]:
+
+- Reworked the [[http://mrcal.secretsauce.net/stereo.html][dense stereo processing]]. This is now documented, with nice APIs.
+  Rectified models can be represented in a [[http://mrcal.secretsauce.net/cameramodels.html][=.cameramodel=]] file, and saved to
+  disk.
+
+- Added [[http://mrcal.secretsauce.net/triangulation.html][sparse triangulation routines]]. Uncertainty can be propagated through
+  these routines to gauge the effects of calibration-time and observation-time
+  noise.
+
+- [[http://mrcal.secretsauce.net/lensmodels.html#splined-stereographic-lens-model][=LENSMODEL_SPLINED_STEREOGRAPHIC=]] models have been thoroughly tested, and are
+  ready for prime time. Solver now applies anisotropic regularization to reduce
+  curl in the correction vector field, so the solved models now act mostly
+  radially. The [[http://mrcal.secretsauce.net/mrcal-show-splined-model-correction.html][=mrcal-show-splined-model-correction=]] tool extended, and
+  produces clearer plots. These models work well. Use them.
+
+- The =observed_pixel_uncertainty= is now estimated from the optimized residuals
+  instead of being specified explicitly. The reported uncertainties should now
+  be correct in absolute, not just relative terms
+
+- [[http://mrcal.secretsauce.net/mrcal-python-api-reference.html#-unproject][=mrcal.unproject()=]] can report gradients
+
+- Calibration residuals can be visualized from the stored cameramodel, not just
+  from [[http://mrcal.secretsauce.net/mrcal-calibrate-cameras.html][=mrcal-calibrate-cameras --explore=]]. Added new tools
+
+  - [[http://mrcal.secretsauce.net/mrcal-show-residuals-board-observation.html][=mrcal-show-residuals-board-observation=]]
+  - [[http://mrcal.secretsauce.net/mrcal-show-residuals.html][=mrcal-show-residuals=]]
+
+  and new Python API functions
+
+  - [[http://mrcal.secretsauce.net/mrcal-python-api-reference.html#-show_residuals_board_observation][=mrcal.show_residuals_board_observation()=]]
+  - [[http://mrcal.secretsauce.net/mrcal-python-api-reference.html#-show_residuals_histogram][=mrcal.show_residuals_histogram()=]]
+  - [[http://mrcal.secretsauce.net/mrcal-python-api-reference.html#-show_residuals_vectorfield][=mrcal.show_residuals_vectorfield()=]]
+  - [[http://mrcal.secretsauce.net/mrcal-python-api-reference.html#-show_residuals_magnitudes][=mrcal.show_residuals_magnitudes()=]]
+  - [[http://mrcal.secretsauce.net/mrcal-python-api-reference.html#-show_residuals_directions][=mrcal.show_residuals_directions()=]]
+  - [[http://mrcal.secretsauce.net/mrcal-python-api-reference.html#-show_residuals_regional][=mrcal.show_residuals_regional()=]]
+
+- [[http://mrcal.secretsauce.net/cameramodels.html][=.cameramodel=]] files can be read/written from C
+
+- Added simple projection/unprojection functions to the Python and C APIs:
+
+  - [[http://mrcal.secretsauce.net/mrcal-python-api-reference.html#-project_pinhole][=mrcal.project_pinhole()=]]
+  - [[http://mrcal.secretsauce.net/mrcal-python-api-reference.html#-unproject_pinhole][=mrcal.unproject_pinhole()=]]
+  - [[http://mrcal.secretsauce.net/mrcal-python-api-reference.html#-project_latlon][=mrcal.project_latlon()=]]
+  - [[http://mrcal.secretsauce.net/mrcal-python-api-reference.html#-unproject_latlon][=mrcal.unproject_latlon()=]]
+  - [[http://mrcal.secretsauce.net/mrcal-python-api-reference.html#-project_lonlat][=mrcal.project_lonlat()=]]
+  - [[http://mrcal.secretsauce.net/mrcal-python-api-reference.html#-unproject_lonlat][=mrcal.unproject_lonlat()=]]
+
+  This is added to the existing functions
+
+  - [[http://mrcal.secretsauce.net/mrcal-python-api-reference.html#-project_stereographic][=mrcal.project_stereographic()=]]
+  - [[http://mrcal.secretsauce.net/mrcal-python-api-reference.html#-unproject_stereographic][=mrcal.unproject_stereographic()=]]
+
+- Added [[http://mrcal.secretsauce.net/lensmodels.html#lensmodel-latlon][=LENSMODEL_LATLON=]] and [[http://mrcal.secretsauce.net/lensmodels.html#lensmodel-lonlat][=LENSMODEL_LONLAT=]] models to represent
+  epipolar-aligned and panoramic images respectively
+
 * making dvipng work for equations                                 :noexport:
 - OPTIONS do not work. Need to enable explicitly with
   (setq org-html-with-latex 'dvipng)
