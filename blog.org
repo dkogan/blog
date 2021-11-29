@@ -13973,6 +13973,34 @@ The most list of most notable improvements, from the [[http://mrcal.secretsauce.
 - Added [[http://mrcal.secretsauce.net/lensmodels.html#lensmodel-latlon][=LENSMODEL_LATLON=]] and [[http://mrcal.secretsauce.net/lensmodels.html#lensmodel-lonlat][=LENSMODEL_LONLAT=]] models to represent
   epipolar-aligned and panoramic images respectively
 
+** DONE GL_image_display                                              :tools:
+CLOSED: [2021-11-28 Sun 23:53]
+
+I just spent an unspeakable number of days typing to produce something that
+sounds very un-impressive: an FLTK widget that can display an image. The docs
+and code live [[https://github.com/dkogan/GL_image_display][here]]. The big difference from the usual image-drawing widget is
+that this one uses OpenGL internally, so after the initial image load, the
+common operations (drawing, redrawing, panning and zooming) are /very/ fast. I
+have high-resolution images in my projects, and this will make my tools much
+nicer.
+
+Three separate interfaces are available:
+
+- C: core library and GLUT application
+- C++: FLTK widget
+- Python: FLTK widget for [[https://pyfltk.sourceforge.io/][pyfltk]]
+
+The FLTK widgets have built-in interactive panning/zooming, and the library can
+draw line overlays. So nice applications can be built quickly.
+
+I already added some early disabled-by-default support into the [[https://github.com/dkogan/mrcal/blob/master/mrcal-stereo][=mrcal-stereo=
+tool]] to visualize the rectification and report sensitivities:
+
+#+ATTR_HTML: :width 50%
+[[file:files/GL_image_display/widget.png]]
+
+Nice!
+
 * making dvipng work for equations                                 :noexport:
 - OPTIONS do not work. Need to enable explicitly with
   (setq org-html-with-latex 'dvipng)
