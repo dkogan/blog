@@ -13996,7 +13996,7 @@ draw line overlays. So nice applications can be built quickly.
 I already added some early disabled-by-default support into the [[https://github.com/dkogan/mrcal/blob/master/mrcal-stereo][=mrcal-stereo=
 tool]] to visualize the rectification and report sensitivities:
 
-#+ATTR_HTML: :width 50%
+#+ATTR_HTML: :width 100%
 [[file:files/GL_image_display/widget.png]]
 
 Nice!
