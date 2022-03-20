@@ -13395,7 +13395,21 @@ fucking up. This happened to me again last week, so I wrote a quick oneliner to
 do the visualization. Here it is:
 
 #+begin_src sh
-( echo '# i dt'; ping 8.8.8.8 | perl -ne 'BEGIN { $|=1} next if /PING/; s/.*seq=([0-9]+).*time=([0-9]+).*/\1 \2/ && print') | tee /tmp/ping.vnl | vnl-filter --stream -p i,dt,di='diff(i)' | vnl-filter --stream --has di | feedgnuplot  --domain --stream --with 'linespoints pt 7 palette' --tuplesizeall 3 --ymin 0 --set 'cbrange [1:]' --xlabel "ping index" --ylabel "Response time (ms)" --title "ping 8.8.8.8 response times. Consecutive indices shown as colors"
+( echo '# i dt';
+  ping 8.8.8.8 | perl -ne 'BEGIN { $|=1} next if /PING/; s/.*seq=([0-9]+).*time=([0-9]+).*/\1 \2/ && print') | \
+tee /tmp/ping.vnl | \
+vnl-filter --stream -p i,dt,di='diff(i)' | \
+vnl-filter --stream --has di | \
+feedgnuplot \
+  --domain \
+  --stream \
+  --with 'linespoints pt 7 palette' \
+  --tuplesizeall 3 \
+  --ymin 0 \
+  --set 'cbrange [1:]' \
+  --xlabel "ping index" \
+  --ylabel "Response time (ms)" \
+  --title "ping 8.8.8.8 response times. Consecutive indices shown as colors"
 #+end_src
 
 You run that, and you get a realtime-updating plot of ping times and missed
@@ -13403,7 +13417,19 @@ packets. The one-liner also logs the data to a file, so the saved data can be
 re-visualized. Showing what happens on my currently-working internet connection:
 
 #+begin_src sh
-< /tmp/ping.vnl vnl-filter -p i,dt,di='diff(i)' | vnl-filter --has di | feedgnuplot  --domain --with 'linespoints pt 7 palette' --tuplesizeall 3 --ymin 0 --set 'cbrange [1:]' --xlabel "ping index" --ylabel "Response time (ms)" --title "ping 8.8.8.8 response times. Consecutive indices shown as colors" --hardcopy /tmp/isp-good.svg
+< /tmp/ping.vnl
+vnl-filter -p i,dt,di='diff(i)' | \
+vnl-filter --has di | \
+feedgnuplot \
+  --domain \
+  --with 'linespoints pt 7 palette' \
+  --tuplesizeall 3 \
+  --ymin 0 \
+  --set 'cbrange [1:]' \
+  --xlabel "ping index" \
+  --ylabel "Response time (ms)" \
+  --title "ping 8.8.8.8 response times. Consecutive indices shown as colors" \
+  --hardcopy /tmp/isp-good.svg
 #+end_src
 
 #+ATTR_HTML: :width 90%
