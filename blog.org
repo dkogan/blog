@@ -14027,6 +14027,130 @@ tool]] to visualize the rectification and report sensitivities:
 
 Nice!
 
+** DONE Ricoh GR IIIx 802.11 reverse engineering                      :tools:
+CLOSED: [2022-06-16 Thu 22:04]
+
+I just got a fancy new camera: Ricoh GR IIIx. It's pretty great, and I strongly
+recommend it to anyone that wants a truly pocketable camera with fantastic image
+quality and full manual controls. One annoyance is the connectivity. It /does/
+have both Bluetooth and 802.11, but the only official method of using them is
+some dinky closed phone app. This is silly. I just did some reverse-engineering,
+and I now have a functional shell script to download the last few images via
+802.11. This is more convenient than plugging in a wire or pulling out the
+memory card. Fortunately, Ricoh didn't bend over backwards to make the reversing
+difficult, so to figure it out I didn't even need to download the phone app, and
+sniff the traffic.
+
+When you turn on the 802.11 on the camera, it says stuff about essid and
+password, so clearly the camera runs its own access point. Not ideal, but it's
+good-enough. I connected, and ran =nmap= to find hosts and open ports: only port
+80 on 192.168.0.1 is open. Pointing =curl= at it yields some error, so I need to
+figure out the valid endpoints. I downloaded the firmware binary, and tried to
+figure out what's in it:
+
+#+begin_example
+dima@shorty:/tmp$ binwalk fwdc243b.bin
+
+DECIMAL       HEXADECIMAL     DESCRIPTION
+--------------------------------------------------------------------------------
+3036150       0x2E53F6        Cisco IOS microcode, for "8"
+3164652       0x3049EC        Certificate in DER format (x509 v3), header length: 4, sequence length: 5412
+5472143       0x537F8F        Copyright string: "Copyright ("
+6128763       0x5D847B        PARity archive data - file number 90
+10711634      0xA37252        gzip compressed data, maximum compression, from Unix, last modified: 2022-02-15 05:47:23
+13959724      0xD5022C        MySQL ISAM compressed data file Version 11
+24829873      0x17ADFB1       MySQL MISAM compressed data file Version 4
+24917663      0x17C369F       MySQL MISAM compressed data file Version 4
+24918526      0x17C39FE       MySQL MISAM compressed data file Version 4
+24921612      0x17C460C       MySQL MISAM compressed data file Version 4
+24948153      0x17CADB9       MySQL MISAM compressed data file Version 4
+25221672      0x180DA28       MySQL MISAM compressed data file Version 4
+25784158      0x1896F5E       Cisco IOS microcode, for "\"
+26173589      0x18F6095       MySQL MISAM compressed data file Version 4
+28297588      0x1AFC974       MySQL ISAM compressed data file Version 6
+28988307      0x1BA5393       MySQL ISAM compressed data file Version 3
+28990184      0x1BA5AE8       MySQL MISAM index file Version 3
+29118867      0x1BC5193       MySQL MISAM index file Version 3
+29449193      0x1C15BE9       JPEG image data, JFIF standard 1.01
+29522133      0x1C278D5       JPEG image data, JFIF standard 1.08
+29522412      0x1C279EC       Copyright string: "Copyright ("
+29632931      0x1C429A3       JPEG image data, JFIF standard 1.01
+29724094      0x1C58DBE       JPEG image data, JFIF standard 1.01
+#+end_example
+
+The =gzip= chunk looks like what I want:
+
+#+begin_example
+dima@shorty:/tmp$ tail -c+10711635 fwdc243b.bin> /tmp/tst.gz
+
+
+dima@shorty:/tmp$ < /tmp/tst.gz gunzip | file -
+
+/dev/stdin: ASCII cpio archive (SVR4 with no CRC)
+
+
+dima@shorty:/tmp$ < /tmp/tst.gz gunzip > tst.cpio
+#+end_example
+
+OK, we have some =.cpio= thing. It's plain-text. I grep around it in, looking
+for =GET= and =POST= and such, and I see various URI-looking things at
+=/v1/....=. Grepping for that I see
+
+#+begin_example
+dima@shorty:/tmp$ strings tst.cpio | grep /v1/
+
+GET /v1/debug/revisions
+GET /v1/ping
+GET /v1/photos
+GET /v1/props
+PUT /v1/params/device
+PUT /v1/params/lens
+PUT /v1/params/camera
+GET /v1/liveview
+GET /v1/transfers
+POST /v1/device/finish
+POST /v1/device/wlan/finish
+POST /v1/lens/focus
+POST /v1/camera/shoot
+POST /v1/camera/shoot/compose
+POST /v1/camera/shoot/cancel
+GET /v1/photos/{}/{}
+GET /v1/photos/{}/{}/info
+PUT /v1/photos/{}/{}/transfer
+/v1/photos/<string>/<string>
+/v1/photos/<string>/<string>/info
+/v1/photos/<string>/<string>/transfer
+/v1/device/finish
+/v1/device/wlan/finish
+/v1/lens/focus
+/v1/camera/shoot
+/v1/camera/shoot/compose
+/v1/camera/shoot/cancel
+/v1/changes
+/v1/changes message received.
+/v1/changes issue event.
+/v1/changes new websocket connection.
+/v1/changes websocket connection closed. reason({})
+/v1/transfers, transferState({}), afterIndex({}), limit({})
+#+end_example
+
+Jackpot. I pointed =curl= at most of these, and they do interesting things.
+Generally they all spit out JSON. =/v1/liveview= sends out a sequence of JPEG
+images. The thing I care about is =/v1/photos/DIRECTORY/FILE= and
+=/v1/photos/DIRECTORY/FILE/info=. The result is a script I just wrote to connect
+to the camera, download =N= images, and connect back to the original access
+point:
+
+https://github.com/dkogan/ricoh-download
+
+Kinda crude, but works for now. I'll improve it with time.
+
+After I did this I found an old thread from 2015 where somebody was using an
+apparently-compatible camera, and wrote a fancier tool:
+
+https://www.pentaxforums.com/forums/184-pentax-k-s1-k-s2/295501-k-s2-wifi-laptop-2.html
+
+
 * making dvipng work for equations                                 :noexport:
 - OPTIONS do not work. Need to enable explicitly with
   (setq org-html-with-latex 'dvipng)
