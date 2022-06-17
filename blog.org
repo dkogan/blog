@@ -609,10 +609,10 @@ Each search is also run with the =-d= option. This only runs the search; it does
 /not/ also update the database with each search. By default, cscope /does/
 update the database with every search.
 
-Specifically, I get the list of files with 
+Specifically, I get the list of files with
 
 #+begin_src sh
-cscope-indexer -l -r  
+cscope-indexer -l -r
 #+end_src
 
 I build an index with
@@ -632,7 +632,7 @@ Once again, if I'm indexing in kernel mode and I'm building an inverted index, I
 also pass in =-q -k=. When I want to touch an arbitrary file, I do
 
 #+begin_src sh
-touch include/drm/drm_edid.h 
+touch include/drm/drm_edid.h
 #+end_src
 
 There's no significance to this file. It's just anything that's in the index.
@@ -1707,7 +1707,7 @@ punctuated workflow is fairly inefficient, and the notification system help to
 minimize it as much as is possible.
 
 So yeah. I'll run this for a bit more, and we'll see if there's more to improve.
-   
+
 ** DONE Emacs-snapshot package hosting                                :emacs:
    CLOSED: [2014-06-07 Sat 17:29]
 
@@ -1760,7 +1760,7 @@ go to the =zsh= people.
 
 ** DONE Ltrace filtering details                                      :tools:
    CLOSED: [2014-06-25 Wed 16:51]
-   
+
 In an [[file:{lisp}(ob:link-to-post (ob:get-post-by-title "Reading DWARF prototypes in ltrace")){/lisp}][earlier post]] I talked about teaching ltrace to read function prototypes
 from DWARF data. I'm making more progress on that front, and the initial code
 has been merged into the upstream ltrace repository. One point of confusion for
@@ -1907,7 +1907,7 @@ calls in libc is a rich source of corner cases. Some of these are discussed here
 in no particular order.
 
 *** Missing features
-    
+
 Ltrace currently chokes (crashes!) when encountering prototypes with particular
 features. Some of these are
 
@@ -2359,7 +2359,7 @@ dima@shorty:/tmp/dsd$ perl -p -i -e 's{/usr/local/include}{/tmp/mbelib/}g; s{-lm
 
 dima@shorty:/tmp/dsd$ make
 ...
-gcc -O2 -Wall -o dsd dsd_main.o dsd_symbol.o dsd_dibit.o dsd_frame_sync.o dsd_file.o dsd_audio.o dsd_serial.o dsd_frame.o dsd_mbe.o dsd_upsample.o p25p1_hdu.o p25p1_ldu1.o p25p1_ldu2.o p25p1_tdulc.o p25_lcw.o x2tdma_voice.o x2tdma_data.o dstar.o nxdn_voice.o nxdn_data.o dmr_voice.o dmr_data.o provoice.o -L/usr/local/lib -lm /tmp/mbelib/build/libmbe.a 
+gcc -O2 -Wall -o dsd dsd_main.o dsd_symbol.o dsd_dibit.o dsd_frame_sync.o dsd_file.o dsd_audio.o dsd_serial.o dsd_frame.o dsd_mbe.o dsd_upsample.o p25p1_hdu.o p25p1_ldu1.o p25p1_ldu2.o p25p1_tdulc.o p25_lcw.o x2tdma_voice.o x2tdma_data.o dstar.o nxdn_voice.o nxdn_data.o dmr_voice.o dmr_data.o provoice.o -L/usr/local/lib -lm /tmp/mbelib/build/libmbe.a
 
 #+end_example
 
@@ -2500,7 +2500,7 @@ and I get out a finished invoice. Before I get into the details, here's a sample
  #+LATEX_HEADER: \parindent 0in
  #+LATEX_HEADER: \parskip 0.1in
  #+LATEX_HEADER: \setlength\LTleft{0pt} \setlength\LTright\fill
- #+OPTIONS: toc:nil num:nil 
+ #+OPTIONS: toc:nil num:nil
  #+AUTHOR:
  #+DATE:
  #+TITLE: INVOICE
@@ -3124,7 +3124,7 @@ individually (instead of as an aggregate) is =perf script=. Let's do some basic
 probing: let's see all the function returns from =func=:
 
 #+BEGIN_EXAMPLE
-dima@shorty:/tmp$ sudo perf probe -x tst --add 'out=func%return $retval'                         
+dima@shorty:/tmp$ sudo perf probe -x tst --add 'out=func%return $retval'
 
 Added new event:
   probe_tst:out        (on func%return in /tmp/tst with $retval)
@@ -3134,7 +3134,7 @@ You can now use it in all perf tools, such as:
         perf record -e probe_tst:out -aR sleep 1
 
 
-dima@shorty:/tmp$ sudo perf record -g -e probe_tst:out -aR ./tst      
+dima@shorty:/tmp$ sudo perf record -g -e probe_tst:out -aR ./tst
 zzz: 1
 yyy: 6
 zzz: 2
@@ -3159,7 +3159,7 @@ yyy: 15
 [ perf record: Captured and wrote 0.712 MB perf.data (~31090 samples) ]
 
 
-dima@shorty:/tmp$ sudo perf report --stdio                                              
+dima@shorty:/tmp$ sudo perf report --stdio
 
 Failed to open /tmp/perf-20159.map, continuing without symbols
 # Samples: 10  of event 'probe_tst:out'
@@ -3172,14 +3172,14 @@ Failed to open /tmp/perf-20159.map, continuing without symbols
                 |
                 --- __libc_start_main
 
-   100.00%   100.00%      tst  tst            [.] main             
+   100.00%   100.00%      tst  tst            [.] main
                 |
                 --- main
                     __libc_start_main
 
 
 
-dima@shorty:/tmp$ sudo perf script         
+dima@shorty:/tmp$ sudo perf script
 
 Failed to open /tmp/perf-20159.map, continuing without symbols
 tst 20159 [001] 629384.650622: probe_tst:out: (400506 <- 400561) arg1=0x6
@@ -3214,7 +3214,7 @@ argument:
 
 #+BEGIN_EXAMPLE
 
-dima@shorty:/tmp$ sudo perf probe -x tst --add 'in=func xxx'                                     
+dima@shorty:/tmp$ sudo perf probe -x tst --add 'in=func xxx'
 
 Added new event:
   probe_tst:in         (on func in /tmp/tst with xxx)
@@ -3224,7 +3224,7 @@ You can now use it in all perf tools, such as:
         perf record -e probe_tst:in -aR sleep 1
 
 
-dima@shorty:/tmp$ sudo perf record -g -e probe_tst:in -aR ./tst      
+dima@shorty:/tmp$ sudo perf record -g -e probe_tst:in -aR ./tst
 zzz: 1
 yyy: 6
 zzz: 2
@@ -3232,7 +3232,7 @@ yyy: 7
 ....
 
 
-dima@shorty:/tmp$ sudo perf script         
+dima@shorty:/tmp$ sudo perf script
 
 Failed to open /tmp/perf-20159.map, continuing without symbols
 tst 20159 [001] 629384.650566: probe_tst:in: (400506) xxx=0
@@ -3264,13 +3264,13 @@ numbers here are relative to the start of the function not the start of the
 file):
 
 #+BEGIN_EXAMPLE
-dima@shorty:/tmp$ sudo perf probe -x tst -L 'func'  
+dima@shorty:/tmp$ sudo perf probe -x tst -L 'func'
 
 <func@/tmp/tst.c:0>
       0  int func(int xxx)
       1  {
       2      int zzz = xxx;
-         
+
       4      printf("zzz: %d\n", zzz);
       5      return zzz+5;
       6  }
@@ -3293,7 +3293,7 @@ You can now use it in all perf tools, such as:
         perf record -e probe_tst:inreg -aR sleep 1
 
 
-dima@shorty:/tmp$ sudo perf probe -x tst --add 'mid=func:4 xxx zzz'                           
+dima@shorty:/tmp$ sudo perf probe -x tst --add 'mid=func:4 xxx zzz'
 
 Added new event:
   probe_tst:mid        (on func:4 in /tmp/tst with xxx zzz)
@@ -3303,7 +3303,7 @@ You can now use it in all perf tools, such as:
         perf record -e probe_tst:mid -aR sleep 1
 
 
-dima@shorty:/tmp$ sudo perf record -g -e probe_tst:inreg,probe_tst:mid -aR ./tst      
+dima@shorty:/tmp$ sudo perf record -g -e probe_tst:inreg,probe_tst:mid -aR ./tst
 
 zzz: 1
 yyy: 6
@@ -3312,7 +3312,7 @@ yyy: 7
 ....
 
 
-dima@shorty:/tmp$ sudo perf script         
+dima@shorty:/tmp$ sudo perf script
 
 dima@shorty:/tmp$ sudo perf script
 Failed to open /tmp/perf-20335.map, continuing without symbols
@@ -3366,7 +3366,7 @@ zzz: 2
 yyy: 7
 
 
-dima@shorty:/tmp$ sudo perf report --stdio                                                 
+dima@shorty:/tmp$ sudo perf report --stdio
 
 Error:
 The perf.data file has no samples!
@@ -3481,7 +3481,7 @@ dima@shorty:~/projects/python_gplot$ ./test.py
      0.000 AAAAAAAAAAA--+------------+-----------+------------+----------+-+
          -100          -80          -60         -40          -20           0
 
-                                                                                                  
+
 
 
  10000.000 +-+---+------+-----+------+-----+-----+------+-----+------+---+A+
@@ -3777,7 +3777,7 @@ cannot be seen with it:
 
 root@shorty:/home/dima# cd /sys/kernel/debug/tracing
 
-root@shorty:/sys/kernel/debug/tracing# echo 'syscalls:sys_enter_open' >> /sys/kernel/debug/tracing/set_event 
+root@shorty:/sys/kernel/debug/tracing# echo 'syscalls:sys_enter_open' >> /sys/kernel/debug/tracing/set_event
 
 root@shorty:/sys/kernel/debug/tracing# echo 'common_pid == 16211' > events/syscalls/sys_enter_open/filter
 
@@ -4037,7 +4037,7 @@ Inaccessibility.
 Sample invocation:
 
 #+BEGIN_EXAMPLE
-$ ./voronoi < points_34.1390884_-118.4944153_34.5020298_-117.5852966.dat 
+$ ./voronoi < points_34.1390884_-118.4944153_34.5020298_-117.5852966.dat
 
 furthest point center, surrounding points:
 25541 -78
@@ -4652,20 +4652,20 @@ Then found instances where it writes complaints into its log:
 #+BEGIN_EXAMPLE
 $ sysdig -r frobnicator.scap fd.name contains frobnicator.log
 
-371858 12:01:43.587694261 0 frobnicator (21343) < open fd=10(<f>/var/log/frobnicator.log) name=frobnicator.log(/var/log/frobnicator.log) flags=15(O_APPEND|O_CREAT|O_RDWR) mode=0 
-371859 12:01:43.587713415 0 frobnicator (21343) > fstat fd=10(<f>/var/log/frobnicator.log) 
-371860 12:01:43.587714435 0 frobnicator (21343) < fstat res=0 
-371863 12:01:43.587748893 0 frobnicator (21343) > write fd=10(<f>/var/log/frobnicator.log) size=50 
-371864 12:01:43.587779337 0 frobnicator (21343) < write res=51 data=[254542.588] ERROR! OH NO! COULDN'T COMMUNICATE!!! 
-371865 12:01:43.587780740 0 frobnicator (21343) > close fd=10(<f>/var/log/frobnicator.log) 
-371866 12:01:43.587781852 0 frobnicator (21343) < close res=0 
-371872 12:01:43.587824754 0 frobnicator (21343) < open fd=10(<f>/var/log/frobnicator.log) name=frobnicator.log(/var/log/frobnicator.log) flags=15(O_APPEND|O_CREAT|O_RDWR) mode=0 
-371873 12:01:43.587831903 0 frobnicator (21343) > fstat fd=10(<f>/var/log/frobnicator.log) 
-371874 12:01:43.587832417 0 frobnicator (21343) < fstat res=0 
-371877 12:01:43.587838779 0 frobnicator (21343) > write fd=10(<f>/var/log/frobnicator.log) size=48 
-371878 12:01:43.587843915 0 frobnicator (21343) < write res=40 data=[254542.588] NOOO!! SOMETHING ELSE WENT WRONG!!! 
-371879 12:01:43.587844635 0 frobnicator (21343) > close fd=10(<f>/var/log/frobnicator.log) 
-371880 12:01:43.587845018 0 frobnicator (21343) < close res=0 
+371858 12:01:43.587694261 0 frobnicator (21343) < open fd=10(<f>/var/log/frobnicator.log) name=frobnicator.log(/var/log/frobnicator.log) flags=15(O_APPEND|O_CREAT|O_RDWR) mode=0
+371859 12:01:43.587713415 0 frobnicator (21343) > fstat fd=10(<f>/var/log/frobnicator.log)
+371860 12:01:43.587714435 0 frobnicator (21343) < fstat res=0
+371863 12:01:43.587748893 0 frobnicator (21343) > write fd=10(<f>/var/log/frobnicator.log) size=50
+371864 12:01:43.587779337 0 frobnicator (21343) < write res=51 data=[254542.588] ERROR! OH NO! COULDN'T COMMUNICATE!!!
+371865 12:01:43.587780740 0 frobnicator (21343) > close fd=10(<f>/var/log/frobnicator.log)
+371866 12:01:43.587781852 0 frobnicator (21343) < close res=0
+371872 12:01:43.587824754 0 frobnicator (21343) < open fd=10(<f>/var/log/frobnicator.log) name=frobnicator.log(/var/log/frobnicator.log) flags=15(O_APPEND|O_CREAT|O_RDWR) mode=0
+371873 12:01:43.587831903 0 frobnicator (21343) > fstat fd=10(<f>/var/log/frobnicator.log)
+371874 12:01:43.587832417 0 frobnicator (21343) < fstat res=0
+371877 12:01:43.587838779 0 frobnicator (21343) > write fd=10(<f>/var/log/frobnicator.log) size=48
+371878 12:01:43.587843915 0 frobnicator (21343) < write res=40 data=[254542.588] NOOO!! SOMETHING ELSE WENT WRONG!!!
+371879 12:01:43.587844635 0 frobnicator (21343) > close fd=10(<f>/var/log/frobnicator.log)
+371880 12:01:43.587845018 0 frobnicator (21343) < close res=0
 #+END_EXAMPLE
 
 And then looked at what happened leading up to it, searching for anything
@@ -4675,23 +4675,23 @@ noteworthy:
 $ sysdig -r frobnicator.scap evt.num \>= $((371858-10000)) and evt.num \<= 371858
 
 ...
-365555 12:01:43.584116007 0 frobnicator (21343) > write fd=7(<f>/dev/ttyUSB2) size=7 
-365556 12:01:43.584120946 0 frobnicator (21343) < write res=7 data=....... 
-365557 12:01:43.584121497 0 frobnicator (21343) > fcntl fd=7(<f>/dev/ttyUSB2) cmd=5(F_SETFL) 
-365558 12:01:43.584121792 0 frobnicator (21343) < fcntl res=0(<f>/dev/pts/3) 
-365559 12:01:43.584123089 0 frobnicator (21343) > read fd=7(<f>/dev/ttyUSB2) size=32767 
-365560 12:01:43.584124530 0 frobnicator (21343) < read res=0 data= 
-365561 12:01:43.584125440 0 frobnicator (21343) > read fd=7(<f>/dev/ttyUSB2) size=32767 
-365562 12:01:43.584125967 0 frobnicator (21343) < read res=0 data= 
-365563 12:01:43.584126441 0 frobnicator (21343) > read fd=7(<f>/dev/ttyUSB2) size=32767 
-365564 12:01:43.584126830 0 frobnicator (21343) < read res=0 data= 
+365555 12:01:43.584116007 0 frobnicator (21343) > write fd=7(<f>/dev/ttyUSB2) size=7
+365556 12:01:43.584120946 0 frobnicator (21343) < write res=7 data=.......
+365557 12:01:43.584121497 0 frobnicator (21343) > fcntl fd=7(<f>/dev/ttyUSB2) cmd=5(F_SETFL)
+365558 12:01:43.584121792 0 frobnicator (21343) < fcntl res=0(<f>/dev/pts/3)
+365559 12:01:43.584123089 0 frobnicator (21343) > read fd=7(<f>/dev/ttyUSB2) size=32767
+365560 12:01:43.584124530 0 frobnicator (21343) < read res=0 data=
+365561 12:01:43.584125440 0 frobnicator (21343) > read fd=7(<f>/dev/ttyUSB2) size=32767
+365562 12:01:43.584125967 0 frobnicator (21343) < read res=0 data=
+365563 12:01:43.584126441 0 frobnicator (21343) > read fd=7(<f>/dev/ttyUSB2) size=32767
+365564 12:01:43.584126830 0 frobnicator (21343) < read res=0 data=
 ..... lots more hammering read() that returns 0
-371853 12:01:43.587643084 0 frobnicator (21343) > read fd=7(<f>/dev/ttyUSB2) size=32767 
-371854 12:01:43.587643466 0 frobnicator (21343) < read res=0 data= 
-371855 12:01:43.587651900 0 frobnicator (21343) > stat 
-371856 12:01:43.587660887 0 frobnicator (21343) < stat res=0 path=frobnicator.log(/var/log/frobnicator.log) 
-371857 12:01:43.587665751 0 frobnicator (21343) > open 
-371858 12:01:43.587694261 0 frobnicator (21343) < open fd=10(<f>/var/log/frobnicator.log) name=frobnicator.log(/var/log/frobnicator.log) flags=15(O_APPEND|O_CREAT|O_RDWR) mode=0 
+371853 12:01:43.587643084 0 frobnicator (21343) > read fd=7(<f>/dev/ttyUSB2) size=32767
+371854 12:01:43.587643466 0 frobnicator (21343) < read res=0 data=
+371855 12:01:43.587651900 0 frobnicator (21343) > stat
+371856 12:01:43.587660887 0 frobnicator (21343) < stat res=0 path=frobnicator.log(/var/log/frobnicator.log)
+371857 12:01:43.587665751 0 frobnicator (21343) > open
+371858 12:01:43.587694261 0 frobnicator (21343) < open fd=10(<f>/var/log/frobnicator.log) name=frobnicator.log(/var/log/frobnicator.log) flags=15(O_APPEND|O_CREAT|O_RDWR) mode=0
 #+END_EXAMPLE
 
 So we wrote something to the device at =/dev/ttyUSB2=, then hammered the port
@@ -4726,45 +4726,45 @@ anything from USB2? Under what circumstances?
 #+BEGIN_EXAMPLE
 $ sysdig -r frobnicator.scap evt.type = read and fd.name contains USB2 and evt.rawres \!= 0 | head -n 10
 
-10190 12:01:41.803108311 1 frobnicator (21343) < read res=1 data=. 
-16753 12:01:41.834119153 1 frobnicator (21343) < read res=1 data=. 
-23252 12:01:41.865108212 1 frobnicator (21343) < read res=1 data=. 
-29817 12:01:41.896112925 1 frobnicator (21343) < read res=1 data=. 
-42142 12:01:41.959126061 1 frobnicator (21343) < read res=1 data=. 
-46319 12:01:41.989105762 1 frobnicator (21343) < read res=1 data=. 
-52241 12:01:42.020106289 3 frobnicator (21343) < read res=1 data=. 
-58206 12:01:42.051112845 3 frobnicator (21343) < read res=1 data=. 
-64759 12:01:42.082126350 3 frobnicator (21343) < read res=1 data=. 
-71562 12:01:42.113106478 3 frobnicator (21343) < read res=1 data=. 
+10190 12:01:41.803108311 1 frobnicator (21343) < read res=1 data=.
+16753 12:01:41.834119153 1 frobnicator (21343) < read res=1 data=.
+23252 12:01:41.865108212 1 frobnicator (21343) < read res=1 data=.
+29817 12:01:41.896112925 1 frobnicator (21343) < read res=1 data=.
+42142 12:01:41.959126061 1 frobnicator (21343) < read res=1 data=.
+46319 12:01:41.989105762 1 frobnicator (21343) < read res=1 data=.
+52241 12:01:42.020106289 3 frobnicator (21343) < read res=1 data=.
+58206 12:01:42.051112845 3 frobnicator (21343) < read res=1 data=.
+64759 12:01:42.082126350 3 frobnicator (21343) < read res=1 data=.
+71562 12:01:42.113106478 3 frobnicator (21343) < read res=1 data=.
 
 
 $ sysdig -r frobnicator.scap evt.type = write and fd.name contains USB2 and evt.num \< 42142 | tail -n1
 
-37288 12:01:41.957115614 1 frobnicator (21343) < write res=7 data=....... 
+37288 12:01:41.957115614 1 frobnicator (21343) < write res=7 data=.......
 
 
 $ sysdig -r frobnicator.scap evt.num \>= 37288 and evt.num \<= 42142
 
-37288 12:01:41.957115614 1 frobnicator (21343) < write res=7 data=....... 
-37289 12:01:41.957116233 1 frobnicator (21343) > fcntl fd=7(<f>/dev/ttyUSB2) cmd=5(F_SETFL) 
-37290 12:01:41.957116440 1 frobnicator (21343) < fcntl res=0(<f>/dev/pts/3) 
-37291 12:01:41.957117828 1 frobnicator (21343) > read fd=7(<f>/dev/ttyUSB2) size=32767 
-37292 12:01:41.957118640 1 frobnicator (21343) < read res=0 data= 
-37293 12:01:41.957119433 1 frobnicator (21343) > read fd=7(<f>/dev/ttyUSB2) size=32767 
-37294 12:01:41.957119972 1 frobnicator (21343) < read res=0 data= 
-37295 12:01:41.957120373 1 frobnicator (21343) > read fd=7(<f>/dev/ttyUSB2) size=32767 
-37296 12:01:41.957120901 1 frobnicator (21343) < read res=0 data= 
+37288 12:01:41.957115614 1 frobnicator (21343) < write res=7 data=.......
+37289 12:01:41.957116233 1 frobnicator (21343) > fcntl fd=7(<f>/dev/ttyUSB2) cmd=5(F_SETFL)
+37290 12:01:41.957116440 1 frobnicator (21343) < fcntl res=0(<f>/dev/pts/3)
+37291 12:01:41.957117828 1 frobnicator (21343) > read fd=7(<f>/dev/ttyUSB2) size=32767
+37292 12:01:41.957118640 1 frobnicator (21343) < read res=0 data=
+37293 12:01:41.957119433 1 frobnicator (21343) > read fd=7(<f>/dev/ttyUSB2) size=32767
+37294 12:01:41.957119972 1 frobnicator (21343) < read res=0 data=
+37295 12:01:41.957120373 1 frobnicator (21343) > read fd=7(<f>/dev/ttyUSB2) size=32767
+37296 12:01:41.957120901 1 frobnicator (21343) < read res=0 data=
 ... again. we hammer the read()
-42133 12:01:41.959120974 1 frobnicator (21343) > read fd=7(<f>/dev/ttyUSB2) size=32767 
-42134 12:01:41.959121368 1 frobnicator (21343) < read res=0 data= 
-42135 12:01:41.959121769 1 frobnicator (21343) > read fd=7(<f>/dev/ttyUSB2) size=32767 
-42136 12:01:41.959122160 1 frobnicator (21343) < read res=0 data= 
-42137 12:01:41.959122719 1 frobnicator (21343) > read fd=7(<f>/dev/ttyUSB2) size=32767 
-42138 12:01:41.959123119 1 frobnicator (21343) < read res=0 data= 
-42139 12:01:41.959123690 1 frobnicator (21343) > read fd=7(<f>/dev/ttyUSB2) size=32767 
-42140 12:01:41.959124311 1 frobnicator (21343) < read res=0 data= 
-42141 12:01:41.959124846 1 frobnicator (21343) > read fd=7(<f>/dev/ttyUSB2) size=32767 
-42142 12:01:41.959126061 1 frobnicator (21343) < read res=1 data=. 
+42133 12:01:41.959120974 1 frobnicator (21343) > read fd=7(<f>/dev/ttyUSB2) size=32767
+42134 12:01:41.959121368 1 frobnicator (21343) < read res=0 data=
+42135 12:01:41.959121769 1 frobnicator (21343) > read fd=7(<f>/dev/ttyUSB2) size=32767
+42136 12:01:41.959122160 1 frobnicator (21343) < read res=0 data=
+42137 12:01:41.959122719 1 frobnicator (21343) > read fd=7(<f>/dev/ttyUSB2) size=32767
+42138 12:01:41.959123119 1 frobnicator (21343) < read res=0 data=
+42139 12:01:41.959123690 1 frobnicator (21343) > read fd=7(<f>/dev/ttyUSB2) size=32767
+42140 12:01:41.959124311 1 frobnicator (21343) < read res=0 data=
+42141 12:01:41.959124846 1 frobnicator (21343) > read fd=7(<f>/dev/ttyUSB2) size=32767
+42142 12:01:41.959126061 1 frobnicator (21343) < read res=1 data=.
 #+END_EXAMPLE
 
 So that time, we wrote to =/dev/ttyUSB2=, but did receive a response of exactly
@@ -5124,7 +5124,7 @@ OK. What about the failure case? The raw events look like this:
             perf 27484 [000] 93115.324027: irq:softirq_exit: vec=6 [action=TASKLET]
 
             ... CPU 0 services the USB interrupt many more times. None of the scheduled tasks run until...
-                                                
+
             perf 27484 [000] 93115.326706: sched:sched_stat_runtime: comm=perf pid=27484 runtime=2856449 [ns] vruntime=482196990 [ns]
             perf 27484 [000] 93115.326708: sched:sched_stat_wait: comm=kworker/0:1 pid=142 delay=2683863 [ns]
             perf 27484 [000] 93115.326709: sched:sched_switch: prev_comm=perf prev_pid=27484 prev_prio=120 prev_state=S ==> next_comm=kworker/0:1 next_pid=142 next_prio=120
@@ -5800,7 +5800,7 @@ The output of this goes to stderr, which the daemon helpfully redirects to
 problem that I get around with using =unbuffer=:
 
 #+BEGIN_EXAMPLE
-$ sudo unbuffer sysdig -s 60000 proc.pid=`pidof emacs` -c stderr | perl -ne 's/\r/\n/g; s/\n$//; print STDERR $_'     
+$ sudo unbuffer sysdig -s 60000 proc.pid=`pidof emacs` -c stderr | perl -ne 's/\r/\n/g; s/\n$//; print STDERR $_'
 
 (":0.0" (x 1) (xft 1))
 (":0.0" (x 1)
@@ -5849,9 +5849,9 @@ $231 = 0x17011d3
 Lisp_Cons
 $232 = (struct Lisp_Cons *) 0x17011d0
 {
-  car = 0xc4e0, 
+  car = 0xc4e0,
   u = {
-    cdr = 0x17011c3, 
+    cdr = 0x17011c3,
     chain = 0x17011c3
   }
 }
@@ -5860,9 +5860,9 @@ $233 = 0x17011a3
 Lisp_Cons
 $234 = (struct Lisp_Cons *) 0x17011a0
 {
-  car = 0xc750, 
+  car = 0xc750,
   u = {
-    cdr = 0x1701193, 
+    cdr = 0x1701193,
     chain = 0x1701193
   }
 }
@@ -5876,9 +5876,9 @@ $235 = 24121747
 Lisp_Cons
 $236 = (struct Lisp_Cons *) 0x1701190
 {
-  car = 0x6, 
+  car = 0x6,
   u = {
-    cdr = 0x0, 
+    cdr = 0x0,
     chain = 0x0
   }
 }
@@ -6116,7 +6116,7 @@ because I repeatedly create/destroy client frames in one terminal window:
 $ ./daemon.sh
 Starting Emacs daemon.
 
-$ ./loopclient.sh   
+$ ./loopclient.sh
 Waiting for Emacs...
 Waiting for Emacs...
 Waiting for Emacs...
@@ -6133,7 +6133,7 @@ The memory use is climbing, so we have a leak. I make a memory consumption log
 while =./loopclient.sh= is running:
 
 #+BEGIN_EXAMPLE
-$ ./record_alloc.sh 
+$ ./record_alloc.sh
 ^C[ perf record: Captured and wrote 36.197 MB perf.data (165038 samples) ]
 
 $ sudo perf script > script
@@ -6461,7 +6461,7 @@ argument:
 $ gcc-5 -g -o tst tst.c &&
   perf probe -x tst --add 'f x' &&
   perf record -eprobe_tst:f ./tst 2 3 4 &&
-  perf script    
+  perf script
 
   .....
 
@@ -6473,7 +6473,7 @@ Note that the value passed to =f()= was 4, but perf reported it as 0 instead.
 If I look at what uprobes was actually asked to report, I see this:
 
 #+BEGIN_EXAMPLE
-$ cat /sys/kernel/debug/tracing/uprobe_events 
+$ cat /sys/kernel/debug/tracing/uprobe_events
 
 p:probe_tst/f /tmp/tst:0x00000000000004e6 x=-12(%sp):s32
 #+END_EXAMPLE
@@ -6496,8 +6496,8 @@ $ objdump -d tst | awk '/<f>:/,/^$/'
   400505:       85 c0                   test   %eax,%eax
   400507:       0f 94 c0                sete   %al
   40050a:       0f b6 c0                movzbl %al,%eax
-  40050d:       c9                      leaveq 
-  40050e:       c3                      retq   
+  40050d:       c9                      leaveq
+  40050e:       c3                      retq
 #+END_EXAMPLE
 
 So uprobes was looking at the argument as a local stack variable. However the
@@ -9179,7 +9179,7 @@ setup(name         = 'tst',
 A build:
 
 #+BEGIN_EXAMPLE
-dima@shorty:/tmp$ python setup.py build                 
+dima@shorty:/tmp$ python setup.py build
 
 running build
 running build_ext
@@ -9263,7 +9263,7 @@ Now run the application we just built directly. We are /not/ invoking the python
 interpreter ourselves:
 
 #+BEGIN_EXAMPLE
-dima@shorty:/tmp$ ./tst                                                             
+dima@shorty:/tmp$ ./tst
 
 4.0
 4.0
@@ -9550,7 +9550,7 @@ will compute the voronoi diagram. For the Yellowstone area:
 #+BEGIN_EXAMPLE
 $ ./query_rect.sh 43.7 -110.6 44.6 -109.5
 
-$ < query*.json(om[1]) | 
+$ < query*.json(om[1]) |
     awk '/"lat"/ {lat=$2} /"lon"/ {lon=$2} /}/ {print lon,lat}' |
     sed 's/,//g' |
     feedgnuplot --domain --xlabel lon --ylabel lat --square
@@ -9590,7 +9590,7 @@ Doing the same thing for the empty cell in the Frank Church wilderness:
 #+BEGIN_EXAMPLE
 $ ./query_rect.sh 45.1 -115.4 45.7 -114.6
 
-$ < query*.json(om[1]) | 
+$ < query*.json(om[1]) |
     awk '/"lat"/ {lat=$2} /"lon"/ {lon=$2} /}/ {print lon,lat}' |
     sed 's/,//g' |
     feedgnuplot --domain --xlabel lon --ylabel lat --square
@@ -9717,9 +9717,9 @@ cmdand> cmdand cmdand> cmdand cmdand cmdand> cmdand cmdand cmdand pipe> cmdand c
 37.846765617309,-119.403696967493
 37.7276548319986,-119.542115397644
 distance: 20027.013149
-dima@scrawny:~/projects/inaccessibility/lower48$ dima@scrawny:~/projects/inaccessibility/lower48$ 
-dima@scrawny:~/projects/inaccessibility/lower48$ 
-dima@scrawny:~/projects/inaccessibility/lower48$ 
+dima@scrawny:~/projects/inaccessibility/lower48$ dima@scrawny:~/projects/inaccessibility/lower48$
+dima@scrawny:~/projects/inaccessibility/lower48$
+dima@scrawny:~/projects/inaccessibility/lower48$
 dima@scrawny:~/projects/inaccessibility/lower48$ cx=-123.6; cy=47.8; w=3; h=1; dx=$(( (w+2.) * 0.1 * 1.1)); dy=$(( (h+2.) * 0.1 * 1.1)); ./query_rect.sh $((cy-dy)) $((cx-dx)) $((cy+dy)) $((cx+dx)) && \
 < query*.json(om[1]) | awk '/"lat"/ {lat=$2} /"lon"/ {lon=$2} /}/ {print lon,lat}' | sed 's/,//g' | feedgnuplot --domain --xlabel lon --ylabel lat --exit && \
 ../massage_input.pl query*.json(om[1]) && \
@@ -10046,7 +10046,7 @@ cmdand> cmdand cmdand> cmdand cmdand cmdand> cmdand cmdand cmdand pipe> cmdand c
 26.813112414914,-80.6873139612105
 distance: 18935.831522
 dima@scrawny:~/projects/inaccessibility/lower48$
-dima@scrawny:~/projects/inaccessibility/lower48$ 
+dima@scrawny:~/projects/inaccessibility/lower48$
 
 
 
@@ -10386,7 +10386,7 @@ ln -fs libc_library.so.0.0 libc_library.so.0
 And I can run the test:
 
 #+BEGIN_EXAMPLE
-$ python test.py 
+$ python test.py
 
 in f() Python wrapper. About to call C library
 in f() written in C
@@ -11060,8 +11060,8 @@ This would be the /working/ representation; I'd log directly to this format, and
 work with this data even before plotting it. But I can now plot this directly:
 
 #+BEGIN_EXAMPLE
-$ < data.vnl 
-  feedgnuplot --domain --vnlog --autolegend --with lines 
+$ < data.vnl
+  feedgnuplot --domain --vnlog --autolegend --with lines
               --style position 'with points pt 7' --y2 position
 #+END_EXAMPLE
 
@@ -11075,9 +11075,9 @@ plotting, and the amount of typing has been greatly reduced. /And/ I can do the
 normal vnlog things. What if I want to plot only temperatures:
 
 #+BEGIN_EXAMPLE
-$ < data.vnl 
+$ < data.vnl
   vnl-filter -p time,temp |
-  feedgnuplot --domain --vnlog --autolegend --with lines 
+  feedgnuplot --domain --vnlog --autolegend --with lines
 #+END_EXAMPLE
 
 Nice!
@@ -11249,17 +11249,17 @@ I can align the columns to make it more human-readable:
 #+BEGIN_EXAMPLE
 dima@scrawny:~/projects/passagemining/google-group-crawler/the-passage-announcements$ < rides.vnl head | vnl-align
 
-#             path              ridenum   who       whenwedh        date   wordcount           subject          
-mbox/m.-EF1u5bbw5A.SywitKQ3y1sJ 265     sean     1.40722222222222 20140903 190       265-Coasting               
-mbox/m.-JdiiTIvyYs.Jgy_rCiwAGAJ 151     sean    18.6441666666667  20120606 199       151-FinalsWeek             
-mbox/m.-l6z9-1WC78.SgP3ytLsDAAJ 312     nathan  19.5394444444444  20150812 189       312-SpaceFilling           
-mbox/m.-vfVuoUxJ0w.FwpRRWC7EgAJ 367     nathan  18.1766666666667  20160831 164       367-Dislocation            
+#             path              ridenum   who       whenwedh        date   wordcount           subject
+mbox/m.-EF1u5bbw5A.SywitKQ3y1sJ 265     sean     1.40722222222222 20140903 190       265-Coasting
+mbox/m.-JdiiTIvyYs.Jgy_rCiwAGAJ 151     sean    18.6441666666667  20120606 199       151-FinalsWeek
+mbox/m.-l6z9-1WC78.SgP3ytLsDAAJ 312     nathan  19.5394444444444  20150812 189       312-SpaceFilling
+mbox/m.-vfVuoUxJ0w.FwpRRWC7EgAJ 367     nathan  18.1766666666667  20160831 164       367-Dislocation
 mbox/m.-YHTEvmbIyU.HHWjbs_xpesJ 110     sean    10.9108333333333  20110810 407       110-SouslesParcs,laPoubelle
-mbox/m.0__GMaUD_O8.Pjupq0AwBAAJ 404     sean    13.5255555555556  20170524 560       404-Bumped                 
-mbox/m.0CT9ybx3uIU.sdZGwo8rSQUJ  53     sean   -23.1402777777778  20100629 223       53WeInventedtheRemix       
-mbox/m.0FtQxCkxVHA.AjhGJ7mgAwAJ 413     nathan  20.4155555555556  20170726 178       413-GradientAssent         
-mbox/m.0haCNC_N2fY.bJ-93LQSFQAJ 337     nathan  57.3708333333333  20160205 479       337-TheCronutRide          
-dima@scrawny:~/projects/passagemining/google-group-crawler/the-passage-announcements$ 
+mbox/m.0__GMaUD_O8.Pjupq0AwBAAJ 404     sean    13.5255555555556  20170524 560       404-Bumped
+mbox/m.0CT9ybx3uIU.sdZGwo8rSQUJ  53     sean   -23.1402777777778  20100629 223       53WeInventedtheRemix
+mbox/m.0FtQxCkxVHA.AjhGJ7mgAwAJ 413     nathan  20.4155555555556  20170726 178       413-GradientAssent
+mbox/m.0haCNC_N2fY.bJ-93LQSFQAJ 337     nathan  57.3708333333333  20160205 479       337-TheCronutRide
+dima@scrawny:~/projects/passagemining/google-group-crawler/the-passage-announcements$
 #+END_EXAMPLE
 
 If memory serves, we're at around ride 450 right now. Is that right?
@@ -11304,16 +11304,16 @@ first two lines
 #+BEGIN_EXAMPLE
 $ < rides.vnl vnl-sort -n -k ridenum | head | vnl-align
 
-#             path              ridenum   who       whenwedh       date   wordcount                       subject                      
-mbox/m.2gywN9pxMI4.40UBrDjnAwAJ -       nathan  17.6572222222222 20171206  95       Noridetonight;daytimeridethisSaturday!             
-mbox/m.49fZsvZac_U.a0CazPinCAAJ -       sean   -34.495           20170320 463       Extraridethisweekend+Passage400save-the-date       
-mbox/m.5gJd21W24vo.ICDEHrnQJvcJ -       nathan  12.1063888888889 20130619 172       NoPassageRideTonight;GalleryOpeningTomorrowNight   
-mbox/m.7qEbhBWSN1U.Cx6cxYTECgAJ -       nathan  17.7891666666667 20180418 134       Noridetonight;Passage450onSaturday!                
-mbox/m.DVssP4Th__4.jXzzu9clZLQJ -       sean    20.9138888888889 20101222 209       TheWrathofTlaloc                                   
-mbox/m.E6etBSqEQIc.C35-SkBllHoJ -       sean    50.7575          20131220 292       Noridenextweek;seeyounextyear                      
+#             path              ridenum   who       whenwedh       date   wordcount                       subject
+mbox/m.2gywN9pxMI4.40UBrDjnAwAJ -       nathan  17.6572222222222 20171206  95       Noridetonight;daytimeridethisSaturday!
+mbox/m.49fZsvZac_U.a0CazPinCAAJ -       sean   -34.495           20170320 463       Extraridethisweekend+Passage400save-the-date
+mbox/m.5gJd21W24vo.ICDEHrnQJvcJ -       nathan  12.1063888888889 20130619 172       NoPassageRideTonight;GalleryOpeningTomorrowNight
+mbox/m.7qEbhBWSN1U.Cx6cxYTECgAJ -       nathan  17.7891666666667 20180418 134       Noridetonight;Passage450onSaturday!
+mbox/m.DVssP4Th__4.jXzzu9clZLQJ -       sean    20.9138888888889 20101222 209       TheWrathofTlaloc
+mbox/m.E6etBSqEQIc.C35-SkBllHoJ -       sean    50.7575          20131220 292       Noridenextweek;seeyounextyear
 mbox/m.GyJ16HiK8Ds.z6yNC4W5SeUJ -       sean   -11.5666666666667 20120529 228       NoRideThisWeek!...AIDS/Lifecycle...ThirdAnniversary
-mbox/m.H3QGBvjeTfM.CS-xRn1WDQAJ -       sean    17.0180555555555 20171227 257       Noridetonight;nextride1/6                          
-mbox/m.K2P6D_BGfYU.ve6a_8l6AAAJ -       sean    37.8166666666667 20170223 150       RemainingPassageRouteMapShirtsAvailableforPurchase 
+mbox/m.H3QGBvjeTfM.CS-xRn1WDQAJ -       sean    17.0180555555555 20171227 257       Noridetonight;nextride1/6
+mbox/m.K2P6D_BGfYU.ve6a_8l6AAAJ -       sean    37.8166666666667 20170223 150       RemainingPassageRouteMapShirtsAvailableforPurchase
 #+END_EXAMPLE
 
 Aha. A bunch of emails aren't announncing a ride, but are announcing that
@@ -11402,7 +11402,7 @@ fancily to pull those out, but that's really not worth my time.
 OK. I'm now ready for the main thing.
 
 #+BEGIN_EXAMPLE
-$ < rides.vnl | 
+$ < rides.vnl |
     vnl-filter --has ridenum 'who != "other"' -p who,whenwedh |
     feedgnuplot --dataid --autolegend
                 --histo sean,nathan --binwidth 0.5
@@ -11710,7 +11710,7 @@ $ cat showplot.gp
 set grid
 set boxwidth 1
 histbin(x) = 1 * floor(0.5 + x/1)
-plot '-'   notitle  
+plot '-'   notitle
 1 1
 2 2
 3 3
@@ -11832,8 +11832,8 @@ index 89da764..475ac63 100755
 --- a/frobnicate
 +++ b/frobnicate
 @@ -16,6 +16,7 @@ import argparse
- 
- 
+
+
  def parse_args():
 +    import argparse
      parser = \
@@ -11842,12 +11842,12 @@ index 89da764..475ac63 100755
 @@ -29,8 +30,8 @@ def parse_args():
                          nargs='+',
                          help='''Inputs to process''')
- 
+
 -    return parser.parse_args()
 +    return parser
- 
- 
- 
+
+
+
 -args = parse_args()
 +#args = parse_args().parse_args()
 #+END_SRC
@@ -12539,7 +12539,7 @@ You can now use it in all perf tools, such as:
 There it goes! Now let's add another probe, at the function exit:
 
 #+BEGIN_EXAMPLE
-# sudo perf probe -x tst --add _ZN1N1fEi_ret=_ZN1N1fEi%return --no-demangle 
+# sudo perf probe -x tst --add _ZN1N1fEi_ret=_ZN1N1fEi%return --no-demangle
 
 Added new event:
   probe_tst:_ZN1N1fEi_ret__return (on _ZN1N1fEi%return in /tmp/tst)
@@ -12553,7 +12553,7 @@ And now I should be able to run the instrumented program, and to see all the
 crossings of my probes:
 
 #+BEGIN_EXAMPLE
-# perf record -eprobe_tst:_ZN1N1fEi{,_ret__return} ./tst                  
+# perf record -eprobe_tst:_ZN1N1fEi{,_ret__return} ./tst
 
 1
 [ perf record: Woken up 1 times to write data ]
