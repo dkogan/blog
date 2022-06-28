@@ -14150,6 +14150,50 @@ apparently-compatible camera, and wrote a fancier tool:
 
 https://www.pentaxforums.com/forums/184-pentax-k-s1-k-s2/295501-k-s2-wifi-laptop-2.html
 
+** DONE vnlog 1.33 released                                     :tools:vnlog:
+CLOSED: [2022-06-28 Tue 16:47]
+
+This is a minor release to the [[https://github.com/dkogan/vnlog/][vnlog toolkit]] that adds a few convenience options
+to the [[https://github.com/dkogan/vnlog/#manpages][=vnl-filter= tool]]. The new options are
+
+*** =vnl-filter -l=
+
+Prints out the existing columns, and exits. I've been low-level wanting this for
+years, but never acutely-enough to actually write it. Today I finally did it.
+
+*** =vnl-filter --sub-abs=
+
+Defines an absolute-value =abs()= function in the default =awk= mode. I've been
+low-level wanting this for years as well. Previously I'd use =--perl= just to
+get =abs()=, or I'd explicitly define it: =--sub 'abs(x) {return x>0?x:-x;}'=.
+Typing all that out was becoming tiresome, and now I don't need to anymore.
+
+*** =vnl-filter --begin ...= and =vnl-filter --end ...=
+
+Theses add =BEGIN= and =END= clauses. They're useful to, for instance, =use= a
+perl module in =BEGIN=, or to print out some final output in =END=. Previously
+you'd add these inside the =--eval= block, but that was awkward because =BEGIN=
+and =END= would then appear inside the =while(<>) { }= loop. And there was no
+clear was to do it in the normal =-p= mode (no =--eval=).
+
+
+Clearly these are all minor, since the toolkit is now mature. It does everything
+I want it to, that doesn't require lots of work to implement. The big missing
+features that I want would patch the underlying [[https://www.gnu.org/software/coreutils/][GNU coreutils]] instead of vnlog:
+
+- The =sort= tool can select different sorting modes, but =join= works /only/
+  with alphanumeric sorting. =join= should have similarly selectable sorting
+  modes. In the vnlog wrappe I can currently do something like =vnl-join
+  --vnl-sort n=. This would pre-sort the input alphanumerically, and then
+  post-sort it numerically. That is slow for big datasets. If =join= could
+  handle numerically-sorted data directly, neither the pre- or post-sorts would
+  be needed
+
+- When joining on a numerical field, =join= should be able to do some sort of
+  interpolation when given fields that don't match exactly.
+
+Both of these probably wouldn't take a ton of work to implement, and I'll look
+into it someday.
 
 * making dvipng work for equations                                 :noexport:
 - OPTIONS do not work. Need to enable explicitly with
