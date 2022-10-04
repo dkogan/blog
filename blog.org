@@ -14195,6 +14195,37 @@ features that I want would patch the underlying [[https://www.gnu.org/software/c
 Both of these probably wouldn't take a ton of work to implement, and I'll look
 into it someday.
 
+** DONE mrcal 2.2 released					      :mrcal:
+   CLOSED: [2022-10-04 Tue 01:05]
+
+Today I released [[http://mrcal.secretsauce.net/][mrcal]] 2.2 (the release notes are available [[http://mrcal.secretsauce.net/news-2.2.html][here]]). This release
+contains lots of medium-important internal improvements, and is a result of
+
+- Heavy dogfooding. I use these tools a lot every day, and many things are
+  nicer, easier and work better in 2.2 than in 2.1
+- Not-yet-completed cool new functionality. Some of the required internal
+  improvements for the big new features are being released here.
+
+The biggest single new feature in this release is the interactive graphical tool
+for examining dense stereo results: accessed via =mrcal-stereo --viz stereo=.
+
+The next pressing thing is improved documentation. The [[mrcal.secretsauce.net/tour.html][tour of mrcal]] is still a
+good overview of some of the functionality that makes mrcal unique and far
+better than traditional calibration tools. But it doesn't do a good job of
+demonstrating how you would actually use mrcal to diagnose and handle common
+calibration issues. I need to gather some releasable representative data, and
+write docs around that.
+
+Then I'm going to start finishing the big new features in the [[http://mrcal.secretsauce.net/roadmap.html][roadmap]] (these are
+all already functional, but need polish):
+
+- Triangulation functions in the optimization loop for efficient
+  structure-from-motion
+- Support for non-central projection to remove a significant source of bias
+  present in very wide lenses
+- Improved projection uncertainty quantification to resolve accuracy and
+  performance issues in the [[file:uncertainty.org][current projection uncertainty method]]
+
 * making dvipng work for equations                                 :noexport:
 - OPTIONS do not work. Need to enable explicitly with
   (setq org-html-with-latex 'dvipng)
