@@ -14224,7 +14224,7 @@ all already functional, but need polish):
 - Support for non-central projection to remove a significant source of bias
   present in very wide lenses
 - Improved projection uncertainty quantification to resolve accuracy and
-  performance issues in the [[file:uncertainty.org][current projection uncertainty method]]
+  performance issues in the [[http://mrcal.secretsauce.net/uncertainty.html][current projection uncertainty method]]
 
 * making dvipng work for equations                                 :noexport:
 - OPTIONS do not work. Need to enable explicitly with
