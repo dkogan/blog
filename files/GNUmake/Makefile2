@@ -1,0 +1,6 @@
+tst1.o: tst1.c
+	gcc $(CFLAGS) -c -o $@ $<
+tst2.o: tst2.c
+	gcc $(CFLAGS) -c -o $@ $<
+tst: tst1.o tst2.o
+	gcc $(LDFLAGS) -o $@ $^ $(LDLIBS)

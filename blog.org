@@ -14421,6 +14421,90 @@ So this is a /very/ functional hack, but it's still hack. And it feels like
 making this solid will take a /lot/ of work. Maybe. I'll push more on this as I
 need it. Stay tuned!
 
+
+* exporthis
+** DONE Make
+CLOSED: [2022-10-17 Mon 15:22]
+
+GNU Make only
+
+Top-level points:
+
+- Make isn't a build system. It's a /language/ for writing build systems
+- Make is generic. It's not meant for any particular language or application
+- Make is very good at building files from other files. It is bad as a scripting
+  language
+- Make is not perfect, but it's good-enough for almost every project
+- [[https://github.com/dkogan/mrbuild][=mrbuild= my build system]] is available, but other options exist
+- Make is ubiquitous, and has been around forever. You should use it.
+
+Make works in several steps:
+
+1. All the =Makefiles= are parsed to construct a dependency graph that describes
+   - /all/ the targets that can be built
+   - /everything/ that each one depends on
+   - the command that builds each one
+2. Given the targets the user asked to build, Make recursively traverses /all/
+   the edges from those targets, looking anything that need to be rebuilt
+3. All targets that need rebuilding are rebuilt, in a bottom-up order
+
+This sounds complicated, but an example would help. We have
+
+- A header =tst.h=
+- A source file =tst1.c=
+- We're building an executable =tst= from it.
+
+A trivial Makefile:
+
+#+begin_src makefile
+tst1.o: tst.c
+	gcc $(CFLAGS) -c -o $@ $<
+tst: tst1.o
+	gcc $(LDFLAGS) -o $@ $^ $(LDLIBS)
+#+end_src
+
+The graph looks like this:
+
+[[file:files/GNUmake/Makefile1.svg]]
+
+[[file:files/GNUmake/Makefile1.withdependencies.svg]]
+
+[[file:files/GNUmake/Makefile1.withdependencies.after.build.svg]]
+
+[[file:files/GNUmake/Makefile2.svg]]
+
+
+generating dependencies
+
+show graph
+multiple targets from one command
+
+make -rR
+make -n
+make -p
+make -d
+
+Guidelines:
+- parsing fast
+- no recursion
+
+default rules are useful: don't need makefile
+demo trivial run that shows dag: make -p
+fast for normal projects
+list of requirements:
+  CFLAGS=whatever make
+  make whatever
+  make -n whatever
+  make -j whatever
+
+:= vs =
+
+external resources:
+- remake debugger
+- gmsl
+
+
+
 * making dvipng work for equations                                 :noexport:
 - OPTIONS do not work. Need to enable explicitly with
   (setq org-html-with-latex 'dvipng)

@@ -1,0 +1,8 @@
+CFLAGS += -MMD
+
+tst1.o: tst1.c
+	gcc $(CFLAGS) -c -o $@ $<
+tst: tst1.o
+	gcc $(LDFLAGS) -o $@ $^ $(LDLIBS)
+
+-include *.d
