@@ -47,7 +47,7 @@ is at the bottom of the page, in tiny print.
 
 Most recent post: [[file:{lisp}(ob:link-to-post (car ALL-POSTS)){/lisp}][{lisp}(ob:post-title (car ALL-POSTS)){/lisp}]]
 
-* Notes
+* Notes                                                            :noexport:
 ** DONE First post                                             :o@blog:emacs:
   CLOSED: [2014-03-17 Mon 03:48]
 
@@ -14445,9 +14445,7 @@ The crew:
 
 Looking forward to next year!
 
-* exporthis
-** DONE Make
-CLOSED: [2022-10-17 Mon 15:22]
+** Make								   :noexport:
 
 GNU Make only
 
@@ -14460,6 +14458,8 @@ Top-level points:
 - Make is not perfect, but it's good-enough for almost every project
 - [[https://github.com/dkogan/mrbuild][=mrbuild= my build system]] is available, but other options exist
 - Make is ubiquitous, and has been around forever. You should use it.
+
+This isn't meant to be a manual. Just the very high-level points.
 
 Make works in several steps:
 
@@ -14527,6 +14527,26 @@ external resources:
 - gmsl
 
 
+** Photogrammetry packages in Debian				   :noexport:
+
+alicevision
+geogram
+amgcl
+libelas
+meshsdfilter
+opengv
+openmesh
+vlfeat
+apriltag
+
+falcosecurity-libs
+sysdig
+valijson
+reptyr
+
+** gnuplot widgets						   :noexport:
+Fl_Gnuplotlib is nice
+** dv4l								   :noexport:
 
 * making dvipng work for equations                                 :noexport:
 - OPTIONS do not work. Need to enable explicitly with

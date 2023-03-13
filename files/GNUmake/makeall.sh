@@ -3,7 +3,7 @@
 set -x
 
 /bin/rm -f tst *.o *.d
-make -rR -f Makefile1 -np xxx | ./dag-from-make.pl | dot -Tsvg -o Makefile1.svg
+make -rR -f Makefile1 -np xxx | ./dag-from-make.pl --write-commands | dot -Tsvg -o Makefile1.svg
 
 /bin/rm -f tst *.o *.d
 make -rR -f Makefile1.withdependencies -np xxx | ./dag-from-make.pl | dot -Tsvg -o Makefile1.withdependencies.svg

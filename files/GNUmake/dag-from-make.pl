@@ -7,7 +7,11 @@ use warnings;
 
 use feature ':5.10';
 
+my $arg0 = shift;
+my $do_write_commands = defined $arg0 && $arg0 eq "--write-commands";
+
 say "digraph build {";
+
 
 my $target        = undef;
 my @prerequisites = ();
@@ -36,7 +40,7 @@ sub write_edge
     my ($t,$p,$cmd) = @_;
 
     my $edge;
-    if ($cmd)
+    if ($cmd && $do_write_commands)
     {
         $edge = "$t -> $p [label = \"$cmd\"]";
     }
