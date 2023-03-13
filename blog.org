@@ -14421,6 +14421,29 @@ So this is a /very/ functional hack, but it's still hack. And it feels like
 making this solid will take a /lot/ of work. Maybe. I'll push more on this as I
 need it. Stay tuned!
 
+** DONE Debian at SCaLE 20x					     :debian:
+   CLOSED: [2023-03-13 Mon 12:58]
+
+SCaLE 20x just wrapped up. We spent three days running the Debian booth: passing
+out stickers, penguin swag, coffee and cookies, and telling everyone that would
+listen about about our great OS. As usual, Richard Hecker, Chris McKenzie and I
+attended as the "LA Debian contingent". Mathias Gibbens flew in from
+Albuquerque, and Ha Lam and Syed Reza stopped by periodically.
+
+Chris created extra demand by restricting the supply of plushy penguins. Some
+kid was shocked at my old laptop, only to see Mathias pull out an even older
+one. And we finished off the conference by listening to Ken Thompson's tale
+about his music collection. Good times.
+
+The crew:
+
+#+ATTR_HTML: :width 50%
+[[file:files/scale-20x/R0003400.jpg]]
+
+#+ATTR_HTML: :width 50%
+[[file:files/scale-20x/R0003423.jpg]]
+
+Looking forward to next year!
 
 * exporthis
 ** DONE Make
