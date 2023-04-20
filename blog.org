@@ -14445,6 +14445,81 @@ The crew:
 
 Looking forward to next year!
 
+** DONE =numpy.percentile= API update				 :numpy:data:
+   CLOSED: [2023-04-20 Thu 09:57]
+
+The numpy devs did a bad thing. Don't be like the numpy devs.
+
+The [[https://numpy.org/doc/1.24/reference/generated/numpy.percentile.html][current (version 1.24) docs for =numpy.percentile=]] say this about
+the =method= keyword argument:
+
+#+BEGIN_EXAMPLE
+Changed in version 1.22.0: This argument was previously called "interpolation" ...
+#+END_EXAMPLE
+
+They renamed a keyword argument. So if you had working code that did
+
+#+BEGIN_SRC python
+np.percentile( ...., interpolation=xxx, ....)
+#+END_SRC
+
+then running it in the most recent numpy would throw lots of
+Deprecation warnings at you, and presumably eventually it will stop
+working completely. This isn't great. The obvious answer is to change
+the code to
+
+#+BEGIN_SRC python
+np.percentile( ...., method=xxx, ....)
+#+END_SRC
+
+But then if you run it on a machine with an older numpy install, then
+it won't work at all! There isn't a trivial method for users of numpy
+to conform to this change without breaking stuff. In other words, the
+numpy devs gave their users pointless homework. I just did this
+homework with [[https://github.com/dkogan/mrcal/commit/5a7d3e05ce3d614e08610207f9e28e1d0f87b6ce][this commit to mrcal]]. It creates a =percentile_compat()=
+function that figures out which flavor of argument we should use, and
+uses it. Here it is:
+
+#+BEGIN_SRC python
+def percentile_compat(*args, **kwargs):
+    r'''Wrapper for np.percentile() to handle their API change
+
+In numpy 1.24 the "interpolation" kwarg was renamed to "method". I need to pass
+the right thing to work with both old and new numpy. This function tries the
+newer method, and if that fails, uses the old one. The test is only done the
+first time.
+
+It is assumed that this is called with the old 'interpolation' key.
+
+    '''
+
+    if not 'interpolation' in kwargs or \
+       percentile_compat.which == 'interpolation':
+        return np.percentile(*args, **kwargs)
+
+    kwargs_no_interpolation = dict(kwargs)
+    del kwargs_no_interpolation['interpolation']
+
+    if percentile_compat.which == 'method':
+        return np.percentile(*args, **kwargs_no_interpolation,
+                             method = kwargs['interpolation'])
+
+    # Need to detect
+
+    try:
+        result = np.percentile(*args, **kwargs_no_interpolation,
+                               method = kwargs['interpolation'])
+        percentile_compat.which = 'method'
+        return result
+    except:
+        percentile_compat.which = 'interpolation'
+        return np.percentile(*args, **kwargs)
+
+percentile_compat.which = None
+#+END_SRC
+
+Please take it and use it. I give up all copyright.
+
 ** Make								   :noexport:
 
 GNU Make only
