@@ -14520,6 +14520,22 @@ percentile_compat.which = None
 
 Please take it and use it. I give up all copyright.
 
+** DONE mrcal 2.3 released!                                           :mrcal:
+CLOSED: [2023-05-05 Fri 14:13]
+
+Today I released [[http://mrcal.secretsauce.net/][mrcal]] 2.3 (the release notes are available [[http://mrcal.secretsauce.net/news-2.3.html][here]]). Once again,
+in the code there are lots of useful improvements, but nothing major. The big
+update in this release is the [[http://mrcal.secretsauce.net/][documentation]]. Much of it was improved and
+extended, especially practical guides in the [[http://mrcal.secretsauce.net/how-to-calibrate.html][how-to-calibrate page]] and the
+[[http://mrcal.secretsauce.net/recipes.html][recipes]].
+
+Major updates are imminent. I'm about to merge the [[https://github.com/dkogan/mrcal/tree/2022-04--cross-uncertainty][cross-projection uncertainty
+branch]] and the
+[[https://github.com/dkogan/mrcal/tree/2022-06--triangulated-solve][triangulated-points-in-the-solver
+branch]] to study chessboard-less calibrations and structure from motion.
+Neither of these are novel, but mrcal's improved lens models and uncertainty
+propagation will hopefully produce better results.
+
 ** Make								   :noexport:
 
 GNU Make only
