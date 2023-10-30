@@ -14536,6 +14536,250 @@ branch]] to study chessboard-less calibrations and structure from motion.
 Neither of these are novel, but mrcal's improved lens models and uncertainty
 propagation will hopefully produce better results.
 
+** DONE Talking to ROS from outside a LAN			   :rant:ROS:
+   CLOSED: [2023-10-26 Thu 23:25]
+
+*** The problem
+This is about [[https://www.ros.org/][ROS]] version 1. Version 2 is different, and maybe they fixed stuff.
+But I kinda doubt it since this thing is heinous in a million ways.
+
+Alright so let's say we have have some machines in a LAN doing ROS stuff and we
+have another machine outside the LAN that wants to listen in (like to get a
+realtime visualization, say). This is an extremely common scenario, but they
+created enough hoops to make this not work. Let's say we have 3 computers:
+
+- =router=: the bridge between the two networks. This has two NICs. The inner IP
+  is 10.0.1.1 and the outer IP is 12.34.56.78
+
+- =inner=: a machine in the LAN that's doing ROS stuff. IP 10.0.1.99
+
+- =outer=: a machine outside that LAN that wants to listen in. IP 12.34.56.99
+
+Let's say the =router= is doing ROS stuff. It's running the ROS master and some
+nodes like this:
+
+#+begin_src sh
+ROS_IP=10.0.1.1 roslaunch whatever
+#+end_src
+
+If you omit the =ROS_IP= it'll pick =router=, which may or may not work,
+depending on how the DNS is set up. Here we set it to 10.0.1.1 to make it
+possible for the =inner= machine to communicate (we'll see why in a bit). An
+aside: ROS should use the IP by default instead of the name because the IP will
+work even if the DNS isn't set up. If there are multiple extant IPs, it should
+throw an error. But all that would be way too user-friendly.
+
+OK. So we have a ROS master on 10.0.1.1 on the default port: 11311. The =inner=
+machine can =rostopic echo= and all that. Great.
+
+What if I try to listen in from =outer=? I say
+
+#+begin_src sh
+ROS_MASTER_URI=http://12.34.56.78:11311 rostopic list
+#+end_src
+
+This connects to the =router= on that port, and it works well: I get the list of
+available topics. Here this works because the =router= is the router. If =inner=
+was running the ROS master then we'd need to do a forward for port 11311. In any
+case, this works and we understand it.
+
+So clearly we can talk to the ROS master. Right? Wrong! Let's actually listen in
+on a specific topic on =outer=:
+
+#+begin_src sh
+ROS_MASTER_URI=http://12.34.56.78:11311 rostopic echo /some/topic
+#+end_src
+
+This does /not/ work. No errors are reported. It just sits there, which looks
+like no data is coming in on that topic. But this is a lie: it's actually
+broken.
+
+*** The diagnosis
+So this is our problem. It's a very common use case, and there are plenty of
+internet people asking about it, with no specific solutions. I debugged it, and
+the details are here.
+
+To figure out what's going on, I made a syscall log on a machine inside the LAN,
+where a simple =rostopic echo= *does work*:
+
+#+begin_src sh
+sysdig -A proc.name=rostopic and fd.type contains ipv -s 2000
+#+end_src
+
+This shows us all the communication between =inner= running =rostopic= and the
+server. It's /really/ chatty. It's all TCP. There are multiple connections to
+the =router= on port 11311. It also starts up multiple TCP servers on the client
+that listen to connections; these are likely to be broken if we were running the
+client on =outer= and a machine inside the LAN tried to talk to them; but
+thankfully in my limited testing nothing actually tried to talk to them. The
+conversations on port 11311 are really long, but here's the punchline.
+
+=inner= tells the =router=:
+
+#+begin_example
+POST /RPC2 HTTP/1.1                                                                                                                 
+Host: 10.0.1.1:11311                                                                                                          
+Accept-Encoding: gzip                                                                                                               
+Content-Type: text/xml                                                                                                              
+User-Agent: Python-xmlrpc/3.11                                                                                                      
+Content-Length: 390                                                                                                                 
+
+<?xml version='1.0'?>
+<methodCall>
+<methodName>registerSubscriber</methodName>
+<params>
+<param>
+<value><string>/rostopic_2447878_1698362157834</string></value>
+</param>
+<param>
+<value><string>/some/topic</string></value>
+</param>
+<param>
+<value><string>*</string></value>
+</param>
+<param>
+<value><string>http://inner:38229/</string></value>
+</param>
+</params>
+</methodCall>
+#+end_example
+
+Yes. It's laughably chatty. Then the =router= replies:
+
+#+begin_example
+HTTP/1.1 200 OK
+Server: BaseHTTP/0.6 Python/3.8.10
+Date: Thu, 26 Oct 2023 23:15:28 GMT
+Content-type: text/xml
+Content-length: 342
+
+<?xml version='1.0'?>
+<methodResponse>
+<params>
+<param>
+<value><array><data>
+<value><int>1</int></value>
+<value><string>Subscribed to [/some/topic]</string></value>
+<value><array><data>
+<value><string>http://10.0.1.1:45517/</string></value>
+</data></array></value>
+</data></array></value>
+</param>
+</params>
+</methodResponse>
+#+end_example
+
+Then this sequence of system calls happens in the =rostopic= process (an excerpt
+from the =sysdig= log):
+
+#+begin_example
+> connect fd=10(<4>) addr=10.0.1.1:45517
+< connect res=-115(EINPROGRESS) tuple=10.0.1.99:47428->10.0.1.1:45517 fd=10(<4t>10.0.1.99:47428->10.0.1.1:45517)
+< getsockopt res=0 fd=10(<4t>10.0.1.99:47428->10.0.1.1:45517) level=1(SOL_SOCKET) optname=4(SO_ERROR) val=0 optlen=4
+#+end_example
+
+So the =inner= client makes an outgoing TCP connection on the address given to
+it by the ROS master above: =10.0.1.1:45517=. This IP is only accessible from
+within the LAN, which works fine when talking to it from =inner=, but would be a
+problem from the outside. Furthermore, some sort of single-port-forwarding
+scheme wouldn't fix connecting from =outer= either, since the port number is
+dynamic.
+
+To confirm what we think is happening, the sequence of syscalls when trying to
+=rostopic echo= from =outer= does indeed fail:
+
+#+begin_example
+connect fd=10(<4>) addr=10.0.1.1:45517 
+connect res=-115(EINPROGRESS) tuple=10.0.1.1:46204->10.0.1.1:45517 fd=10(<4t>10.0.1.1:46204->10.0.1.1:45517)
+getsockopt res=0 fd=10(<4t>10.0.1.1:46204->10.0.1.1:45517) level=1(SOL_SOCKET) optname=4(SO_ERROR) val=-111(ECONNREFUSED) optlen=4
+#+end_example
+
+That's the breakage mechanism: the ROS master asks us to communicate on an
+address we can't talk to.
+
+Debugging this is easy with =sysdig=:
+
+#+begin_src sh
+sudo sysdig -A -s 400 evt.buffer contains '"Subscribed to"' and proc.name=rostopic
+#+end_src
+
+This prints out all syscalls seen by the =rostopic= command that contain the
+string =Subscribed to=, so you can see that different addresses the ROS master
+gives us in response to different commands.
+
+OK. So can we get the ROS master to give us an address that we can actually talk
+to? Sorta. Remember that we invoked the master with
+
+#+begin_src sh
+ROS_IP=10.0.1.1 roslaunch whatever
+#+end_src
+
+The =ROS_IP= environment variable is exactly the address that the master gives
+out. So in this case, we can fix it by doing this instead:
+
+#+begin_src sh
+ROS_IP=12.34.56.78 roslaunch whatever
+#+end_src
+
+Then the =outer= machine will be asked to talk to 12.34.56.78:45517, which
+works. Unfortunately, if we do that, then the =inner= machine won't be able to
+communicate.
+
+So some sort of =ssh= port forward cannot fix this: we need a lower-level
+tunnel, like a VPN or something.
+
+And another rant. Here =rostopic= tried to connect to an unreachable address,
+which failed. But =rostopic= /knows/ the connection failed! It should throw an
+error message to the user. Something like this would be wonderful:
+
+#+begin_example
+ERROR! Tried to connect to 10.0.1.1:45517 ($ROS_IP:dynamicport), but connect() returned ECONNREFUSED
+#+end_example
+
+That would be immensely helpful. It would tell the user that something went
+wrong (instead of no data being sent), and it would give a strong indication of
+the problem and how to fix it. But that would be asking too much.
+
+*** The solution
+So we need a VPN-like thing. I just tried =sshuttle=, and it just works.
+
+Start the ROS node in the way that makes connections from within the LAN work:
+
+#+begin_src sh
+ROS_IP=10.0.1.1 roslaunch whatever
+#+end_src
+
+Then on the =outer= client:
+
+#+begin_src sh
+sshuttle -r router 10.0.1.0/24
+#+end_src
+
+This connects to the =router= over ssh and does some hackery to make all
+connections from =outer= to 10.0.1.x transparently route into the LAN. On all
+ports. =rostopic echo= then works. I haven't done any thorough testing, but
+hopefully it's reliable and has low overhead; I don't know.
+
+I haven't tried it but almost certainly this would work even with the ROS master
+running on =inner=. This would be accomplished like this:
+
+1. Tell =ssh= how to connect to =inner=. Dropping this into =~/.ssh/config=
+   should do it:
+
+   #+begin_example
+Host inner
+HostName 10.0.1.99
+ProxyJump router
+   #+end_example
+
+2. Do the magic thing:
+
+   #+begin_src sh
+sshuttle -r inner 10.0.1.0/24
+   #+end_src
+
+I'm sure any other VPN-like thing would work also.
+
 ** Make								   :noexport:
 
 GNU Make only
