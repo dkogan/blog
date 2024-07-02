@@ -14780,6 +14780,205 @@ sshuttle -r inner 10.0.1.0/24
 
 I'm sure any other VPN-like thing would work also.
 
+** DONE roslaunch and =LD_PRELOAD=					:ROS:
+   CLOSED: [2023-12-07 Thu 12:56]
+
+This is part 2 of our series entitled "ROS people don't know how to use
+computers". This is about ROS1. ROS2 is presumably broken in some completely
+different way, but I don't know.
+
+Unlike normal people, the ROS people don't "run" applications. They "launch"
+"nodes" from "packages" (these are "ROS" packages; obviously). You run
+
+#+begin_src sh
+roslaunch PACKAGE THING.launch
+#+end_src
+
+Then it tries to find this =PACKAGE= (using some rules that nobody understands),
+and tries to find the file =THING.launch= within this package. The =.launch=
+file contains inscrutable xml, which includes other inscrutable xml. And
+if you dig, you eventually find stuff like
+
+#+begin_src xml
+<node pkg="PACKAGE"
+      name="NAME"
+      type="TYPE"
+      args="...."
+      ...>
+#+end_src
+
+This defines the thing that runs. Unexpectedly, the executable that ends up
+running is called =TYPE=.
+
+I know that my particular program is broken, and needs an =LD_PRELOAD= (exciting
+details described in another rant in the near future). But the above definition
+doesn't have a clear way to add that. Adding it to the =type= fails (with a very
+mysterious error message). Reading [[http://wiki.ros.org/roslaunch/XML/node][the docs]] tells you about =launch-prefix=,
+which sounds exactly like what I want. But when I add
+=LD_PRELOAD=/tmp/whatever.so= I get
+
+#+begin_example
+RLException: Roslaunch got a 'No such file or directory' error while attempting to run:
+
+LD_PRELOAD=/tmp/whatever.so ..../TYPE .....
+#+end_example
+
+But this is how you're supposed to be [[http://wiki.ros.org/roslaunch/Tutorials/Roslaunch%20Nodes%20in%20Valgrind%20or%20GDB][attaching gdb and such]]! Presumably it
+looks at the first token, and makes sure it's a file, instead of simply
+prepending it to the string it passes to the shell. So your options are:
+
+- Do only approved ROS things in the docs (which are limited, since the docs
+  were written by people who don't know how to use computers)
+- Be expert-enough to work around it
+
+I'm expert-enough. You do this:
+
+#+begin_example
+launch-prefix="/lib64/ld-linux-x86-64.so.2 --preload /tmp/whatever.so"
+#+end_example
+
+** DONE mrcal 2.4 released!					      :mrcal:
+   CLOSED: [2024-01-25 Thu 18:07]
+
+[[https://mrcal.secretsauce.net/][mrcal]] 2.4 is out: [[https://mrcal.secretsauce.net/news-2.4.html][the release notes]]. Once again, this is mostly a bug-fix
+release en route to the big new features coming in 3.0. The most noteworthy
+fixes:
+
+- mrcal can be built with clang. Try it out like this: =CC=clang CXX=clang++
+  make=. This opens up some portability improvements, such as making it easier
+  to run on Windows.
+- Full dense stereo pipeline in C.
+- Tools to support more file formats:
+  - [[file:mrcal-from-kalibr.html][=mrcal-from-kalibr=]]
+  - [[file:mrcal-to-kalibr.html][=mrcal-to-kalibr=]]
+  - [[file:mrcal-from-ros.html][=mrcal-from-ros=]]
+  These are experimental. /Please/ let me know if these are or aren't useful
+
+The portability work was motivated by [[https://github.com/mcm001][Matt Morley]], who was interested in
+integrating mrcal into [[https://photonvision.org/][PhotonVision]], the toolkit used by students in the [[https://www.firstinspires.org/robotics/frc][FIRST
+Robotics Competition]]. Matt completed that work, and mrcal is now a part of
+[[https://www.chiefdelphi.com/t/photonvision-2024-release/448635][PhotonVision 2024.1.2]]! Thanks, Matt!
+
+I don't know if there will be a mrcal 2.5, but the next /interesting/ release
+will be mrcal 3.0. The biggest internal rework is complete: [[https://mrcal.secretsauce.net/docs-3.0/uncertainty-cross-reprojection.html][the new
+cross-reprojection uncertainty quantification method is implemented, tested and
+documented]]. The results are /very/ promising, but lots needs to happen before
+we can reliably compute intrinsics without chessboards and produce full SFM
+solves in mrcal and all the related things.
+
+** DONE vnlog.slurp() with non-numerical data                   :tools:vnlog:
+CLOSED: [2024-07-02 Tue 10:38]
+
+For a while now I'd see an annoying problem when trying to analyze data. I would
+be trying to import into numpy an innocuous-looking data file like this:
+
+#+begin_example
+#  image   x y z temperature
+image1.png 1 2 5 34
+image2.png 3 4 1 35
+#+end_example
+
+As usual, I would be using [[https://github.com/dkogan/vnlog/#python-interface][=vnlog.slurp()=]] (a thin wrapper around
+[[https://numpy.org/doc/stable/reference/generated/numpy.loadtxt.html][=numpy.loadtxt()=]]) to read this in, but that doesn't work: the image filenames
+aren't parseable as numerical values. Up until now I would work around this by
+using [[https://docs.python.org/3/library/subprocess.html][the =suprocess= module]] to fork off a [[https://github.com/dkogan/vnlog/#vnl-filter][=vnl-filter -p !image=]] and then slurp
+that, but it's a pain and slow and has other issues. I just solved this
+conclusively using the [[https://numpy.org/doc/stable/user/basics.rec.html][numpy /structured/ dtypes]]. I can now do this:
+
+#+begin_src python
+dtype = np.dtype([ ('image',       'U16'),
+                   ('x y z',       int, (3,)),
+                   ('temperature', float), ])
+
+arr = vnlog.slurp("data.vnl", dtype=dtype)
+#+end_src
+
+This will read the image filename, the xyz points and the temperature into
+different sub-arrays, with different types each. Accessing the result looks
+like this:
+
+#+begin_example
+print(arr['image'])
+---> array(['image1.png', 'image2.png'], dtype='<U16')
+
+print(arr['x y z'])
+---> array([[1, 2, 5],
+            [3, 4, 1]])
+
+print(arr['temperature'])
+---> array([34., 35.])
+#+end_example
+
+Notes:
+
+- The given structured dtype defines both how to organize the data, and which
+  data to extract. So it can be used to read in only a subset of the available
+  columns. Here I could have omitted the =temperature= column, for instance
+
+- Sub-arrays are allowed. In the example I could say either
+
+  #+begin_src python
+  dtype = np.dtype([ ('image',       'U16'),
+                     ('x y z',       int, (3,)),
+                     ('temperature', float), ])
+  #+end_src
+
+  or
+
+  #+begin_src python
+  dtype = np.dtype([ ('image',       'U16'),
+                     ('x',           int),
+                     ('y',           int),
+                     ('z',           int),
+                     ('temperature', float), ])
+  #+end_src
+
+  The latter would read =x=, =y=, =z= into separate, individual arrays. Sometime
+  we want this, sometimes not.
+
+- Nested structured dtypes are not allowed. Fields inside other fields are not
+  supported, since it's not clear how to map that to a flat vnlog legend
+
+- If a structured dtype is given, =slurp()= returns the array only, since the
+  field names are already available in the dtype
+
+We /still/ do not support records with any null values (=-=). This could
+probably be handled with the =converters= kwarg of =numpy.loadtxt()=, but that
+sounds slow. I'll look at that later.
+
+This is available /today/ in vnlog 1.38.
+
+** perf on ancient kernel 					   :noexport:
+Apply patch
+
+#+begin_src diff
+--- a/builtin-record.c	2023-03-17 00:50:33.000000000 -0700
++++ b/builtin-record.c	2023-04-05 23:48:40.842476518 -0700
+@@ -2776,9 +2776,15 @@
+ 		int exit_status;
+ 
+ 		if (!child_finished)
+-			kill(rec->evlist->workload.pid, SIGTERM);
++                {
++                    fprintf(stderr, "Killing child %d\n",
++                            rec->evlist->workload.pid);
++			kill(rec->evlist->workload.pid, SIGKILL);
++                }
+ 
++                fprintf(stderr, "Waiting for children...\n");
+ 		wait(&exit_status);
++                fprintf(stderr, "Done waiting for children\n");
+ 
+ 		if (err < 0)
+ 			status = err;
+#+end_src
+
+Build:
+
+#+begin_src sh
+schroot -c bookworm-cross -- bash -c 'ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- V=1 make'
+#+end_src
+
 ** Make								   :noexport:
 
 GNU Make only
@@ -14861,7 +15060,6 @@ external resources:
 - remake debugger
 - gmsl
 
-
 ** Photogrammetry packages in Debian				   :noexport:
 
 alicevision
@@ -14882,6 +15080,7 @@ reptyr
 ** gnuplot widgets						   :noexport:
 Fl_Gnuplotlib is nice
 ** dv4l								   :noexport:
+** eigen c++
 
 * making dvipng work for equations                                 :noexport:
 - OPTIONS do not work. Need to enable explicitly with
