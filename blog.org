@@ -14948,6 +14948,108 @@ sounds slow. I'll look at that later.
 
 This is available /today/ in vnlog 1.38.
 
+** DONE GNU Make: details regarding intermediate files		      :tools:
+   CLOSED: [2024-09-08 Sun 12:31]
+
+Check this out!
+
+Suppose I have this =Makefile=:
+
+#+begin_src makefile
+a: b
+      touch $@
+b:
+      touch $@
+
+# A common chain of build steps
+%-GENERATED.c: %-generate
+      touch $@
+%.o: %.c
+      touch $@
+%.so: %-GENERATED.o
+      touch $@
+xxx-GENERATED.o: CFLAGS += adsf
+
+# Imitates .d files created with "gcc -MMD". Does not exist on the initial build
+ifneq ($(wildcard xxx.so),)
+xxx-GENERATED.o: xxx-GENERATED.c
+endif
+#+end_src
+
+This is all very simple build-system stuff. Let's see how it works:
+
+#+begin_example
+$ rm -rf a b xxx-GENERATED.c xxx-GENERATED.o xxx.so
+  [start from a clean slate]
+
+$ touch xxx-generate xxx.h
+  [Files that would be available in a project exist; xxx-generate is some tool]
+  [that would generate xxx-GENERATED.c                                        ]
+
+$ touch a
+  ["a" exists but the file "b" it depends on does not]
+
+$ make a xxx.so
+
+  touch b
+  touch a
+  touch xxx-GENERATED.c
+  touch xxx-GENERATED.o
+  touch xxx.so
+  rm xxx-GENERATED.c
+
+  [It built everything, but then deleted xxx-GENERATED.c]
+
+$ make a xxx.so
+
+  remake: 'a' is up to date.
+  touch xxx-GENERATED.c
+  touch xxx-GENERATED.o
+  touch xxx.so
+
+  [It knew to not rebuild "a", but the missing xxx-GENERATED.c caused it to]
+  [re-build stuff                                                          ]
+#+end_example
+
+Well that's not good. What if we add =.SECONDARY:= to the end of the =Makefile=
+to mark everything as a secondary file?
+
+#+begin_example
+$ rm -rf a b xxx-GENERATED.c xxx-GENERATED.o xxx.so
+$ touch xxx-generate xxx.h
+$ touch a
+
+$ make a xxx.so
+
+  remake: 'a' is up to date.
+  touch xxx-GENERATED.c
+  touch xxx-GENERATED.o
+  touch xxx.so
+
+  [It didn't bother rebuilding "a" even though its prerequisites "b" doesn't]
+  [exist. But it didn't delete the xxx-GENERATED.c at least                 ]
+
+$ make a xxx.so
+
+  remake: 'a' is up to date.
+  remake: 'xxx.so' is up to date.
+
+  [It knew to not rebuild anything. Great.]
+#+end_example
+
+So it doesn't work right with or without =.SECONDARY:=, but it's much closer
+with it. The solution is to mark everything as /not/ an intermediate file.
+mrbuild cannot do this without a bleeding-edge version of =GNU Make=, but users
+of mrbuild /can/ do this by explicitly mentioning specific files in rules. This
+would suffice:
+
+#+begin_src makefile
+___dummy___: file1 file2
+#+end_src
+
+Detailed notes are in a [[https://github.com/dkogan/mrbuild/commit/87a2be281d7d7a27d501196ca4ec5e82324f4095][commit in mrbuild]] (mrbuild 1.13) and in a [[https://lore.kernel.org/lkml/Y6WUlth8KrR6EcsI@bergen.fjasle.eu/T/][post to LKML
+by Masahiro Yamada]].
+
 ** perf on ancient kernel 					   :noexport:
 Apply patch
 
