@@ -15050,36 +15050,315 @@ ___dummy___: file1 file2
 Detailed notes are in a [[https://github.com/dkogan/mrbuild/commit/87a2be281d7d7a27d501196ca4ec5e82324f4095][commit in mrbuild]] (mrbuild 1.13) and in a [[https://lore.kernel.org/lkml/Y6WUlth8KrR6EcsI@bergen.fjasle.eu/T/][post to LKML
 by Masahiro Yamada]].
 
-** perf on ancient kernel 					   :noexport:
-Apply patch
+** DONE Strava track filtering validation                              :data:
+CLOSED: [2024-11-30 Sat 14:48]
 
-#+begin_src diff
---- a/builtin-record.c	2023-03-17 00:50:33.000000000 -0700
-+++ b/builtin-record.c	2023-04-05 23:48:40.842476518 -0700
-@@ -2776,9 +2776,15 @@
- 		int exit_status;
- 
- 		if (!child_finished)
--			kill(rec->evlist->workload.pid, SIGTERM);
-+                {
-+                    fprintf(stderr, "Killing child %d\n",
-+                            rec->evlist->workload.pid);
-+			kill(rec->evlist->workload.pid, SIGKILL);
-+                }
- 
-+                fprintf(stderr, "Waiting for children...\n");
- 		wait(&exit_status);
-+                fprintf(stderr, "Done waiting for children\n");
- 
- 		if (err < 0)
- 			status = err;
+After years of seeing people's strava tracks, I became convinced that strava
+doesn't sufficiently filter the data, resulting in over-estimated effort
+numbers. Today I did a bit of lazy analysis, and half-confirmed this: in the one
+case I looked at, strava reported reasonable elevation gain numbers, but greatly
+overestimated the distance traveled.
+
+I looked at a single gps track of a long bike ride. This was uploaded to strava
+manually, as a =.gpx= file. I can imagine that something different happens if
+you use the strava app or some device that integrates with the service: the
+filtering might happen before the data hits the server, and the server could
+then decide to not apply any additional filtering.
+
+I processed the data with a simple hysteretic filter, ignoring small changes in
+position and elevation, trying out different thresholds in the process. I
+completely ignore the timestamps, and only look at the differences between
+successive points. This handles the usual GPS noise; it does /not/ handle GPS
+jumps, which I completely ignore in this analysis. Ignoring these would produce
+inflated elevation/gain numbers, but I'm working with a looong track, so
+hopefully this is a small effect.
+
+Clearly this is not scientific, but it's something.
+
+*** The code
+
+Parsing =.gpx= is slow (this is a /big/ file), so I cache that into a [[https://github.com/dkogan/vnlog][=.vnl=]]:
+
+#+begin_src python
+import sys
+import gpxpy
+
+filename_in  = 'INPUT.gpx'
+filename_out = 'OUTPUT.gpx'
+
+with open(filename_in, 'r') as f:
+    gpx = gpxpy.parse(f)
+
+f_out = open(filename_out, 'w')
+
+tracks = gpx.tracks
+if len(tracks) != 1:
+    print("I want just one track", file=sys.stderr)
+    sys.exit(1)
+track = tracks[0]
+
+segments = track.segments
+if len(segments) != 1:
+    print("I want just one segment", file=sys.stderr)
+    sys.exit(1)
+segment = segments[0]
+
+time0 = segment.points[0].time
+print("# time lat lon ele_m")
+for p in segment.points:
+    print(f"{(p.time - time0).seconds} {p.latitude} {p.longitude} {p.elevation}",
+          file = f_out)
 #+end_src
 
-Build:
+And I then process this data with the different filters (this is a silly Python
+loop, and is slow):
 
-#+begin_src sh
-schroot -c bookworm-cross -- bash -c 'ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- V=1 make'
+#+begin_src python
+#!/usr/bin/python3
+
+import sys
+import numpy as np
+import numpysane as nps
+import gnuplotlib as gp
+import vnlog
+import pyproj
+
+geod = None
+def dist_ft(lat0,lon0, lat1,lon1):
+
+    global geod
+    if geod is None:
+        geod = pyproj.Geod(ellps='WGS84')
+    return \
+        geod.inv(lon0,lat0, lon1,lat1)[2] * 100./2.54/12.
+
+
+
+
+f = 'OUTPUT.gpx'
+
+track,list_keys,dict_key_index = \
+    vnlog.slurp(f)
+
+t      = track[:,dict_key_index['time' ]]
+lat    = track[:,dict_key_index['lat'  ]]
+lon    = track[:,dict_key_index['lon'  ]]
+ele_ft = track[:,dict_key_index['ele_m']] * 100./2.54/12.
+
+
+
+@nps.broadcast_define( ( (), ()),
+                       (2,))
+def filter_track(ele_hysteresis_ft,
+                 dxy_hysteresis_ft):
+
+    dist        = 0.0
+    ele_gain_ft = 0.0
+
+    lon_accepted = None
+    lat_accepted = None
+    ele_accepted = None
+
+    for i in range(len(lat)):
+
+        if ele_accepted is not None:
+            dxy_here  = dist_ft(lat_accepted,lon_accepted, lat[i],lon[i])
+            dele_here = np.abs( ele_ft[i] - ele_accepted )
+
+            if dxy_here < dxy_hysteresis_ft and dele_here < ele_hysteresis_ft:
+                continue
+
+            if ele_ft[i] > ele_accepted:
+                ele_gain_ft += dele_here;
+
+            dist += np.sqrt(dele_here * dele_here +
+                            dxy_here  * dxy_here)
+
+        lon_accepted = lon[i]
+        lat_accepted = lat[i]
+        ele_accepted = ele_ft[i]
+
+    # lose the last point. It simply doesn't matter
+
+    dist_mi = dist / 5280.
+    return np.array((ele_gain_ft, dist_mi))
+
+
+
+
+Nele_hysteresis_ft    = 20
+ele_hysteresis0_ft    = 5
+ele_hysteresis1_ft    = 100
+ele_hysteresis_ft_all = np.linspace(ele_hysteresis0_ft,
+                                    ele_hysteresis1_ft,
+                                    Nele_hysteresis_ft)
+
+Ndxy_hysteresis_ft = 20
+dxy_hysteresis0_ft = 5
+dxy_hysteresis1_ft = 1000
+dxy_hysteresis_ft  = np.linspace(dxy_hysteresis0_ft,
+                                 dxy_hysteresis1_ft,
+                                 Ndxy_hysteresis_ft)
+
+
+# shape (Nele,Ndxy,2)
+gain,distance = \
+    nps.mv( filter_track( nps.dummy(ele_hysteresis_ft_all,-1),
+                          dxy_hysteresis_ft),
+            -1,0 )
+
+
+# Stolen from mrcal
+def options_heatmap_with_contours( plotoptions, # we update this on output
+
+                                   ,*,
+                                   contour_min           = 0,
+                                   contour_max,
+                                   contour_increment     = None,
+                                   do_contours           = True,
+                                   contour_labels_styles = 'boxed',
+                                   contour_labels_font   = None):
+    r'''Update plotoptions, return curveoptions for a contoured heat map'''
+
+    gp.add_plot_option(plotoptions,
+                       'set',
+                       ('view equal xy',
+                        'view map'))
+
+    if do_contours:
+        if contour_increment is None:
+            # Compute a "nice" contour increment. I pick a round number that gives
+            # me a reasonable number of contours
+
+            Nwant = 10
+            increment = (contour_max - contour_min)/Nwant
+
+            # I find the nearest 1eX or 2eX or 5eX
+            base10_floor = np.power(10., np.floor(np.log10(increment)))
+
+            # Look through the options, and pick the best one
+            m   = np.array((1., 2., 5., 10.))
+            err = np.abs(m * base10_floor - increment)
+            contour_increment = -m[ np.argmin(err) ] * base10_floor
+
+        gp.add_plot_option(plotoptions,
+                           'set',
+                           ('key box opaque',
+                            'style textbox opaque',
+                            'contour base',
+                            f'cntrparam levels incremental {contour_max},{contour_increment},{contour_min}'))
+
+        if contour_labels_font is not None:
+            gp.add_plot_option(plotoptions,
+                               'set',
+                               f'cntrlabel format "%d" font "{contour_labels_font}"' )
+        else:
+            gp.add_plot_option(plotoptions,
+                               'set',
+                               f'cntrlabel format "%.0f"' )
+
+        plotoptions['cbrange'] = [contour_min, contour_max]
+
+        # I plot 3 times:
+        # - to make the heat map
+        # - to make the contours
+        # - to make the contour labels
+        _with = np.array(('image',
+                          'lines nosurface',
+                          f'labels {contour_labels_styles} nosurface'))
+    else:
+        gp.add_plot_option(plotoptions, 'unset', 'key')
+        _with = 'image'
+
+    using = \
+        f'({dxy_hysteresis0_ft}+$1*{float(dxy_hysteresis1_ft-dxy_hysteresis0_ft)/(Ndxy_hysteresis_ft-1)}):' + \
+        f'({ele_hysteresis0_ft}+$2*{float(ele_hysteresis1_ft-ele_hysteresis0_ft)/(Nele_hysteresis_ft-1)}):3'
+    plotoptions['_3d']     = True
+    plotoptions['_xrange'] = [dxy_hysteresis0_ft,dxy_hysteresis1_ft]
+    plotoptions['_yrange'] = [ele_hysteresis0_ft,ele_hysteresis1_ft]
+    plotoptions['ascii']   = True # needed for using to work
+
+    gp.add_plot_option(plotoptions, 'unset', 'grid')
+
+    return \
+        dict( tuplesize=3,
+              legend = "", # needed to force contour labels
+              using = using,
+              _with=_with)
+
+
+
+
+contour_granularity = 1000
+plotoptions = dict()
+curveoptions = \
+    options_heatmap_with_contours( plotoptions, # we update this on output
+                                   # round down to the nearest contour_granularity
+                                   contour_min = (np.min(gain) // contour_granularity)*contour_granularity,
+                                   # round up to the nearest contour_granularity
+                                   contour_max = ((np.max(gain) + (contour_granularity-1)) // contour_granularity) * contour_granularity,
+                                   do_contours = True)
+gp.add_plot_option(plotoptions, 'unset', 'key')
+gp.add_plot_option(plotoptions, 'set', 'size square')
+gp.plot(gain,
+        xlabel  = "Distance hysteresis (ft)",
+        ylabel  = "Elevation hysteresis (ft)",
+        cblabel = "Elevation gain (ft)",
+        wait = True,
+        ,**curveoptions,
+        ,**plotoptions,
+        title    = 'Computed gain vs filtering parameters')
+
+
+contour_granularity = 10
+plotoptions = dict()
+curveoptions = \
+    options_heatmap_with_contours( plotoptions, # we update this on output
+                                   # round down to the nearest contour_granularity
+                                   contour_min = (np.min(distance) // contour_granularity)*contour_granularity,
+                                   # round up to the nearest contour_granularity
+                                   contour_max = ((np.max(distance) + (contour_granularity-1)) // contour_granularity) * contour_granularity,
+                                   do_contours = True)
+gp.add_plot_option(plotoptions, 'unset', 'key')
+gp.add_plot_option(plotoptions, 'set', 'size square')
+gp.plot(distance,
+        xlabel  = "Distance hysteresis (ft)",
+        ylabel  = "Elevation hysteresis (ft)",
+        cblabel = "Distance (miles)",
+        wait = True,
+        ,**curveoptions,
+        ,**plotoptions,
+        title    = 'Computed distance vs filtering parameters')
 #+end_src
+
+*** Results: gain
+Strava says the gain was 46307ft. The analysis says:
+
+#+ATTR_HTML: :width 70%
+[[file:files/strava-filtering/strava-gain.png]]
+
+#+ATTR_HTML: :width 70%
+[[file:files/strava-filtering/strava-gain-zoom.png]]
+
+These show the filtered gain for different values of the distance and gain
+hysteresis thresholds. The same data is shown at diffent zoom levels. There's no
+clear sweet spot, but we get 46307ft with a reasonable amount of filtering.
+Maybe 46307ft is a bit low even.
+
+*** Results: distance
+Strava says the distance covered was 322 miles. The analysis says:
+
+#+ATTR_HTML: :width 70%
+[[file:files/strava-filtering/strava-distance.png]]
+
+#+ATTR_HTML: :width 70%
+[[file:files/strava-filtering/strava-distance-zoom.png]]
+
+Once again, there's no sweet spot, but we get 322 miles only if we apply no
+filtering at all. That's clearly too high, and is not reasonable. From the map
+(and from other people's strava routes) the true distance is closer to 305
+miles. Why /those/ people's strava numbers are more believable is anybody's
+guess.
 
 ** Make								   :noexport:
 
@@ -15179,8 +15458,6 @@ sysdig
 valijson
 reptyr
 
-** gnuplot widgets						   :noexport:
-Fl_Gnuplotlib is nice
 ** dv4l								   :noexport:
 ** eigen c++
 
