@@ -15360,6 +15360,121 @@ filtering at all. That's clearly too high, and is not reasonable. From the map
 miles. Why /those/ people's strava numbers are more believable is anybody's
 guess.
 
+** DONE When are the days getting longer the fastest?	   :data:vnlog:tools:
+   CLOSED: [2025-02-18 Tue 18:47]
+
+We're way past the winter solstice, and approaching the equinox. The
+sun is noticeably staying up later and later every day, which raises
+an obvious question: when are the days getting longer the fastest?
+Intuitively I want to say it should happen at the equinox. But does it
+happen /exactly/ at the equinox? I could read up on all the gory
+details of this, or I could just make some plots. I wrote this:
+
+#+begin_src python
+#!/usr/bin/python3
+
+import sys
+import datetime
+import astral.sun
+
+lat  = 34.
+year = 2025
+
+city = astral.LocationInfo(latitude=lat, longitude=0)
+
+date0 = datetime.datetime(year, 1, 1)
+
+print("# date sunrise sunset length_min")
+
+for i in range(365):
+    date = date0 + datetime.timedelta(days=i)
+
+    s = astral.sun.sun(city.observer, date=date)
+
+    date_sunrise = s['sunrise']
+    date_sunset  = s['sunset']
+
+    date_string    = date.strftime('%Y-%m-%d')
+    sunrise_string = date_sunrise.strftime('%H:%M')
+    sunset_string  = date_sunset.strftime ('%H:%M')
+
+    print(f"{date_string} {sunrise_string} {sunset_string} {(date_sunset-date_sunrise).total_seconds()/60}")
+#+end_src
+
+This computes the sunrise and sunset time every day of 2025 at a latitude of
+34degrees (i.e. Los Angeles), and writes out a [[file:files/sunrise-sunset/sunrise-sunset.vnl][log file]] (using the [[https://github.com/dkogan/vnlog][vnlog]]
+format).
+
+Let's plot it:
+
+#+begin_src sh
+< sunrise-sunset.vnl                   \
+  vnl-filter -p date,l='length_min/60' \
+| feedgnuplot                          \
+  --set 'format x "%b %d"'             \
+  --domain                             \
+  --timefmt '%Y-%m-%d'                 \
+  --lines                              \
+  --ylabel 'Day length (hours)'        \
+  --hardcopy day-length.svg
+#+end_src
+
+#+ATTR_HTML: :width 70%
+[[file:files/sunrise-sunset/day-length.svg]]
+
+Well that makes sense. When are the days the longest/shortest?
+
+#+begin_example
+$ < sunrise-sunset.vnl vnl-sort -grk length_min | head -n2 | vnl-align
+
+#  date    sunrise sunset     length_min   
+2025-06-21 04:49   19:14  864.8543702000001
+
+
+$ < sunrise-sunset.vnl vnl-sort -gk length_min | head -n2 | vnl-align
+
+#  date    sunrise sunset     length_min   
+2025-12-21 07:01   16:54  592.8354265166668
+#+end_example
+
+Those are the solstices, as expected. Now let's look at the time gained/lost
+each day:
+
+#+begin_src sh
+$ < sunrise-sunset.vnl                                  \
+  vnl-filter -p date,d='diff(length_min)'               \
+| vnl-filter --has d                                    \
+| feedgnuplot                                           \
+  --set 'format x "%b %d"'                              \
+  --domain                                              \
+  --timefmt '%Y-%m-%d'                                  \
+  --lines                                               \
+  --ylabel 'Daytime gained from the previous day (min)' \
+  --hardcopy gain.svg
+#+end_src
+
+#+ATTR_HTML: :width 70%
+[[file:files/sunrise-sunset/gain.svg]]
+
+Looks vaguely sinusoidal, like the last plot. And looks like we gain/lost as
+most ~2 minutes each day. When does the gain peak?
+
+#+begin_example
+$ < sunrise-sunset.vnl vnl-filter -p date,d='diff(length_min)' | vnl-filter --has d | vnl-sort -grk d | head -n2 | vnl-align
+
+#  date       d   
+2025-03-19 2.13167
+
+
+$ < sunrise-sunset.vnl vnl-filter -p date,d='diff(length_min)' | vnl-filter --has d | vnl-sort -gk d | head -n2 | vnl-align
+
+#  date        d   
+2025-09-25 -2.09886
+#+end_example
+
+/Not/ at the equinoxes! The fastest gain is a few days before the equinox and
+the fastest loss a few days after.
+
 ** Make								   :noexport:
 
 GNU Make only
@@ -15459,7 +15574,13 @@ valijson
 reptyr
 
 ** dv4l								   :noexport:
-** eigen c++
+** eigen c++                                                       :noexport:
+
+** more                                                            :noexport:
+- wheel measurement
+- hub measurement
+- scheduling
+- gallery
 
 * making dvipng work for equations                                 :noexport:
 - OPTIONS do not work. Need to enable explicitly with
