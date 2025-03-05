@@ -15475,6 +15475,1175 @@ $ < sunrise-sunset.vnl vnl-filter -p date,d='diff(length_min)' | vnl-filter --ha
 /Not/ at the equinoxes! The fastest gain is a few days before the equinox and
 the fastest loss a few days after.
 
+** DONE Shop scheduling with PuLP                                :data:tools:
+CLOSED: [2025-03-05 Wed 12:02]
+
+I recently used the [[https://coin-or.github.io/pulp/][PuLP modeler]] to solve a work scheduling problem to assign
+workers to shifts. Here are notes about doing that. This is a common use case,
+but isn't explicitly covered in the [[https://coin-or.github.io/pulp/CaseStudies/index.html][case studies]] in the PuLP documentation.
+
+Here's the problem:
+
+- We are trying to put together a schedule for one week
+- Each day has some set of work shifts that need to be staffed
+- Each shift must be staffed with /exactly/ one worker
+- The shift schedule is known beforehand, and the workers each declare their
+  preferences beforehand: they mark each shift in the week as one of:
+  - PREFERRED (if they want to be scheduled on that shift)
+  - NEUTRAL
+  - DISFAVORED (if they don't love that shift)
+  - REFUSED (if they absolutely cannot work that shift)
+
+The tool is supposed to allocate workers to the shifts to try to cover all the
+shifts, give everybody work, and try to match their preferences. I implemented
+the tool:
+
+#+begin_src python
+#!/usr/bin/python3
+
+import sys
+import os
+import re
+
+def report_solution_to_console(vars):
+    for w in days_of_week:
+        annotation = ''
+        if human_annotate is not None:
+            for s in shifts.keys():
+                m = re.match(rf'{w} - ', s)
+                if not m: continue
+                if vars[human_annotate][s].value():
+                    annotation = f" ({human_annotate} SCHEDULED)"
+                    break
+            if not len(annotation):
+                annotation = f" ({human_annotate} OFF)"
+
+        print(f"{w}{annotation}")
+
+        for s in shifts.keys():
+            m = re.match(rf'{w} - ', s)
+            if not m: continue
+
+            annotation = ''
+            if human_annotate is not None:
+                annotation = f" ({human_annotate} {shifts[s][human_annotate]})"
+            print(f"    ---- {s[m.end():]}{annotation}")
+
+            for h in humans:
+                if vars[h][s].value():
+                    print(f"         {h} ({shifts[s][h]})")
+
+def report_solution_summary_to_console(vars):
+    print("\nSUMMARY")
+
+    for h in humans:
+        print(f"-- {h}")
+        print(f"   benefit: {benefits[h].value():.3f}")
+
+        counts = dict()
+        for a in availabilities:
+            counts[a] = 0
+
+        for s in shifts.keys():
+            if vars[h][s].value():
+                counts[shifts[s][h]] += 1
+
+        for a in availabilities:
+            print(f"   {counts[a]} {a}")
+
+
+human_annotate = None
+
+days_of_week = ('SUNDAY',
+                'MONDAY',
+                'TUESDAY',
+                'WEDNESDAY',
+                'THURSDAY',
+                'FRIDAY',
+                'SATURDAY')
+
+humans = ['ALICE', 'BOB',
+          'CAROL', 'DAVID', 'EVE', 'FRANK', 'GRACE', 'HEIDI', 'IVAN', 'JUDY']
+
+shifts = {'SUNDAY - SANDING 9:00 AM - 4:00 PM':
+          {'ALICE': 'NEUTRAL',
+           'BOB':   'NEUTRAL',
+           'CAROL': 'PREFERRED',
+           'DAVID': 'PREFERRED',
+           'EVE':   'PREFERRED',
+           'FRANK': 'PREFERRED',
+           'GRACE': 'DISFAVORED',
+           'HEIDI': 'DISFAVORED',
+           'IVAN':  'PREFERRED',
+           'JUDY':  'NEUTRAL'},
+          'WEDNESDAY - SAWING 7:30 AM - 2:30 PM':
+          {'ALICE': 'NEUTRAL',
+           'BOB':   'NEUTRAL',
+           'CAROL': 'PREFERRED',
+           'DAVID': 'PREFERRED',
+           'FRANK': 'PREFERRED',
+           'GRACE': 'NEUTRAL',
+           'HEIDI': 'DISFAVORED',
+           'IVAN':  'PREFERRED',
+           'EVE':   'REFUSED',
+           'JUDY':  'REFUSED'},
+          'THURSDAY - SANDING 9:00 AM - 4:00 PM':
+          {'ALICE': 'NEUTRAL',
+           'BOB':   'NEUTRAL',
+           'CAROL': 'PREFERRED',
+           'DAVID': 'PREFERRED',
+           'EVE':   'PREFERRED',
+           'FRANK': 'PREFERRED',
+           'GRACE': 'PREFERRED',
+           'HEIDI': 'DISFAVORED',
+           'IVAN':  'PREFERRED',
+           'JUDY':  'PREFERRED'},
+          'SATURDAY - SAWING 7:30 AM - 2:30 PM':
+          {'ALICE': 'NEUTRAL',
+           'BOB':   'NEUTRAL',
+           'CAROL': 'PREFERRED',
+           'DAVID': 'PREFERRED',
+           'FRANK': 'PREFERRED',
+           'HEIDI': 'DISFAVORED',
+           'IVAN':  'PREFERRED',
+           'EVE':   'REFUSED',
+           'JUDY':  'REFUSED',
+           'GRACE': 'REFUSED'},
+          'SUNDAY - SAWING 9:00 AM - 4:00 PM':
+          {'ALICE': 'NEUTRAL',
+           'BOB':   'NEUTRAL',
+           'CAROL': 'PREFERRED',
+           'DAVID': 'PREFERRED',
+           'EVE':   'PREFERRED',
+           'FRANK': 'PREFERRED',
+           'GRACE': 'DISFAVORED',
+           'IVAN':  'PREFERRED',
+           'JUDY':  'PREFERRED',
+           'HEIDI': 'REFUSED'},
+          'MONDAY - SAWING 9:00 AM - 4:00 PM':
+          {'ALICE': 'NEUTRAL',
+           'BOB':   'NEUTRAL',
+           'CAROL': 'PREFERRED',
+           'DAVID': 'PREFERRED',
+           'EVE':   'PREFERRED',
+           'FRANK': 'PREFERRED',
+           'GRACE': 'PREFERRED',
+           'IVAN':  'PREFERRED',
+           'JUDY':  'PREFERRED',
+           'HEIDI': 'REFUSED'},
+          'TUESDAY - SAWING 9:00 AM - 4:00 PM':
+          {'ALICE': 'NEUTRAL',
+           'BOB':   'NEUTRAL',
+           'CAROL': 'PREFERRED',
+           'DAVID': 'PREFERRED',
+           'EVE':   'PREFERRED',
+           'FRANK': 'PREFERRED',
+           'GRACE': 'NEUTRAL',
+           'IVAN':  'PREFERRED',
+           'JUDY':  'PREFERRED',
+           'HEIDI': 'REFUSED'},
+          'WEDNESDAY - PAINTING 7:30 AM - 2:30 PM':
+          {'ALICE': 'NEUTRAL',
+           'BOB':   'NEUTRAL',
+           'CAROL': 'PREFERRED',
+           'FRANK': 'PREFERRED',
+           'GRACE': 'NEUTRAL',
+           'HEIDI': 'DISFAVORED',
+           'IVAN':  'PREFERRED',
+           'EVE':   'REFUSED',
+           'JUDY':  'REFUSED',
+           'DAVID': 'REFUSED'},
+          'THURSDAY - SAWING 9:00 AM - 4:00 PM':
+          {'ALICE': 'NEUTRAL',
+           'BOB':   'NEUTRAL',
+           'CAROL': 'PREFERRED',
+           'DAVID': 'PREFERRED',
+           'EVE':   'PREFERRED',
+           'FRANK': 'PREFERRED',
+           'GRACE': 'PREFERRED',
+           'IVAN':  'PREFERRED',
+           'JUDY':  'PREFERRED',
+           'HEIDI': 'REFUSED'},
+          'FRIDAY - SAWING 9:00 AM - 4:00 PM':
+          {'ALICE': 'NEUTRAL',
+           'BOB':   'NEUTRAL',
+           'CAROL': 'PREFERRED',
+           'DAVID': 'PREFERRED',
+           'EVE':   'PREFERRED',
+           'FRANK': 'PREFERRED',
+           'GRACE': 'PREFERRED',
+           'IVAN':  'PREFERRED',
+           'JUDY':  'DISFAVORED',
+           'HEIDI': 'REFUSED'},
+          'SATURDAY - PAINTING 7:30 AM - 2:30 PM':
+          {'ALICE': 'NEUTRAL',
+           'BOB':   'NEUTRAL',
+           'CAROL': 'PREFERRED',
+           'FRANK': 'PREFERRED',
+           'HEIDI': 'DISFAVORED',
+           'IVAN':  'PREFERRED',
+           'EVE':   'REFUSED',
+           'JUDY':  'REFUSED',
+           'GRACE': 'REFUSED',
+           'DAVID': 'REFUSED'},
+          'SUNDAY - PAINTING 9:45 AM - 4:45 PM':
+          {'ALICE': 'NEUTRAL',
+           'BOB':   'NEUTRAL',
+           'CAROL': 'NEUTRAL',
+           'EVE':   'PREFERRED',
+           'FRANK': 'PREFERRED',
+           'GRACE': 'DISFAVORED',
+           'IVAN':  'PREFERRED',
+           'JUDY':  'PREFERRED',
+           'HEIDI': 'REFUSED',
+           'DAVID': 'REFUSED'},
+          'MONDAY - PAINTING 9:45 AM - 4:45 PM':
+          {'ALICE': 'NEUTRAL',
+           'BOB':   'NEUTRAL',
+           'CAROL': 'NEUTRAL',
+           'EVE':   'PREFERRED',
+           'FRANK': 'PREFERRED',
+           'GRACE': 'PREFERRED',
+           'IVAN':  'PREFERRED',
+           'JUDY':  'NEUTRAL',
+           'HEIDI': 'REFUSED',
+           'DAVID': 'REFUSED'},
+          'TUESDAY - PAINTING 9:45 AM - 4:45 PM':
+          {'ALICE': 'NEUTRAL',
+           'BOB':   'NEUTRAL',
+           'CAROL': 'NEUTRAL',
+           'EVE':   'PREFERRED',
+           'FRANK': 'PREFERRED',
+           'GRACE': 'NEUTRAL',
+           'IVAN':  'PREFERRED',
+           'JUDY':  'PREFERRED',
+           'HEIDI': 'REFUSED',
+           'DAVID': 'REFUSED'},
+          'WEDNESDAY - SANDING 9:45 AM - 4:45 PM':
+          {'ALICE': 'NEUTRAL',
+           'BOB':   'NEUTRAL',
+           'CAROL': 'NEUTRAL',
+           'DAVID': 'PREFERRED',
+           'FRANK': 'PREFERRED',
+           'GRACE': 'NEUTRAL',
+           'HEIDI': 'DISFAVORED',
+           'IVAN':  'PREFERRED',
+           'JUDY':  'NEUTRAL',
+           'EVE':   'REFUSED'},
+          'THURSDAY - PAINTING 9:45 AM - 4:45 PM':
+          {'ALICE': 'NEUTRAL',
+           'BOB':   'NEUTRAL',
+           'CAROL': 'NEUTRAL',
+           'EVE':   'PREFERRED',
+           'FRANK': 'PREFERRED',
+           'GRACE': 'NEUTRAL',
+           'IVAN':  'PREFERRED',
+           'JUDY':  'PREFERRED',
+           'HEIDI': 'REFUSED',
+           'DAVID': 'REFUSED'},
+          'FRIDAY - PAINTING 9:45 AM - 4:45 PM':
+          {'ALICE': 'NEUTRAL',
+           'BOB':   'NEUTRAL',
+           'CAROL': 'NEUTRAL',
+           'EVE':   'PREFERRED',
+           'FRANK': 'PREFERRED',
+           'GRACE': 'PREFERRED',
+           'IVAN':  'PREFERRED',
+           'JUDY':  'DISFAVORED',
+           'HEIDI': 'REFUSED',
+           'DAVID': 'REFUSED'},
+          'SATURDAY - SANDING 9:45 AM - 4:45 PM':
+          {'ALICE': 'NEUTRAL',
+           'BOB':   'NEUTRAL',
+           'CAROL': 'NEUTRAL',
+           'DAVID': 'PREFERRED',
+           'FRANK': 'PREFERRED',
+           'HEIDI': 'DISFAVORED',
+           'IVAN':  'PREFERRED',
+           'EVE':   'REFUSED',
+           'JUDY':  'REFUSED',
+           'GRACE': 'REFUSED'},
+          'SUNDAY - PAINTING 11:00 AM - 6:00 PM':
+          {'ALICE': 'NEUTRAL',
+           'BOB':   'NEUTRAL',
+           'CAROL': 'NEUTRAL',
+           'EVE':   'DISFAVORED',
+           'FRANK': 'NEUTRAL',
+           'GRACE': 'NEUTRAL',
+           'HEIDI': 'PREFERRED',
+           'IVAN':  'NEUTRAL',
+           'JUDY':  'NEUTRAL',
+           'DAVID': 'REFUSED'},
+          'MONDAY - PAINTING 12:00 PM - 7:00 PM':
+          {'ALICE': 'NEUTRAL',
+           'BOB':   'NEUTRAL',
+           'CAROL': 'NEUTRAL',
+           'EVE':   'DISFAVORED',
+           'FRANK': 'NEUTRAL',
+           'GRACE': 'PREFERRED',
+           'IVAN':  'NEUTRAL',
+           'JUDY':  'NEUTRAL',
+           'HEIDI': 'REFUSED',
+           'DAVID': 'REFUSED'},
+          'TUESDAY - PAINTING 12:00 PM - 7:00 PM':
+          {'ALICE': 'NEUTRAL',
+           'BOB':   'NEUTRAL',
+           'CAROL': 'NEUTRAL',
+           'EVE':   'DISFAVORED',
+           'FRANK': 'NEUTRAL',
+           'GRACE': 'NEUTRAL',
+           'IVAN':  'NEUTRAL',
+           'HEIDI': 'REFUSED',
+           'JUDY':  'REFUSED',
+           'DAVID': 'REFUSED'},
+          'WEDNESDAY - PAINTING 12:00 PM - 7:00 PM':
+          {'ALICE': 'NEUTRAL',
+           'BOB':   'NEUTRAL',
+           'CAROL': 'NEUTRAL',
+           'FRANK': 'NEUTRAL',
+           'GRACE': 'NEUTRAL',
+           'IVAN':  'NEUTRAL',
+           'JUDY':  'PREFERRED',
+           'EVE':   'REFUSED',
+           'HEIDI': 'REFUSED',
+           'DAVID': 'REFUSED'},
+          'THURSDAY - PAINTING 12:00 PM - 7:00 PM':
+          {'ALICE': 'NEUTRAL',
+           'BOB':   'NEUTRAL',
+           'CAROL': 'NEUTRAL',
+           'EVE':   'DISFAVORED',
+           'FRANK': 'NEUTRAL',
+           'GRACE': 'NEUTRAL',
+           'IVAN':  'NEUTRAL',
+           'JUDY':  'PREFERRED',
+           'HEIDI': 'REFUSED',
+           'DAVID': 'REFUSED'},
+          'FRIDAY - PAINTING 12:00 PM - 7:00 PM':
+          {'ALICE': 'NEUTRAL',
+           'BOB':   'NEUTRAL',
+           'CAROL': 'NEUTRAL',
+           'EVE':   'DISFAVORED',
+           'FRANK': 'NEUTRAL',
+           'GRACE': 'NEUTRAL',
+           'IVAN':  'NEUTRAL',
+           'JUDY':  'DISFAVORED',
+           'HEIDI': 'REFUSED',
+           'DAVID': 'REFUSED'},
+          'SATURDAY - PAINTING 12:00 PM - 7:00 PM':
+          {'ALICE': 'NEUTRAL',
+           'BOB':   'NEUTRAL',
+           'CAROL': 'NEUTRAL',
+           'FRANK': 'NEUTRAL',
+           'IVAN':  'NEUTRAL',
+           'JUDY':  'DISFAVORED',
+           'EVE':   'REFUSED',
+           'HEIDI': 'REFUSED',
+           'GRACE': 'REFUSED',
+           'DAVID': 'REFUSED'},
+          'SUNDAY - SAWING 12:00 PM - 7:00 PM':
+          {'ALICE': 'PREFERRED',
+           'BOB':   'PREFERRED',
+           'CAROL': 'NEUTRAL',
+           'EVE':   'DISFAVORED',
+           'FRANK': 'NEUTRAL',
+           'GRACE': 'NEUTRAL',
+           'IVAN':  'NEUTRAL',
+           'JUDY':  'PREFERRED',
+           'HEIDI': 'REFUSED',
+           'DAVID': 'REFUSED'},
+          'MONDAY - SAWING 2:00 PM - 9:00 PM':
+          {'ALICE': 'PREFERRED',
+           'BOB':   'PREFERRED',
+           'CAROL': 'DISFAVORED',
+           'EVE':   'DISFAVORED',
+           'FRANK': 'NEUTRAL',
+           'GRACE': 'NEUTRAL',
+           'IVAN':  'DISFAVORED',
+           'JUDY':  'DISFAVORED',
+           'HEIDI': 'REFUSED',
+           'DAVID': 'REFUSED'},
+          'TUESDAY - SAWING 2:00 PM - 9:00 PM':
+          {'ALICE': 'PREFERRED',
+           'BOB':   'PREFERRED',
+           'CAROL': 'DISFAVORED',
+           'EVE':   'DISFAVORED',
+           'FRANK': 'NEUTRAL',
+           'GRACE': 'NEUTRAL',
+           'IVAN':  'DISFAVORED',
+           'HEIDI': 'REFUSED',
+           'JUDY':  'REFUSED',
+           'DAVID': 'REFUSED'},
+          'WEDNESDAY - SAWING 2:00 PM - 9:00 PM':
+          {'ALICE': 'PREFERRED',
+           'BOB':   'PREFERRED',
+           'CAROL': 'DISFAVORED',
+           'FRANK': 'NEUTRAL',
+           'GRACE': 'NEUTRAL',
+           'IVAN':  'DISFAVORED',
+           'JUDY':  'DISFAVORED',
+           'EVE':   'REFUSED',
+           'HEIDI': 'REFUSED',
+           'DAVID': 'REFUSED'},
+          'THURSDAY - SAWING 2:00 PM - 9:00 PM':
+          {'ALICE': 'PREFERRED',
+           'BOB':   'PREFERRED',
+           'CAROL': 'DISFAVORED',
+           'EVE':   'DISFAVORED',
+           'FRANK': 'NEUTRAL',
+           'GRACE': 'NEUTRAL',
+           'IVAN':  'DISFAVORED',
+           'JUDY':  'DISFAVORED',
+           'HEIDI': 'REFUSED',
+           'DAVID': 'REFUSED'},
+          'FRIDAY - SAWING 2:00 PM - 9:00 PM':
+          {'ALICE': 'PREFERRED',
+           'BOB':   'PREFERRED',
+           'CAROL': 'DISFAVORED',
+           'EVE':   'DISFAVORED',
+           'FRANK': 'NEUTRAL',
+           'GRACE': 'NEUTRAL',
+           'IVAN':  'DISFAVORED',
+           'HEIDI': 'REFUSED',
+           'JUDY':  'REFUSED',
+           'DAVID': 'REFUSED'},
+          'SATURDAY - SAWING 2:00 PM - 9:00 PM':
+          {'ALICE': 'PREFERRED',
+           'BOB':   'PREFERRED',
+           'CAROL': 'DISFAVORED',
+           'FRANK': 'NEUTRAL',
+           'IVAN':  'DISFAVORED',
+           'JUDY':  'DISFAVORED',
+           'EVE':   'REFUSED',
+           'HEIDI': 'REFUSED',
+           'GRACE': 'REFUSED',
+           'DAVID': 'REFUSED'},
+          'SUNDAY - PAINTING 12:15 PM - 7:15 PM':
+          {'ALICE': 'NEUTRAL',
+           'BOB':   'NEUTRAL',
+           'CAROL': 'PREFERRED',
+           'EVE':   'DISFAVORED',
+           'FRANK': 'NEUTRAL',
+           'GRACE': 'NEUTRAL',
+           'HEIDI': 'NEUTRAL',
+           'IVAN':  'DISFAVORED',
+           'JUDY':  'NEUTRAL',
+           'DAVID': 'REFUSED'},
+          'MONDAY - PAINTING 2:00 PM - 9:00 PM':
+          {'ALICE': 'NEUTRAL',
+           'BOB':   'NEUTRAL',
+           'CAROL': 'DISFAVORED',
+           'EVE':   'DISFAVORED',
+           'FRANK': 'NEUTRAL',
+           'GRACE': 'NEUTRAL',
+           'HEIDI': 'NEUTRAL',
+           'IVAN':  'DISFAVORED',
+           'JUDY':  'DISFAVORED',
+           'DAVID': 'REFUSED'},
+          'TUESDAY - PAINTING 2:00 PM - 9:00 PM':
+          {'ALICE': 'NEUTRAL',
+           'BOB':   'NEUTRAL',
+           'CAROL': 'DISFAVORED',
+           'EVE':   'DISFAVORED',
+           'FRANK': 'NEUTRAL',
+           'GRACE': 'NEUTRAL',
+           'HEIDI': 'NEUTRAL',
+           'IVAN':  'DISFAVORED',
+           'JUDY':  'REFUSED',
+           'DAVID': 'REFUSED'},
+          'WEDNESDAY - PAINTING 2:00 PM - 9:00 PM':
+          {'ALICE': 'NEUTRAL',
+           'BOB':   'NEUTRAL',
+           'CAROL': 'DISFAVORED',
+           'FRANK': 'NEUTRAL',
+           'GRACE': 'NEUTRAL',
+           'HEIDI': 'NEUTRAL',
+           'IVAN':  'DISFAVORED',
+           'JUDY':  'DISFAVORED',
+           'EVE':   'REFUSED',
+           'DAVID': 'REFUSED'},
+          'THURSDAY - PAINTING 2:00 PM - 9:00 PM':
+          {'ALICE': 'NEUTRAL',
+           'BOB':   'NEUTRAL',
+           'CAROL': 'DISFAVORED',
+           'EVE':   'DISFAVORED',
+           'FRANK': 'NEUTRAL',
+           'GRACE': 'NEUTRAL',
+           'HEIDI': 'NEUTRAL',
+           'IVAN':  'DISFAVORED',
+           'JUDY':  'DISFAVORED',
+           'DAVID': 'REFUSED'},
+          'FRIDAY - PAINTING 2:00 PM - 9:00 PM':
+          {'ALICE': 'NEUTRAL',
+           'BOB':   'NEUTRAL',
+           'CAROL': 'DISFAVORED',
+           'EVE':   'DISFAVORED',
+           'FRANK': 'NEUTRAL',
+           'GRACE': 'NEUTRAL',
+           'HEIDI': 'NEUTRAL',
+           'IVAN':  'DISFAVORED',
+           'JUDY':  'REFUSED',
+           'DAVID': 'REFUSED'},
+          'SATURDAY - PAINTING 2:00 PM - 9:00 PM':
+          {'ALICE': 'NEUTRAL',
+           'BOB':   'NEUTRAL',
+           'CAROL': 'DISFAVORED',
+           'FRANK': 'NEUTRAL',
+           'HEIDI': 'NEUTRAL',
+           'IVAN':  'DISFAVORED',
+           'JUDY':  'DISFAVORED',
+           'EVE':   'REFUSED',
+           'GRACE': 'REFUSED',
+           'DAVID': 'REFUSED'}}
+
+availabilities = ['PREFERRED', 'NEUTRAL', 'DISFAVORED']
+
+
+
+import pulp
+prob = pulp.LpProblem("Scheduling", pulp.LpMaximize)
+
+vars = pulp.LpVariable.dicts("Assignments",
+                             (humans, shifts.keys()),
+                             None,None, # bounds; unused, since these are binary variables
+                             pulp.LpBinary)
+
+# Everyone works at least 2 shifts
+Nshifts_min = 2
+for h in humans:
+    prob += (
+        pulp.lpSum([vars[h][s] for s in shifts.keys()]) >= Nshifts_min,
+        f"{h} works at least {Nshifts_min} shifts",
+    )
+
+# each shift is ~ 8 hours, so I limit everyone to 40/8 = 5 shifts
+Nshifts_max = 5
+for h in humans:
+    prob += (
+        pulp.lpSum([vars[h][s] for s in shifts.keys()]) <= Nshifts_max,
+        f"{h} works at most {Nshifts_max} shifts",
+    )
+
+# all shifts staffed and not double-staffed
+for s in shifts.keys():
+    prob += (
+        pulp.lpSum([vars[h][s] for h in humans]) == 1,
+        f"{s} is staffed",
+    )
+
+# each human can work at most one shift on any given day
+for w in days_of_week:
+    for h in humans:
+        prob += (
+            pulp.lpSum([vars[h][s] for s in shifts.keys() if re.match(rf'{w} ',s)]) <= 1,
+            f"{h} cannot be double-booked on {w}"
+        )
+
+
+#### Some explicit constraints; as an example
+# DAVID can't work any PAINTING shift and is off on Thu and Sun
+h = 'DAVID'
+prob += (
+    pulp.lpSum([vars[h][s] for s in shifts.keys() if re.search(r'- PAINTING',s)]) == 0,
+    f"{h} can't work any PAINTING shift"
+)
+prob += (
+    pulp.lpSum([vars[h][s] for s in shifts.keys() if re.match(r'THURSDAY|SUNDAY',s)]) == 0,
+    f"{h} is off on Thursday and Sunday"
+)
+
+# Do not assign any "REFUSED" shifts
+for s in shifts.keys():
+    for h in humans:
+        if shifts[s][h] == 'REFUSED':
+            prob += (
+                vars[h][s] == 0,
+                f"{h} is not available for {s}"
+            )
+
+
+# Objective. I try to maximize the "happiness". Each human sees each shift as
+# one of:
+#
+#   PREFERRED
+#   NEUTRAL
+#   DISFAVORED
+#   REFUSED
+#
+# I set a hard constraint to handle "REFUSED", and arbitrarily, I set these
+# benefit values for the others
+benefit_availability = dict()
+benefit_availability['PREFERRED']  = 3
+benefit_availability['NEUTRAL']    = 2
+benefit_availability['DISFAVORED'] = 1
+
+# Not used, since this is a hard constraint. But the code needs this to be a
+# part of the benefit. I can ignore these in the code, but let's keep this
+# simple
+benefit_availability['REFUSED' ] = -1000
+
+benefits = dict()
+for h in humans:
+    benefits[h] = \
+        pulp.lpSum([vars[h][s] * benefit_availability[shifts[s][h]] \
+                    for s in shifts.keys()])
+
+benefit_total = \
+    pulp.lpSum([benefits[h] \
+                for h in humans])
+
+prob += (
+    benefit_total,
+    "happiness",
+)
+
+prob.solve()
+
+if pulp.LpStatus[prob.status] == "Optimal":
+    report_solution_to_console(vars)
+    report_solution_summary_to_console(vars)
+#+end_src
+
+The set of workers is in the =humans= variable, and the shift schedule and the
+workers' preferences are encoded in the =shifts= dict. The problem is defined by
+a =vars= dict of dicts, each a boolean variable indicating whether a particular
+worker is scheduled for a particular shift. We define a set of constraints to
+these worker allocations to restrict ourselves to /valid/ solutions. And among
+these valid solutions, we try to find the one that maximizes some /benefit/
+function, defined here as:
+
+#+begin_src python
+benefit_availability = dict()
+benefit_availability['PREFERRED']  = 3
+benefit_availability['NEUTRAL']    = 2
+benefit_availability['DISFAVORED'] = 1
+
+benefits = dict()
+for h in humans:
+    benefits[h] = \
+        pulp.lpSum([vars[h][s] * benefit_availability[shifts[s][h]] \
+                    for s in shifts.keys()])
+
+benefit_total = \
+    pulp.lpSum([benefits[h] \
+                for h in humans])
+#+end_src
+
+So for instance each shift that was scheduled as somebody's PREFERRED shift
+gives us 3 benefit points. And if all the shifts ended up being PREFERRED, we'd
+have a total benefit value of 3*Nshifts. This is impossible, however, because
+that would violate some constraints in the problem.
+
+The exact trade-off between the different preferences is set in the
+=benefit_availability= dict. With the above numbers, it's equally good for
+somebody to have a NEUTRAL shift and a day off as it is for them to have
+DISFAVORED shifts. If we really want to encourage the program to work people as
+much as possible (days off discouraged), we'd want to raise the DISFAVORED
+threshold.
+
+I run this program and I get:
+
+#+begin_example
+....
+Result - Optimal solution found
+
+Objective value:                108.00000000
+Enumerated nodes:               0
+Total iterations:               0
+Time (CPU seconds):             0.01
+Time (Wallclock seconds):       0.01
+
+Option for printingOptions changed from normal to all
+Total time (CPU seconds):       0.02   (Wallclock seconds):       0.02
+
+SUNDAY
+    ---- SANDING 9:00 AM - 4:00 PM
+         EVE (PREFERRED)
+    ---- SAWING 9:00 AM - 4:00 PM
+         IVAN (PREFERRED)
+    ---- PAINTING 9:45 AM - 4:45 PM
+         FRANK (PREFERRED)
+    ---- PAINTING 11:00 AM - 6:00 PM
+         HEIDI (PREFERRED)
+    ---- SAWING 12:00 PM - 7:00 PM
+         ALICE (PREFERRED)
+    ---- PAINTING 12:15 PM - 7:15 PM
+         CAROL (PREFERRED)
+MONDAY
+    ---- SAWING 9:00 AM - 4:00 PM
+         DAVID (PREFERRED)
+    ---- PAINTING 9:45 AM - 4:45 PM
+         IVAN (PREFERRED)
+    ---- PAINTING 12:00 PM - 7:00 PM
+         GRACE (PREFERRED)
+    ---- SAWING 2:00 PM - 9:00 PM
+         ALICE (PREFERRED)
+    ---- PAINTING 2:00 PM - 9:00 PM
+         HEIDI (NEUTRAL)
+TUESDAY
+    ---- SAWING 9:00 AM - 4:00 PM
+         DAVID (PREFERRED)
+    ---- PAINTING 9:45 AM - 4:45 PM
+         EVE (PREFERRED)
+    ---- PAINTING 12:00 PM - 7:00 PM
+         FRANK (NEUTRAL)
+    ---- SAWING 2:00 PM - 9:00 PM
+         BOB (PREFERRED)
+    ---- PAINTING 2:00 PM - 9:00 PM
+         HEIDI (NEUTRAL)
+WEDNESDAY
+    ---- SAWING 7:30 AM - 2:30 PM
+         DAVID (PREFERRED)
+    ---- PAINTING 7:30 AM - 2:30 PM
+         IVAN (PREFERRED)
+    ---- SANDING 9:45 AM - 4:45 PM
+         FRANK (PREFERRED)
+    ---- PAINTING 12:00 PM - 7:00 PM
+         JUDY (PREFERRED)
+    ---- SAWING 2:00 PM - 9:00 PM
+         BOB (PREFERRED)
+    ---- PAINTING 2:00 PM - 9:00 PM
+         ALICE (NEUTRAL)
+THURSDAY
+    ---- SANDING 9:00 AM - 4:00 PM
+         GRACE (PREFERRED)
+    ---- SAWING 9:00 AM - 4:00 PM
+         CAROL (PREFERRED)
+    ---- PAINTING 9:45 AM - 4:45 PM
+         EVE (PREFERRED)
+    ---- PAINTING 12:00 PM - 7:00 PM
+         JUDY (PREFERRED)
+    ---- SAWING 2:00 PM - 9:00 PM
+         BOB (PREFERRED)
+    ---- PAINTING 2:00 PM - 9:00 PM
+         ALICE (NEUTRAL)
+FRIDAY
+    ---- SAWING 9:00 AM - 4:00 PM
+         DAVID (PREFERRED)
+    ---- PAINTING 9:45 AM - 4:45 PM
+         FRANK (PREFERRED)
+    ---- PAINTING 12:00 PM - 7:00 PM
+         GRACE (NEUTRAL)
+    ---- SAWING 2:00 PM - 9:00 PM
+         BOB (PREFERRED)
+    ---- PAINTING 2:00 PM - 9:00 PM
+         HEIDI (NEUTRAL)
+SATURDAY
+    ---- SAWING 7:30 AM - 2:30 PM
+         CAROL (PREFERRED)
+    ---- PAINTING 7:30 AM - 2:30 PM
+         IVAN (PREFERRED)
+    ---- SANDING 9:45 AM - 4:45 PM
+         DAVID (PREFERRED)
+    ---- PAINTING 12:00 PM - 7:00 PM
+         FRANK (NEUTRAL)
+    ---- SAWING 2:00 PM - 9:00 PM
+         ALICE (PREFERRED)
+    ---- PAINTING 2:00 PM - 9:00 PM
+         BOB (NEUTRAL)
+
+SUMMARY
+-- ALICE
+   benefit: 13.000
+   3 PREFERRED
+   2 NEUTRAL
+   0 DISFAVORED
+-- BOB
+   benefit: 14.000
+   4 PREFERRED
+   1 NEUTRAL
+   0 DISFAVORED
+-- CAROL
+   benefit: 9.000
+   3 PREFERRED
+   0 NEUTRAL
+   0 DISFAVORED
+-- DAVID
+   benefit: 15.000
+   5 PREFERRED
+   0 NEUTRAL
+   0 DISFAVORED
+-- EVE
+   benefit: 9.000
+   3 PREFERRED
+   0 NEUTRAL
+   0 DISFAVORED
+-- FRANK
+   benefit: 13.000
+   3 PREFERRED
+   2 NEUTRAL
+   0 DISFAVORED
+-- GRACE
+   benefit: 8.000
+   2 PREFERRED
+   1 NEUTRAL
+   0 DISFAVORED
+-- HEIDI
+   benefit: 9.000
+   1 PREFERRED
+   3 NEUTRAL
+   0 DISFAVORED
+-- IVAN
+   benefit: 12.000
+   4 PREFERRED
+   0 NEUTRAL
+   0 DISFAVORED
+-- JUDY
+   benefit: 6.000
+   2 PREFERRED
+   0 NEUTRAL
+   0 DISFAVORED
+#+end_example
+
+So we have a solution! We have 108 total benefit points. But it looks a bit
+uneven: Judy only works 2 days, while some people work many more: David works 5
+for instance. Why is that? I update the program with =human_annotate = 'JUDY'=,
+run it again, and it tells me more about Judy's preferences:
+
+#+begin_example
+Objective value:                108.00000000
+Enumerated nodes:               0
+Total iterations:               0
+Time (CPU seconds):             0.01
+Time (Wallclock seconds):       0.01
+
+Option for printingOptions changed from normal to all
+Total time (CPU seconds):       0.01   (Wallclock seconds):       0.02
+
+SUNDAY (JUDY OFF)
+    ---- SANDING 9:00 AM - 4:00 PM (JUDY NEUTRAL)
+         EVE (PREFERRED)
+    ---- SAWING 9:00 AM - 4:00 PM (JUDY PREFERRED)
+         IVAN (PREFERRED)
+    ---- PAINTING 9:45 AM - 4:45 PM (JUDY PREFERRED)
+         FRANK (PREFERRED)
+    ---- PAINTING 11:00 AM - 6:00 PM (JUDY NEUTRAL)
+         HEIDI (PREFERRED)
+    ---- SAWING 12:00 PM - 7:00 PM (JUDY PREFERRED)
+         ALICE (PREFERRED)
+    ---- PAINTING 12:15 PM - 7:15 PM (JUDY NEUTRAL)
+         CAROL (PREFERRED)
+MONDAY (JUDY OFF)
+    ---- SAWING 9:00 AM - 4:00 PM (JUDY PREFERRED)
+         DAVID (PREFERRED)
+    ---- PAINTING 9:45 AM - 4:45 PM (JUDY NEUTRAL)
+         IVAN (PREFERRED)
+    ---- PAINTING 12:00 PM - 7:00 PM (JUDY NEUTRAL)
+         GRACE (PREFERRED)
+    ---- SAWING 2:00 PM - 9:00 PM (JUDY DISFAVORED)
+         ALICE (PREFERRED)
+    ---- PAINTING 2:00 PM - 9:00 PM (JUDY DISFAVORED)
+         HEIDI (NEUTRAL)
+TUESDAY (JUDY OFF)
+    ---- SAWING 9:00 AM - 4:00 PM (JUDY PREFERRED)
+         DAVID (PREFERRED)
+    ---- PAINTING 9:45 AM - 4:45 PM (JUDY PREFERRED)
+         EVE (PREFERRED)
+    ---- PAINTING 12:00 PM - 7:00 PM (JUDY REFUSED)
+         FRANK (NEUTRAL)
+    ---- SAWING 2:00 PM - 9:00 PM (JUDY REFUSED)
+         BOB (PREFERRED)
+    ---- PAINTING 2:00 PM - 9:00 PM (JUDY REFUSED)
+         HEIDI (NEUTRAL)
+WEDNESDAY (JUDY SCHEDULED)
+    ---- SAWING 7:30 AM - 2:30 PM (JUDY REFUSED)
+         DAVID (PREFERRED)
+    ---- PAINTING 7:30 AM - 2:30 PM (JUDY REFUSED)
+         IVAN (PREFERRED)
+    ---- SANDING 9:45 AM - 4:45 PM (JUDY NEUTRAL)
+         FRANK (PREFERRED)
+    ---- PAINTING 12:00 PM - 7:00 PM (JUDY PREFERRED)
+         JUDY (PREFERRED)
+    ---- SAWING 2:00 PM - 9:00 PM (JUDY DISFAVORED)
+         BOB (PREFERRED)
+    ---- PAINTING 2:00 PM - 9:00 PM (JUDY DISFAVORED)
+         ALICE (NEUTRAL)
+THURSDAY (JUDY SCHEDULED)
+    ---- SANDING 9:00 AM - 4:00 PM (JUDY PREFERRED)
+         GRACE (PREFERRED)
+    ---- SAWING 9:00 AM - 4:00 PM (JUDY PREFERRED)
+         CAROL (PREFERRED)
+    ---- PAINTING 9:45 AM - 4:45 PM (JUDY PREFERRED)
+         EVE (PREFERRED)
+    ---- PAINTING 12:00 PM - 7:00 PM (JUDY PREFERRED)
+         JUDY (PREFERRED)
+    ---- SAWING 2:00 PM - 9:00 PM (JUDY DISFAVORED)
+         BOB (PREFERRED)
+    ---- PAINTING 2:00 PM - 9:00 PM (JUDY DISFAVORED)
+         ALICE (NEUTRAL)
+FRIDAY (JUDY OFF)
+    ---- SAWING 9:00 AM - 4:00 PM (JUDY DISFAVORED)
+         DAVID (PREFERRED)
+    ---- PAINTING 9:45 AM - 4:45 PM (JUDY DISFAVORED)
+         FRANK (PREFERRED)
+    ---- PAINTING 12:00 PM - 7:00 PM (JUDY DISFAVORED)
+         GRACE (NEUTRAL)
+    ---- SAWING 2:00 PM - 9:00 PM (JUDY REFUSED)
+         BOB (PREFERRED)
+    ---- PAINTING 2:00 PM - 9:00 PM (JUDY REFUSED)
+         HEIDI (NEUTRAL)
+SATURDAY (JUDY OFF)
+    ---- SAWING 7:30 AM - 2:30 PM (JUDY REFUSED)
+         CAROL (PREFERRED)
+    ---- PAINTING 7:30 AM - 2:30 PM (JUDY REFUSED)
+         IVAN (PREFERRED)
+    ---- SANDING 9:45 AM - 4:45 PM (JUDY REFUSED)
+         DAVID (PREFERRED)
+    ---- PAINTING 12:00 PM - 7:00 PM (JUDY DISFAVORED)
+         FRANK (NEUTRAL)
+    ---- SAWING 2:00 PM - 9:00 PM (JUDY DISFAVORED)
+         ALICE (PREFERRED)
+    ---- PAINTING 2:00 PM - 9:00 PM (JUDY DISFAVORED)
+         BOB (NEUTRAL)
+
+SUMMARY
+-- ALICE
+   benefit: 13.000
+   3 PREFERRED
+   2 NEUTRAL
+   0 DISFAVORED
+-- BOB
+   benefit: 14.000
+   4 PREFERRED
+   1 NEUTRAL
+   0 DISFAVORED
+-- CAROL
+   benefit: 9.000
+   3 PREFERRED
+   0 NEUTRAL
+   0 DISFAVORED
+-- DAVID
+   benefit: 15.000
+   5 PREFERRED
+   0 NEUTRAL
+   0 DISFAVORED
+-- EVE
+   benefit: 9.000
+   3 PREFERRED
+   0 NEUTRAL
+   0 DISFAVORED
+-- FRANK
+   benefit: 13.000
+   3 PREFERRED
+   2 NEUTRAL
+   0 DISFAVORED
+-- GRACE
+   benefit: 8.000
+   2 PREFERRED
+   1 NEUTRAL
+   0 DISFAVORED
+-- HEIDI
+   benefit: 9.000
+   1 PREFERRED
+   3 NEUTRAL
+   0 DISFAVORED
+-- IVAN
+   benefit: 12.000
+   4 PREFERRED
+   0 NEUTRAL
+   0 DISFAVORED
+-- JUDY
+   benefit: 6.000
+   2 PREFERRED
+   0 NEUTRAL
+   0 DISFAVORED
+#+end_example
+
+This tells us that on Monday Judy does not work, although she marked the SAWING
+shift as PREFERRED. Instead David got that shift. What would happen if David
+gave that shift to Judy? He would lose 3 points, she would gain 3 points, and
+the total would remain exactly the same at 108.
+
+How would we favor a more even distribution? We need some sort of tie-break. I
+want to add a nonlinearity to strongly disfavor people getting a low number of
+shifts. But PuLP is very explicitly a /linear/ programming solver, and cannot
+solve nonlinear problems. Here we can get around this by enumerating each
+specific case, and assigning it a nonlinear benefit function. The most obvious
+approach is to define another set of boolean variables:
+=vars_Nshifts[human][N]=. And then using them to add extra benefit terms, with
+values nonlinearly related to =Nshifts=. Something like this:
+
+#+begin_src python
+benefit_boost_Nshifts = \
+    {2: -0.8,
+     3: -0.5,
+     4: -0.3,
+     5: -0.2}
+for h in humans:
+    benefits[h] = \
+        ... + \
+        pulp.lpSum([vars_Nshifts[h][n] * benefit_boost_Nshifts[n] \
+                    for n in benefit_boost_Nshifts.keys()])
+#+end_src
+
+So in the previous example we considered giving David's 5th shift to Judy, for
+her 3rd shift. In that scenario, David's extra benefit would change from -0.2 to
+-0.3 (a shift of -0.1), while Judy's would change from -0.8 to -0.5 (a shift of
++0.3). So the balancing out the shifts in this way would work: the solver would
+favor the solution with the higher benefit function.
+
+Great. In order for this to work, we need the =vars_Nshifts[human][N]= variables
+to function as intended: they need to be binary indicators of whether a specific
+person has that many shifts or not. That would need to be implemented with
+constraints. Let's plot it like this:
+
+
+#+begin_src python
+#!/usr/bin/python3
+import numpy as np
+import gnuplotlib as gp
+
+Nshifts_eq  = 4
+Nshifts_max = 10
+
+Nshifts = np.arange(Nshifts_max+1)
+i0 = np.nonzero(Nshifts != Nshifts_eq)[0]
+i1 = np.nonzero(Nshifts == Nshifts_eq)[0]
+
+gp.plot( # True value: var_Nshifts4==0, Nshifts!=4
+         ( np.zeros(i0.shape),
+           Nshifts[i0],
+           dict(_with     = 'points pt 7 ps 1 lc "red"') ),
+         # True value: var_Nshifts4==1, Nshifts==4
+         ( np.ones(i1.shape),
+           Nshifts[i1],
+           dict(_with     = 'points pt 7 ps 1 lc "red"') ),
+         # False value: var_Nshifts4==1, Nshifts!=4
+         ( np.ones(i0.shape),
+           Nshifts[i0],
+           dict(_with     = 'points pt 7 ps 1 lc "black"') ),
+         # False value: var_Nshifts4==0, Nshifts==4
+         ( np.zeros(i1.shape),
+           Nshifts[i1],
+           dict(_with     = 'points pt 7 ps 1 lc "black"') ),
+        unset=('grid'),
+        _set = (f'xtics ("(Nshifts=={Nshifts_eq}) == 0" 0, "(Nshifts=={Nshifts_eq}) == 1" 1)'),
+        _xrange = (-0.1, 1.1),
+        ylabel = "Nshifts",
+        title = "Nshifts equality variable: not linearly separable",
+        hardcopy = "/tmp/scheduling-Nshifts-eq.svg")
+#+end_src
+
+#+ATTR_HTML: :width 80%
+[[file:files/scheduling/scheduling-Nshifts-eq.svg]]
+
+So a hypothetical =vars_Nshifts[h][4]= variable (plotted on the x axis of this
+plot) would need to be defined by a set of linear AND constraints to [[https://en.wikipedia.org/wiki/Linear_separability][linearly
+separate]] the true (red) values of this variable from the false (black) values.
+As can be seen in this plot, this isn't possible. So this representation does
+/not/ work.
+
+How do we fix it? We can use inequality variables instead. I define a different
+set of variables =vars_Nshifts_leq[human][N]= that are 1 iff =Nshifts= <= =N=.
+The equality variable from before can be expressed as a difference of these
+inequality variables: =vars_Nshifts[human][N] =
+vars_Nshifts_leq[human][N]-vars_Nshifts_leq[human][N-1]=
+
+Can these =vars_Nshifts_leq= variables be defined by a set of linear AND
+constraints? Yes:
+
+#+begin_src python
+#!/usr/bin/python3
+import numpy as np
+import numpysane as nps
+import gnuplotlib as gp
+
+Nshifts_leq = 4
+Nshifts_max = 10
+
+Nshifts = np.arange(Nshifts_max+1)
+i0 = np.nonzero(Nshifts >  Nshifts_leq)[0]
+i1 = np.nonzero(Nshifts <= Nshifts_leq)[0]
+
+def linear_slope_yintercept(xy0,xy1):
+    m = (xy1[1] - xy0[1])/(xy1[0] - xy0[0])
+    b = xy1[1] - m * xy1[0]
+    return np.array(( m, b ))
+x01     = np.arange(2)
+x01_one = nps.glue( nps.transpose(x01), np.ones((2,1)), axis=-1)
+y_lowerbound = nps.inner(x01_one,
+                         linear_slope_yintercept( np.array((0, Nshifts_leq+1)),
+                                                  np.array((1, 0)) ))
+y_upperbound = nps.inner(x01_one,
+                         linear_slope_yintercept( np.array((0, Nshifts_max)),
+                                                  np.array((1, Nshifts_leq)) ))
+y_lowerbound_check = (1-x01) * (Nshifts_leq+1)
+y_upperbound_check = Nshifts_max - x01*(Nshifts_max-Nshifts_leq)
+
+gp.plot( # True value: var_Nshifts_leq4==0, Nshifts>4
+         ( np.zeros(i0.shape),
+           Nshifts[i0],
+           dict(_with     = 'points pt 7 ps 1 lc "red"') ),
+         # True value: var_Nshifts_leq4==1, Nshifts<=4
+         ( np.ones(i1.shape),
+           Nshifts[i1],
+           dict(_with     = 'points pt 7 ps 1 lc "red"') ),
+         # False value: var_Nshifts_leq4==1, Nshifts>4
+         ( np.ones(i0.shape),
+           Nshifts[i0],
+           dict(_with     = 'points pt 7 ps 1 lc "black"') ),
+         # False value: var_Nshifts_leq4==0, Nshifts<=4
+         ( np.zeros(i1.shape),
+           Nshifts[i1],
+           dict(_with     = 'points pt 7 ps 1 lc "black"') ),
+
+         ( x01, y_lowerbound, y_upperbound,
+           dict( _with     = 'filledcurves lc "green"',
+                 tuplesize = 3) ),
+         ( x01, nps.cat(y_lowerbound_check, y_upperbound_check),
+           dict( _with     = 'lines lc "green" lw 2',
+                 tuplesize = 2) ),
+
+        unset=('grid'),
+        _set = (f'xtics ("(Nshifts<={Nshifts_leq}) == 0" 0, "(Nshifts<={Nshifts_leq}) == 1" 1)',
+                'style fill transparent pattern 1'),
+        _xrange = (-0.1, 1.1),
+        ylabel = "Nshifts",
+        title = "Nshifts inequality variable: linearly separable",
+        hardcopy = "/tmp/scheduling-Nshifts-leq.svg")
+#+end_src
+
+#+ATTR_HTML: :width 80%
+[[file:files/scheduling/scheduling-Nshifts-leq.svg]]
+
+So we can use two linear constraints to make each of these variables work
+properly. To use these in the benefit function we can use the equality
+constraint expression from above, or we can use these directly:
+
+#+begin_src python
+# I want to favor people getting more extra shifts at the start to balance
+# things out: somebody getting one more shift on their pile shouldn't take
+# shifts away from under-utilized people
+benefit_boost_leq_bound = \
+    {2: .2,
+     3: .3,
+     4: .4,
+     5: .5}
+
+# Constrain vars_Nshifts_leq variables to do the right thing
+for h in humans:
+    for b in benefit_boost_leq_bound.keys():
+        prob += (pulp.lpSum([vars[h][s] for s in shifts.keys()])
+                 >= (1 - vars_Nshifts_leq[h][b])*(b+1),
+                 f"{h} at least {b} shifts: lower bound")
+        prob += (pulp.lpSum([vars[h][s] for s in shifts.keys()])
+                 <= Nshifts_max - vars_Nshifts_leq[h][b]*(Nshifts_max-b),
+                 f"{h} at least {b} shifts: upper bound")
+
+benefits = dict()
+for h in humans:
+    benefits[h] = \
+        ... + \
+        pulp.lpSum([vars_Nshifts_leq[h][b] * benefit_boost_leq_bound[b] \
+                    for b in benefit_boost_leq_bound.keys()])
+#+end_src
+
+In /this/ scenario, David would get a boost of 0.4 from giving up his 5th shift,
+while Judy would lose a boost of 0.2 from getting her 3rd, for a net gain of 0.2
+benefit points. The exact numbers will need to be adjusted on a case by case
+basis, but this works.
+
+The full program, with this and other extra features is available [[file:files/scheduling/schedule.py][here]].
+
 ** Make								   :noexport:
 
 GNU Make only
@@ -15579,7 +16748,6 @@ reptyr
 ** more                                                            :noexport:
 - wheel measurement
 - hub measurement
-- scheduling
 - gallery
 
 * making dvipng work for equations                                 :noexport:
