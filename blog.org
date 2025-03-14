@@ -16644,6 +16644,287 @@ basis, but this works.
 
 The full program, with this and other extra features is available [[file:files/scheduling/schedule.py][here]].
 
+** DONE Getting precise timings out of RS-232 output                  :tools:
+CLOSED: [2025-03-14 Fri 12:47]
+
+For uninteresting reasons I need very regular 58Hz pulses coming out of an
+RS-232 Tx line: the time between each pulse should be as close to 1/58s as
+possible. I produce each pulse by writing an =\xFF= byte to the device. The
+start bit is the only active-voltage bit being sent, and that produces my pulse.
+I wrote this obvious C program:
+
+#+begin_src c
+#include <stdio.h>
+#include <stdlib.h>
+#include <stdbool.h>
+#include <sys/ioctl.h>
+#include <unistd.h>
+#include <fcntl.h>
+#include <termios.h>
+#include <stdint.h>
+#include <sys/time.h>
+
+static uint64_t gettimeofday_uint64()
+{
+    struct timeval tv;
+    gettimeofday(&tv, NULL);
+    return (uint64_t) tv.tv_sec * 1000000ULL + (uint64_t) tv.tv_usec;
+}
+
+int main(int argc, char* argv[])
+{
+    // open the serial device, and make it as raw as possible
+    const char* device = "/dev/ttyS0";
+    const speed_t baud = B9600;
+
+    int fd = open(device, O_WRONLY|O_NOCTTY);
+    tcflush(fd, TCIOFLUSH);
+
+    struct termios options = {.c_iflag = IGNBRK,
+                              .c_cflag = CS8 | CREAD | CLOCAL};
+    cfsetspeed(&options, baud);
+    tcsetattr(fd, TCSANOW, &options);
+
+    const uint64_t T_us = (uint64_t)(1e6 / 58.);
+
+    const uint64_t t0 = gettimeofday_uint64();
+    for(int i=0; ; i++)
+    {
+        const uint64_t t_target = t0 + T_us*i;
+        const uint64_t t1       = gettimeofday_uint64();
+
+        if(t_target > t1)
+            usleep(t_target - t1);
+
+        write(fd, &((char){'\xff'}), 1);
+    }
+    return 0;
+}
+#+end_src
+
+This tries to make sure that each =write()= call happens at 58Hz. I need these
+pulses to be regular, so I need to also make sure that the time between each
+userspace =write()= and when the edge actually hits the line is as short as
+possible or, at least, stable.
+
+Potential reasons for timing errors:
+
+1. The =usleep()= doesn't wake up exactly when it should. This is subject to the
+   Linux scheduler waking up the =trigger= process
+2. The =write()= almost certainly ends up scheduling a helper task to actually
+   write the =\xFF= to the hardware. This helper task is also subject to the
+   Linux scheduler waking it up.
+3. Whatever the hardware does. RS-232 doesn't give you any guarantees about
+   byte-byte timings, so this could be an unfixable source of errors
+
+The scheduler-related questions are observable without any extra hardware, so
+let's do that first.
+
+I run the =./trigger= program, and look at diagnostics while that's running.
+
+I look at some device details:
+
+#+begin_example
+# ls -lh /dev/ttyS0
+crw-rw---- 1 root dialout 4, 64 Mar  6 18:11 /dev/ttyS0
+
+# ls -lh /sys/dev/char/4:64/
+total 0
+-r--r--r-- 1 root root 4.0K Mar  6 16:51 close_delay
+-r--r--r-- 1 root root 4.0K Mar  6 16:51 closing_wait
+-rw-r--r-- 1 root root 4.0K Mar  6 16:51 console
+-r--r--r-- 1 root root 4.0K Mar  6 16:51 custom_divisor
+-r--r--r-- 1 root root 4.0K Mar  6 16:51 dev
+lrwxrwxrwx 1 root root    0 Mar  6 16:51 device -> ../../../0000:00:16.3:0.0
+-r--r--r-- 1 root root 4.0K Mar  6 16:51 flags
+-r--r--r-- 1 root root 4.0K Mar  6 16:51 iomem_base
+-r--r--r-- 1 root root 4.0K Mar  6 16:51 iomem_reg_shift
+-r--r--r-- 1 root root 4.0K Mar  6 16:51 io_type
+-r--r--r-- 1 root root 4.0K Mar  6 16:51 irq
+-r--r--r-- 1 root root 4.0K Mar  6 16:51 line
+-r--r--r-- 1 root root 4.0K Mar  6 16:51 port
+drwxr-xr-x 2 root root    0 Mar  6 16:51 power
+-rw-r--r-- 1 root root 4.0K Mar  6 16:51 rx_trig_bytes
+lrwxrwxrwx 1 root root    0 Mar  6 16:51 subsystem -> ../../../../../../../class/tty
+-r--r--r-- 1 root root 4.0K Mar  6 16:51 type
+-r--r--r-- 1 root root 4.0K Mar  6 16:51 uartclk
+-rw-r--r-- 1 root root 4.0K Mar  6 16:51 uevent
+-r--r--r-- 1 root root 4.0K Mar  6 16:51 xmit_fifo_size
+#+end_example
+
+Unsurprisingly, this is a part of the =tty= subsystem. I don't want to spend the
+time to really figure out how this works, so let me look at /all/ the =tty=
+kernel calls and also at all the kernel tasks scheduled by the =trigger=
+process, since I suspect that the actual hardware poke is happening in a helper
+task. I see this:
+
+#+begin_example
+# bpftrace -e 'k:*tty* /comm=="trigger"/
+               { printf("%d %d %s\n",pid,tid,probe); }
+               t:sched:sched_wakeup /comm=="trigger"/
+               { printf("switching to %s(%d); current backtrace:", args.comm, args.pid); print(kstack());  }'
+
+...
+
+3397345 3397345 kprobe:tty_ioctl
+3397345 3397345 kprobe:tty_check_change
+3397345 3397345 kprobe:__tty_check_change
+3397345 3397345 kprobe:tty_wait_until_sent
+3397345 3397345 kprobe:tty_write
+3397345 3397345 kprobe:file_tty_write.isra.0
+3397345 3397345 kprobe:tty_ldisc_ref_wait
+3397345 3397345 kprobe:n_tty_write
+3397345 3397345 kprobe:tty_hung_up_p
+switching to kworker/0:1(3400169); current backtrace:
+        ttwu_do_activate+268
+        ttwu_do_activate+268
+        try_to_wake_up+605
+        kick_pool+92
+        __queue_work.part.0+582
+        queue_work_on+101
+        rpm_resume+1398
+        __pm_runtime_resume+75
+        __uart_start+85
+        uart_write+150
+        n_tty_write+1012
+        file_tty_write.isra.0+373
+        vfs_write+656
+        ksys_write+109
+        do_syscall_64+130
+        entry_SYSCALL_64_after_hwframe+118
+
+3397345 3397345 kprobe:tty_update_time
+3397345 3397345 kprobe:tty_ldisc_deref
+
+... repeated with each pulse ...
+#+end_example
+
+Looking at the sources I see that =uart_write()= calls =__uart_start()=, which
+schedules a task to call =serial_port_runtime_resume()= which eventually calls
+=serial8250_tx_chars()=, which calls some low-level functions to actually send
+the bits.
+
+I look at the time between two of those calls to quantify the scheduler latency:
+
+#+begin_src sh
+pulserate=58
+
+sudo zsh -c \
+  '( echo "# dt_write_ns dt_task_latency_ns";
+     bpftrace -q -e "k:vfs_write /comm==\"trigger\" && arg2==1/
+                     {\$t=nsecs(); if(@t0) { @dt_write = \$t-@t0; } @t0=\$t;}
+                     k:serial8250_tx_chars /@dt_write/
+                     {\$t=nsecs(); printf(\"%d %d\\n\", @dt_write, \$t-@t0);}"
+   )' \
+| vnl-filter                  \
+    --stream -p dt_write_ms="dt_write_ns/1e6 - 1e3/$pulserate",dt_task_latency_ms=dt_task_latency_ns/1e6 \
+| feedgnuplot  \
+    --stream   \
+    --lines    \
+    --points   \
+    --xlen 200 \
+    --vnl      \
+    --autolegend \
+    --xlabel 'Pulse index' \
+    --ylabel 'Latency (ms)'
+#+end_src
+
+Here I'm making a realtime plot showing
+
+- The offset from 58Hz of when each =write()= call happens. This shows effect #1
+  from above: how promptly the =trigger= process wakes up
+- The latency of the helper task. This shows effect #2 above.
+
+The raw data as I tweak things lives [[file:files/rs232-timings/timings.scheduler.vnl][here]]. Initially I see big latency spikes:
+
+#+ATTR_HTML: :width 80%
+[[file:files/rs232-timings/timings.scheduler.1.noise.svg]]
+
+These can be fixed by adjusting the priority of the =trigger= task. This tells
+the scheduler to wake that task up /first/, even if something else is currently
+using the CPU. I do this:
+
+#+begin_src sh
+sudo chrt -p 90 `pidof trigger`
+#+end_src
+
+And I get better-looking latencies:
+
+#+ATTR_HTML: :width 80%
+[[file:files/rs232-timings/timings.scheduler.2.clean.svg]]
+
+During some experiments (not in this dataset) I would see high helper-task
+timing instabilities as well. These could be fixed by prioritizing the helper
+task. In this kernel (=6.12=) the helper task is called =kworker/N= where =N= is
+the CPU index. I tie the =trigger= process to cpu 0, and priorities all the
+relevant helpers:
+
+#+begin_src sh
+taskset -c 0 ./trigger 58
+
+pgrep -f kworker/0 | while { read pid } { sudo chrt -p 90 $pid }
+#+end_src
+
+This fixes the helper-task latency spikes.
+
+OK, so it looks like on the software side we're good to within 0.1ms of the true
+period. This is in the ballpark of the precision I need; even this might be too
+high. It's possible to try to push the software to do better: one could look at
+the kernel sources a bit more, to do smarter things with priorities or to try an
+=-rt= kernel. But all this doesn't matter if the serial hardware adds
+unacceptable delays. Let's look.
+
+Let's look at it with a logic analyzer. I use a saleae logic analyzer with
+[[https://sigrok.org/][sigrok]]. The tool spits out the samples as it gets them, and an =awk= script
+finds the edges and reports the timings to give me a realtime plot.
+
+#+begin_src sh
+samplerate=500000;
+pulserate=58.;
+sigrok-cli -c samplerate=$samplerate -O csv --continuous -C D1 \
+| mawk -Winteractive  \
+    "prev_logic==0 && \$0==1 \
+     { 
+       iedge = NR;
+       if(prev_iedge)
+       {
+         di = iedge -prev_iedge;
+         dt = di/$samplerate;
+         print(dt*1000);
+       }
+       prev_iedge = iedge;
+     }
+     {
+       prev_logic=\$0;
+     } " | feedgnuplot --stream --ylabel 'Period (ms)' --equation "1000./$pulserate title \"True ${pulserate}Hz period\""
+#+end_src
+
+On the server I was using (physical RS-232 port, ancient 3.something kernel):
+
+#+ATTR_HTML: :width 80%
+[[file:files/rs232-timings/timings.hw.serial-server.svg]]
+
+OK... This is very discrete for some reason, and generally worse than 0.1ms.
+What about my laptop (physical RS-232 port, recent 6.12 kernel)?
+
+#+ATTR_HTML: :width 80%
+[[file:files/rs232-timings/timings.hw.serial-laptop.svg]]
+
+Not discrete anymore, but not really any more precise. What about using a
+usb-serial converter? I expect this to be worse.
+
+#+ATTR_HTML: :width 80%
+[[file:files/rs232-timings/timings.hw.usbserial.svg]]
+
+Yeah, looks worse. For my purposes, an accuracy of 0.1ms is marginal, and the
+hardware adds non-negligible errors. So I cut my losses, and use an external
+signal generator:
+
+#+ATTR_HTML: :width 80%
+[[file:files/rs232-timings/timings.hw.generator.svg]]
+
+Yeah. That's better, so that's what I use.
+
 ** Make								   :noexport:
 
 GNU Make only
