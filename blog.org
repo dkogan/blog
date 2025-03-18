@@ -16925,6 +16925,120 @@ signal generator:
 
 Yeah. That's better, so that's what I use.
 
+** DONE Eigen macro specializations crashes			      :tools:
+   CLOSED: [2025-03-17 Mon 20:52]
+
+There's an issue in the [[https://eigen.tuxfamily.org/index.php?title=Main_Page][Eigen linear algebra library]] where linking together
+objects compiled with different flags causes the resulting binary to crash. Some
+details are written-up in [[https://www.mail-archive.com/debian-science@lists.debian.org/msg13672.html][this mailing list thread]].
+
+I just encountered a situation where a large application sometimes crashes for
+unknown reasons, and needed a method to determine whether this Eigen issue could
+be the cause. I ended up doing this by using the DWARF data to see if the linked
+binary contains the different incompatible flavors of =malloc= / =free= or not.
+
+I downloaded the [[https://www.mail-archive.com/debian-science@lists.debian.org/msg13710.html][small demo program showing the problem]]. I built it:
+
+#+begin_src sh
+CCXXXFLAGS=-g make
+#+end_src
+
+Here if you run =./main=, the bug is triggered, and a crash occurs. I looked at
+the debug info for the code in question:
+
+#+begin_src sh
+for o (main lib.so) {
+  echo "======== $o";
+  readelf --debug-dump=decodedline $o \
+  | awk \
+    '$1 ~ /^Memory.h/
+     {
+       if(180 <= $2 && $2 <= 186) {
+         have["malloc_glibc"]=1
+       }
+       if(188 == $2) {
+         have["malloc_handmade"]=1
+       }
+       if(201 <= $2 && $2 <= 204) {
+         have["free_glibc"]=1
+       }
+       if(206 == $2) {
+         have["free_handmade"]=1
+       }
+     }
+     END
+     {
+       for (var in have) {
+         print(var);
+       }
+     }'
+}
+#+end_src
+
+It says:
+
+#+begin_example
+======== main
+free_handmade
+======== lib.so
+malloc_glibc
+free_glibc
+#+end_example
+
+Here I looked at =main= and =lib.so= (the build products from this little demo).
+In a real case you'd look at every shared library linked into the binary and the
+binary itself. On my machine =/usr/include/eigen3/Eigen/src/Core/util/Memory.h=
+looks like this, starting on line 174:
+
+#+begin_example
+174 EIGEN_DEVICE_FUNC inline void* aligned_malloc(std::size_t size)
+175 {
+176   check_that_malloc_is_allowed();
+177 
+178   void *result;
+179   #if (EIGEN_DEFAULT_ALIGN_BYTES==0) || EIGEN_MALLOC_ALREADY_ALIGNED
+180 
+181     EIGEN_USING_STD(malloc)
+182     result = malloc(size);
+183 
+184     #if EIGEN_DEFAULT_ALIGN_BYTES==16
+185     eigen_assert((size<16 || (std::size_t(result)%16)==0) && "System's malloc returned an unaligned pointer. Compile with EIGEN_MALLOC_ALREADY_ALIGNED=0 to fallback to handmade aligned memory allocator.");
+186     #endif
+187   #else
+188     result = handmade_aligned_malloc(size);
+189   #endif
+190 
+191   if(!result && size)
+192     throw_std_bad_alloc();
+193 
+194   return result;
+195 }
+196 
+197 /** \internal Frees memory allocated with aligned_malloc. */
+198 EIGEN_DEVICE_FUNC inline void aligned_free(void *ptr)
+199 {
+200   #if (EIGEN_DEFAULT_ALIGN_BYTES==0) || EIGEN_MALLOC_ALREADY_ALIGNED
+201 
+202     EIGEN_USING_STD(free)
+203     free(ptr);
+204 
+205   #else
+206     handmade_aligned_free(ptr);
+207   #endif
+208 }
+#+end_example
+
+The above =awk= script looks at the two malloc paths and the two free paths, and
+we can clearly see that it only ever calls =malloc_glibc()=, but has both
+flavors of =free()=. So this can crash. We want to see that the whole executable
+(shared libraries and all) should only have one type of =malloc()= and =free()=,
+and that would guarantee no crashing.
+
+There are a more functions in that header that should be instrumented
+(=realloc()= for instance) and the different alignment paths should be
+instrumented similarly (as described in the mailing list thread above), but here
+we see that this technique works.
+
 ** Make								   :noexport:
 
 GNU Make only
