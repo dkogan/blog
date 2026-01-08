@@ -3872,7 +3872,7 @@ stopping here.
 
 #+begin_o_blog_alert info Updates
 I visited the furthest Pole and placed a register there:
-[[http://sangabrielmnts.myfreeforum.org/about7040.html]]. Do visit and sign in!
+[[https://eispiraten.com/viewtopic.php?t=7040]]. Do visit and sign in!
 
 Also I ran a [[file:{lisp}(ob:link-to-post (ob:get-post-by-title "Pole of road inaccessibility of the contiguous US")){/lisp}][similar analysis for the contiguous US]]
 #+end_o_blog_alert
@@ -12026,7 +12026,7 @@ Check this out!
 So let's say you're walking around in the mountains, and BAM! You run into a
 crashed airplane (pretend this happens all the time). You wonder "what is this?"
 "When did it go down?" "How?" Usually it doesn't happen this way for me (rather
-[[https://www.tapatalk.com/groups/sangabrielmnts/before-removing-hubcap-move-center-screws-t7931.html][like this]]), but in any case this is all useful.
+[[https://eispiraten.com/viewtopic.php?t=7931][like this]]), but in any case this is all useful.
 
 It turns out that most (all?) such incidents are investigated by the NTSB. And
 they then write a report. And then somebody puts all the reports into a database
