@@ -17161,22 +17161,33 @@ initialization [[https://github.com/dkogan/mrcal/commit/e949893348dbe915e66b817f
 another spot]]. Fortunately, semi-recent tooling supports my usages, so this is
 becoming a non-issue as time goes on.
 
-** Photogrammetry packages in Debian				   :noexport:
+** DONE Meshroom packaged for Debian                           :tools:debian:
+CLOSED: [2026-01-08 Thu 15:34]
 
-alicevision
-geogram
-amgcl
-libelas
-meshsdfilter
-opengv
-openmesh
-vlfeat
-apriltag
+Like the title says, I just packaged [[https://alicevision.org/#meshroom][Meshroom]] (and all the adjacent
+dependencies) for Debian! This is a fancy photogrammetry toolkit that uses
+modern software development methods. "Modern" meaning that it has a multitude of
+dependencies that come from lots of disparate places, which make it impossible
+for a mere mortal to build the thing. The Linux "installer" is 13GB and probably
+is some sort of container, or something.
 
-falcosecurity-libs
-sysdig
-valijson
-reptyr
+But now, if you have a Debian/sid box with the non-free repos enabled, you can
+
+#+begin_src sh
+sudo apt install meshroom
+#+end_src
+
+And then you can generate and 3D-print a life-size, geometrically-accurate
+statue of your cat. The =colmap= package does a similar thing, and has been in
+Debian for a while. I /think/ it can't do as many things, but it's good to have
+both tools easily available.
+
+These packages are all in contrib, because they depend on a number of non-free
+things, most notably CUDA.
+
+This is currently in Debian/sid, but should be picked up by the downstream
+distros as they're released. The next noteworthy one is Ubuntu 26.04. Testing
+and feedback welcome.
 
 ** base-os-builder
 ** mrcal patches
