@@ -17189,6 +17189,63 @@ This is currently in Debian/sid, but should be picked up by the downstream
 distros as they're released. The next noteworthy one is Ubuntu 26.04. Testing
 and feedback welcome.
 
+** DONE mrcal 2.5 released!                                           :mrcal:
+CLOSED: [2026-01-18 Sun 16:00]
+
+[[https://mrcal.secretsauce.net/][mrcal]] 2.5 is out: [[https://mrcal.secretsauce.net/news-2.5.html][the release notes]]. Once /again/, this is mostly a bug-fix
+release en route to the big new features coming in 3.0.
+
+One cool thing is that these tools have now matured enough to no longer be
+considered experimental. They have been used with great success in /lots/ of
+contexts across many different projects and organizations. Some highlights:
+
+- I've calibrated extremely wide lenses
+- and extremely narrow lenses
+- and joint systems containing many different kinds of lenses
+- with lots of cameras at the same time. The biggest single joint calibration
+  I've done today had 10 cameras, but I'll almost certainly encounter bigger
+  systems in the future
+- mrcal has been used to process both visible and thermal cameras
+- The new triangulated-feature capability has been used in a
+  structure-from-motion context to compute the world geometry on-line.
+- mrcal has been used with weird experimental setups employing custom
+  calibration objects and single-view solves
+- mrcal has calibrated [[https://github.com/dkogan/camera-lidar-calibration/][joint camera-LIDAR systems]]
+- and [[https://www.github.com/dkogan/mrcal/blob/master/analyses/calibrate-camera-imu.py][joint camera-IMU systems]]
+- Lots of students use mrcal as part of [[https://photonvision.org/][PhotonVision]], the toolkit used by teams
+  in the [[https://www.firstinspires.org/robotics/frc][FIRST Robotics Competition]]
+
+Some of the above is new, and not yet fully polished and documented and tested,
+but it works.
+
+In mrcal 2.5, /most/ of the implementation of some new big features is written
+and committed, but it's still incomplete. The new stuff is there, but is lightly
+tested and documented. This will be completed eventually in mrcal 3.0:
+
+- [[file:uncertainty-cross-reprojection.org][Cross-reprojection uncertainty]], to be able to perform full calibrations with a
+  splined model and /without/ a chessboard. [[file:mrcal-show-projection-uncertainty.html][=mrcal-show-projection-uncertainty
+  --method cross-reprojection-rrp-Jfp=]] is available today, and works in the
+  usual moving-chessboard-stationary camera case. Fully boardless coming later.
+- More general view of uncertainty and diffs. I want to support extrinsics-only
+  and/or intrinsics computations-only in lots of scenarios. Uncertainty in point
+  solves is already available in some conditions, for instance if the points are
+  fixed. New [[file:mrcal-show-stereo-pair-diff.html][=mrcal-show-stereo-pair-diff= tool]] reports an extrinsics+intrinsics
+  diff between two calibrations of a stereo pair; experimental
+  [[https://www.github.com/dkogan/mrcal/blob/master/analyses/extrinsics-stability.py][=analyses/extrinsics-stability.py=]] tool reports an extrinsics-only diff. These
+  are in contrast to the intrinsics-only uncertainty and diffs in the existing
+  [[file:mrcal-show-projection-diff.html][=mrcal-show-projection-diff=]] and [[file:mrcal-show-projection-uncertainty.html][=mrcal-show-projection-uncertainty=]] tools.
+  Some documentation in the [[file:uncertainty.org][uncertainty]] and [[file:differencing.org][differencing]] pages.
+- Implicit point solves, using the triangulation routines in the optimization
+  cost function. Should produce much more efficient structure-from-motion
+  solves. This is all the "triangulated-features" stuff. The cost function is
+  primarily built around =_mrcal_triangulated_error()=. This is demoed in
+  [[https://www.github.com/dkogan/mrcal/blob/master/test/test-sfm-triangulated-points.py][=test/test-sfm-triangulated-points.py=]]. And I've been using
+  =_mrcal_triangulated_error()= in structure-from-motion implementations within
+  other optimization routines.
+
+mrcal is quite good already, and will be even better in the future. Try it
+today!
+
 ** base-os-builder
 ** mrcal patches
 ** mrcal sfm
