@@ -17222,19 +17222,19 @@ In mrcal 2.5, /most/ of the implementation of some new big features is written
 and committed, but it's still incomplete. The new stuff is there, but is lightly
 tested and documented. This will be completed eventually in mrcal 3.0:
 
-- [[file:uncertainty-cross-reprojection.org][Cross-reprojection uncertainty]], to be able to perform full calibrations with a
-  splined model and /without/ a chessboard. [[file:mrcal-show-projection-uncertainty.html][=mrcal-show-projection-uncertainty
+- [[https://mrcal.secretsauce.net/uncertainty-cross-reprojection.html][Cross-reprojection uncertainty]], to be able to perform full calibrations with a
+  splined model and /without/ a chessboard. [[https://mrcal.secretsauce.net/mrcal-show-projection-uncertainty.html][=mrcal-show-projection-uncertainty
   --method cross-reprojection-rrp-Jfp=]] is available today, and works in the
   usual moving-chessboard-stationary camera case. Fully boardless coming later.
 - More general view of uncertainty and diffs. I want to support extrinsics-only
   and/or intrinsics computations-only in lots of scenarios. Uncertainty in point
   solves is already available in some conditions, for instance if the points are
-  fixed. New [[file:mrcal-show-stereo-pair-diff.html][=mrcal-show-stereo-pair-diff= tool]] reports an extrinsics+intrinsics
+  fixed. New [[https://mrcal.secretsauce.net/mrcal-show-stereo-pair-diff.html][=mrcal-show-stereo-pair-diff= tool]] reports an extrinsics+intrinsics
   diff between two calibrations of a stereo pair; experimental
   [[https://www.github.com/dkogan/mrcal/blob/master/analyses/extrinsics-stability.py][=analyses/extrinsics-stability.py=]] tool reports an extrinsics-only diff. These
   are in contrast to the intrinsics-only uncertainty and diffs in the existing
-  [[file:mrcal-show-projection-diff.html][=mrcal-show-projection-diff=]] and [[file:mrcal-show-projection-uncertainty.html][=mrcal-show-projection-uncertainty=]] tools.
-  Some documentation in the [[file:uncertainty.org][uncertainty]] and [[file:differencing.org][differencing]] pages.
+  [[https://mrcal.secretsauce.net/mrcal-show-projection-diff.html][=mrcal-show-projection-diff=]] and [[https://mrcal.secretsauce.net/mrcal-show-projection-uncertainty.html][=mrcal-show-projection-uncertainty=]] tools.
+  Some documentation in the [[https://mrcal.secretsauce.net/uncertainty.html][uncertainty]] and [[https://mrcal.secretsauce.net/differencing.html][differencing]] pages.
 - Implicit point solves, using the triangulation routines in the optimization
   cost function. Should produce much more efficient structure-from-motion
   solves. This is all the "triangulated-features" stuff. The cost function is
