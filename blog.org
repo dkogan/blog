@@ -17323,9 +17323,90 @@ tested and documented. This will be completed eventually in mrcal 3.0:
 mrcal is quite good already, and will be even better in the future. Try it
 today!
 
-** base-os-builder
-** mrcal patches
-** mrcal sfm
+** DONE Simple gpx export from ridewithgps              :tools:data:GIS:bike:
+CLOSED: [2026-04-04 Sat 17:21]
+
+The [[https://tourdelospadres.weebly.com/][Tour de Los Padres]] is coming! The race organizer post [[https://ridewithgps.com/routes/54493422][the route on
+ridewithgps]]. This works, but has convoluted interfaces for people not wanting to
+use their service. I just wrote a simple script to export their data into a
+plain .gpx file, /including/ all the waypoints. Their exporter omits those.
+
+The =gpx-from-ridewithgps.py= script:
+
+#+begin_src python
+#!/usr/bin/python3
+import sys
+import json
+
+def quote_xml(s):
+    return s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+
+print("Reading stdin", file=sys.stderr)
+
+data = json.load(sys.stdin)
+
+print(r"""<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.1" creator="gpx-from-ridewithgps.py" xmlns="http://www.topografix.com/GPX/1/1">""")
+
+for item in data["extras"]:
+    if item["type"] != "point_of_interest":
+        continue
+    poi = item["point_of_interest"]
+    print(f'  <wpt lat="{poi["lat"]}" lon="{poi["lng"]}">')
+    print(f'    <name>{quote_xml(poi["name"])}</name>')
+
+    desc = poi.get("description","")
+    if len(desc):
+        print(f'    <desc>{quote_xml(desc)}</desc>')
+    print(f'  </wpt>')
+
+print("  <trk><trkseg>")
+for pt in data.get("route", {}).get("track_points", []):
+    print(f'    <trkpt lat="{pt["y"]}" lon="{pt["x"]}"><ele>{pt["e"]}</ele></trkpt>')
+print("  </trkseg></trk>")
+
+print("</gpx>")
+#+end_src
+
+You invoke it by downloading the route and feeding it into the script:
+
+#+begin_src sh
+curl -s https://ridewithgps.com/routes/54493422.json | ./ridewithgps-to-gpx.py > out.gpx
+#+end_src
+
+Note that the route number 54493422 is in the url above. I uploaded this to
+caltopo for analysis, and /easy/ downloading by others:
+
+https://caltopo.com/m/DB6HBQ1
+
+** strava scrape                                                   :noexport:
+
+#+begin_src sh
+curl 'https://www.strava.com/activities/14583201460/streams?stream_types%5B%5D=time&stream_types%5B%5D=watts_calc&stream_types%5B%5D=altitude&stream_types%5B%5D=heartrate&stream_types%5B%5D=cadence&stream_types%5B%5D=temp&stream_types%5B%5D=distance&stream_types%5B%5D=grade_smooth&_=1748534432053' --compressed -H 'User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:133.0) Gecko/20100101 Firefox/133.0' -H 'Accept: text/javascript, application/javascript, application/ecmascript, application/x-ecmascript' -H 'Accept-Language: en-US,en;q=0.5' -H 'Accept-Encoding: gzip, deflate, br, zstd' -H 'Referer: https://www.strava.com/activities/14583201460' -H 'X-CSRF-Token: vKQTnIEQwn6hZ-4heHyCwannBtMiZb5JoxCCyVk1xp_m1qZCLmC0NmpNdTSEas9MiS0f8hxqLzNZtJ9Ikfn9Yg' -H 'X-Requested-With: XMLHttpRequest' -H 'DNT: 1' -H 'Connection: keep-alive' -H 'Cookie: sp=e0ab2d0f-418f-4916-a049-422c61317311; _sp_id.047d=07573e8c-5387-47d6-9646-b1e7e03e6c73.1682135359.1746.1748534428.1748501223.c6e90759-c966-4fed-995c-d1c1cd10b29e; _strava4_session=b7l5vmni83l7vbul5gjqjopg98fnn5ai; xp_session_identifier=5caeb615635fe085cf1748a6923f8471; explore_activity_type=Run; globalHeatmapAboutModal=true; _currentH=d3d3LnN0cmF2YS5jb20=; _strava_logged_in=true; CloudFront-Key-Pair-Id=K3VK9UFQYD04PI; CloudFront-Policy=eyJTdGF0ZW1lbnQiOiBbeyJSZXNvdXJjZSI6Imh0dHBzOi8vKmNvbnRlbnQtKi5zdHJhdmEuY29tL2lkZW50aWZpZWQvKiIsIkNvbmRpdGlvbiI6eyJEYXRlTGVzc1RoYW4iOnsiQVdTOkVwb2NoVGltZSI6MTc0Mzc0MjM0NX19fV19; CloudFront-Signature=b3F3G6cSovbGzrh2lh~WocTco~3Wc-barSm9HmvWCYC6eBALEWR7qdq1oEB78IitUBSk8YeGv5zoyqGwnordQEcqXQhqLXxCjVuImlgwqioZj-X8m~AIkjX1qdbbhOGNv2EfOdWzdrfDn8xGY1EQ5FmLkde9IegrEG3Bq0Ytfb2GOHwn-0AVnkotg7evaD~liy3tWnPPGQpaLE8RjjMmT8jw0LLNrQZ~wGTPrqIGytQoDuQ5DQVG5FBenD9zqjK3QxV~LtSuBXvWczBRKMIiKDK4yikEEUxcWhPVYHzyrnzuX5UZr10dZmN9a93dezXklq89T8gKHHEDjWKKuDCu2g__; _strava_idcf=eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJleHAiOjE3NDM3NDIzNDUsImlhdCI6MTc0MzY1NTk0NSwiYXRobGV0ZUlkIjo5NDYxMjYyMCwidGltZXN0YW1wIjoxNzQzNjU1OTQ1fQ.rGUdDRo9_jnFtmMeChlZGAjsyA8wjiQqdSXjjeAr4IY; _strava_CloudFront-Expires=1743742345000; _sp_ses.047d=*' -H 'Sec-Fetch-Dest: empty' -H 'Sec-Fetch-Mode: cors' -H 'Sec-Fetch-Site: same-origin' -H 'Pragma: no-cache' -H 'Cache-Control: no-cache' -H 'TE: trailers' > 1.json
+
+curl 'https://www.strava.com/activities/14583201460/streams?stream_types%5B%5D=latlng&_=1748534432052'                                                                                                                                                                                                     --compressed -H 'User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:133.0) Gecko/20100101 Firefox/133.0' -H 'Accept: text/javascript, application/javascript, application/ecmascript, application/x-ecmascript' -H 'Accept-Language: en-US,en;q=0.5' -H 'Accept-Encoding: gzip, deflate, br, zstd' -H 'Referer: https://www.strava.com/activities/14583201460' -H 'X-CSRF-Token: vKQTnIEQwn6hZ-4heHyCwannBtMiZb5JoxCCyVk1xp_m1qZCLmC0NmpNdTSEas9MiS0f8hxqLzNZtJ9Ikfn9Yg' -H 'X-Requested-With: XMLHttpRequest' -H 'DNT: 1' -H 'Connection: keep-alive' -H 'Cookie: sp=e0ab2d0f-418f-4916-a049-422c61317311; _sp_id.047d=07573e8c-5387-47d6-9646-b1e7e03e6c73.1682135359.1746.1748534428.1748501223.c6e90759-c966-4fed-995c-d1c1cd10b29e; _strava4_session=b7l5vmni83l7vbul5gjqjopg98fnn5ai; xp_session_identifier=5caeb615635fe085cf1748a6923f8471; explore_activity_type=Run; globalHeatmapAboutModal=true; _currentH=d3d3LnN0cmF2YS5jb20=; _strava_logged_in=true; CloudFront-Key-Pair-Id=K3VK9UFQYD04PI; CloudFront-Policy=eyJTdGF0ZW1lbnQiOiBbeyJSZXNvdXJjZSI6Imh0dHBzOi8vKmNvbnRlbnQtKi5zdHJhdmEuY29tL2lkZW50aWZpZWQvKiIsIkNvbmRpdGlvbiI6eyJEYXRlTGVzc1RoYW4iOnsiQVdTOkVwb2NoVGltZSI6MTc0Mzc0MjM0NX19fV19; CloudFront-Signature=b3F3G6cSovbGzrh2lh~WocTco~3Wc-barSm9HmvWCYC6eBALEWR7qdq1oEB78IitUBSk8YeGv5zoyqGwnordQEcqXQhqLXxCjVuImlgwqioZj-X8m~AIkjX1qdbbhOGNv2EfOdWzdrfDn8xGY1EQ5FmLkde9IegrEG3Bq0Ytfb2GOHwn-0AVnkotg7evaD~liy3tWnPPGQpaLE8RjjMmT8jw0LLNrQZ~wGTPrqIGytQoDuQ5DQVG5FBenD9zqjK3QxV~LtSuBXvWczBRKMIiKDK4yikEEUxcWhPVYHzyrnzuX5UZr10dZmN9a93dezXklq89T8gKHHEDjWKKuDCu2g__; _strava_idcf=eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJleHAiOjE3NDM3NDIzNDUsImlhdCI6MTc0MzY1NTk0NSwiYXRobGV0ZUlkIjo5NDYxMjYyMCwidGltZXN0YW1wIjoxNzQzNjU1OTQ1fQ.rGUdDRo9_jnFtmMeChlZGAjsyA8wjiQqdSXjjeAr4IY; _strava_CloudFront-Expires=1743742345000; _sp_ses.047d=*' -H 'Sec-Fetch-Dest: empty' -H 'Sec-Fetch-Mode: cors' -H 'Sec-Fetch-Site: same-origin' -H 'Pragma: no-cache' -H 'Cache-Control: no-cache' > 2.json
+
+(echo '# time distance altitude lat lon'; paste <(< 1.json jq -r '[.time, .distance, .altitude] | transpose[] | @tsv') <(< 2.json jq -r '.latlng[] | @tsv')) > tdlp.vnl
+#+end_src
+
+Or use one request to ask for what I actually want:
+
+#+begin_src sh
+
+ACTIVITY=$1
+https://www.strava.com/activities/14643193728
+
+curl 'https://www.strava.com/activities/14583201460/streams?stream_types%5B%5D=time&stream_types%5B%5D=latlng&stream_types%5B%5D=altitude&stream_types%5B%5D=distance&_=1748534432052' --compressed -H 'User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:133.0) Gecko/20100101 Firefox/133.0' -H 'Accept: text/javascript, application/javascript, application/ecmascript, application/x-ecmascript' -H 'Accept-Language: en-US,en;q=0.5' -H 'Accept-Encoding: gzip, deflate, br, zstd' -H 'Referer: https://www.strava.com/activities/14583201460' -H 'X-CSRF-Token: vKQTnIEQwn6hZ-4heHyCwannBtMiZb5JoxCCyVk1xp_m1qZCLmC0NmpNdTSEas9MiS0f8hxqLzNZtJ9Ikfn9Yg' -H 'X-Requested-With: XMLHttpRequest' -H 'DNT: 1' -H 'Connection: keep-alive' -H 'Cookie: sp=e0ab2d0f-418f-4916-a049-422c61317311; _sp_id.047d=07573e8c-5387-47d6-9646-b1e7e03e6c73.1682135359.1746.1748534428.1748501223.c6e90759-c966-4fed-995c-d1c1cd10b29e; _strava4_session=b7l5vmni83l7vbul5gjqjopg98fnn5ai; xp_session_identifier=5caeb615635fe085cf1748a6923f8471; explore_activity_type=Run; globalHeatmapAboutModal=true; _currentH=d3d3LnN0cmF2YS5jb20=; _strava_logged_in=true; CloudFront-Key-Pair-Id=K3VK9UFQYD04PI; CloudFront-Policy=eyJTdGF0ZW1lbnQiOiBbeyJSZXNvdXJjZSI6Imh0dHBzOi8vKmNvbnRlbnQtKi5zdHJhdmEuY29tL2lkZW50aWZpZWQvKiIsIkNvbmRpdGlvbiI6eyJEYXRlTGVzc1RoYW4iOnsiQVdTOkVwb2NoVGltZSI6MTc0Mzc0MjM0NX19fV19; CloudFront-Signature=b3F3G6cSovbGzrh2lh~WocTco~3Wc-barSm9HmvWCYC6eBALEWR7qdq1oEB78IitUBSk8YeGv5zoyqGwnordQEcqXQhqLXxCjVuImlgwqioZj-X8m~AIkjX1qdbbhOGNv2EfOdWzdrfDn8xGY1EQ5FmLkde9IegrEG3Bq0Ytfb2GOHwn-0AVnkotg7evaD~liy3tWnPPGQpaLE8RjjMmT8jw0LLNrQZ~wGTPrqIGytQoDuQ5DQVG5FBenD9zqjK3QxV~LtSuBXvWczBRKMIiKDK4yikEEUxcWhPVYHzyrnzuX5UZr10dZmN9a93dezXklq89T8gKHHEDjWKKuDCu2g__; _strava_idcf=eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJleHAiOjE3NDM3NDIzNDUsImlhdCI6MTc0MzY1NTk0NSwiYXRobGV0ZUlkIjo5NDYxMjYyMCwidGltZXN0YW1wIjoxNzQzNjU1OTQ1fQ.rGUdDRo9_jnFtmMeChlZGAjsyA8wjiQqdSXjjeAr4IY; _strava_CloudFront-Expires=1743742345000; _sp_ses.047d=*' -H 'Sec-Fetch-Dest: empty' -H 'Sec-Fetch-Mode: cors' -H 'Sec-Fetch-Site: same-origin' -H 'Pragma: no-cache' -H 'Cache-Control: no-cache' > 3.json
+
+(echo '# time lat lon distance altitude'; < 3.json jq -r '[.time, (.latlng | map(.[0])), (.latlng | map(.[1])), .distance, .altitude] | transpose[] | @tsv') > tdlp.vnl
+
+< tdlp.vnl gpx-from-lat-lon-time.sh $(date -d 2025-05-24 +%s) > tdlp.gpx
+
+
+#+end_src
+
+** base-os-builder                                                 :noexport:
+** mrcal sfm                                                       :noexport:
 ** Make								   :noexport:
 
 GNU Make only
