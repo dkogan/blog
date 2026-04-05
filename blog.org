@@ -17047,6 +17047,83 @@ to talk about some implementation details.
 
 *** libpython3 and linking
 
+#+begin_o_blog_alert info Follow-up patches
+The technique described here ended up still incomplete! These extra patches were
+needed:
+
+#+begin_example
+
+commit c2475520ff0e4905e5d4b2f251ccbd0d54b7e02c
+Author: Dima Kogan <dima@secretsauce.net>
+Date:   Mon Jan 19 12:44:15 2026 -0800
+
+    I weaken the python symbols using __asm__
+    
+    The previous scheme didn't work everywhere. Before this I had
+    
+      #include <Python.h>
+      extern __typeof__(Py_xxx) Py_xxx __attribute__((weak));
+      ...
+    
+    This worked for most functions and for all functions with gcc on Linux. With
+    clang or any compiler on macos this did not work for inline functions. For
+    instance, this test program would NOT get a weakened f2():
+    
+      int f(int);
+      int f2(int);
+      static inline int f3(int x)
+      {
+          return f2(x);
+      }
+      extern int f  (int) __attribute__((weak));
+      extern int f2 (int) __attribute__((weak));
+      int g(int x)
+      {
+          return f(x) + f3(x) + 5;
+      }
+    
+    I would need to extern int f2 (int) __attribute__((weak)); prior to #including
+    <Python.h>, but that wasn't possible because I didn't have the type of f2 then.
+    The solution is to use __asm__ to tell the linker directly about the weak
+    symbol. This does not need the prototype, and could be done before #include
+    <Python.h>. This works. The only other wrinkle is a different attribute name on
+    Linux and macos, and this is good now.
+
+commit 1f8673c0374bcd0588bba17ce8f2bbc55db040cf
+Author: Dima Kogan <dima@secretsauce.net>
+Date:   Thu Jan 8 11:29:00 2026 -0800
+
+    python-cameramodel-converter uses the limited python api if possible part 2
+    
+    Needed more logic to look at the python version before making a decision about
+    which API to pull in
+
+commit 9ae47f4feeec02df87a2364ba5bede4802259cd0
+Author: Dima Kogan <dima@secretsauce.net>
+Date:   Thu Jan 8 10:58:16 2026 -0800
+
+    python-cameramodel-converter uses the limited python api if possible
+    
+    I'm not linking against libpython, so I'm not tying myself to any particular
+    ABI version of libpython. To make this work regardless, I use the "limited"
+    API:
+    
+      https://docs.python.org/3/c-api/stable.html#stable
+    
+    I'm calling PyUnicode_AsUTF8AndSize(), which entered the limited API in 3.10. I
+    still allow this to build in older Python, but I don't explicitly declare the
+    limited api. In that case, it is possible that using the binary libmrcal.so
+    built with <3.10 with a later Python might cause issues
+
+commit 592303d6d90712ddbde4aa7a152871d5b602cfdb
+Author: Dima Kogan <dima@secretsauce.net>
+Date:   Thu Jan 8 10:50:44 2026 -0800
+
+    python-cameramodel-converter only functions that are in the limited api >= 3.10
+#+end_example
+
+#+end_o_blog_alert
+
 mrcal is a C library and a Python library. Much of mrcal itself interfaces the C
 and Python libraries. And it is common for external libraries to want to pass
 Python =mrcal.cameramodel= objects to /their/ C code. The obvious way to do this
